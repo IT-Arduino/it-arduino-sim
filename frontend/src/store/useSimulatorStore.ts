@@ -24,6 +24,7 @@ import { calculatePinPosition } from '../utils/pinPositionCalculator';
 import { useOscilloscopeStore } from './useOscilloscopeStore';
 import { RaspberryPi3Bridge } from '../simulation/RaspberryPi3Bridge';
 import { Esp32Bridge } from '../simulation/Esp32Bridge';
+import { createEsp32Bridge } from '../simulation/Esp32BridgeFactory';
 import { Stm32Bridge, stm32PinNameToLinear } from '../simulation/Stm32Bridge';
 import { STM32_LED } from '../components/velxio-components/Stm32BluePillElement';
 import { useEditorStore } from './useEditorStore';
@@ -361,11 +362,18 @@ class Esp32BridgeShim {
    */
   addI2CDevice(device: I2CDevice, _bus: 0 | 1 = 0): void {
     this.i2cBusInstance.addDevice(device);
+    // An in-browser JS-emulator substitute bridge (velxio-prod overlay) plugs
+    // the part's real device model straight onto the engine's synchronous I2C
+    // bus, so the firmware's own reads hit it (sensors answer, displays
+    // render). The QEMU WebSocket bridge has no such method — reads there are
+    // served by the backend slave from registerSensor — so this is a no-op.
+    (this.bridge as { attachSyncI2cDevice?: (d: I2CDevice) => void }).attachSyncI2cDevice?.(device);
   }
 
   /** Remove a previously-registered virtual device. */
   removeI2CDevice(addr: number, _bus: 0 | 1 = 0): void {
     this.i2cBusInstance.removeDevice(addr);
+    (this.bridge as { detachSyncI2cDevice?: (a: number) => void }).detachSyncI2cDevice?.(addr);
   }
 
   /**
@@ -816,6 +824,12 @@ interface SimulatorState {
   activeBoardId: string | null;
 
   addBoard: (boardKind: BoardKind, x: number, y: number, explicitId?: string) => string;
+  /** Recreate an ESP32-family board's simulation bridge + shim through the
+   *  Esp32BridgeFactory seam. Called by the pro overlay after it installs a
+   *  factory (the overlay loads via async import, so a deep-linked example
+   *  can create boards before the factory exists). No-op (false) for
+   *  non-ESP32 kinds or while the board is running. */
+  rebuildEsp32Bridge: (boardId: string) => boolean;
   removeBoard: (boardId: string) => void;
   /** Reload the entire workspace from a saved project payload. Tears down
    *  all current boards, recreates them with their saved IDs (so wire
@@ -1048,6 +1062,93 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
     };
   }
 
+  // Create + fully wire the simulation bridge and shim for an ESP32-family
+  // board. Shared by addBoard and rebuildEsp32Bridge: the pro overlay rebuilds
+  // a board's bridge when it installs an Esp32BridgeFactory AFTER the board
+  // was already created — main.tsx loads the overlay via an async import, so a
+  // deep-linked example can call addBoard before the factory exists and would
+  // otherwise silently keep the stock QEMU bridge.
+  function wireEsp32Board(id: string, boardKind: BoardKind, pm: PinManager): void {
+    const serialCallback = (ch: string) => appendSerial(id, ch);
+    const bridge = createEsp32Bridge(id, boardKind);
+    bridge.onSerialData = serialCallback;
+    bridge.onError = (message: string) => {
+      // Surface backend/worker errors in the Serial Monitor so the user sees
+      // a clear reason instead of a board that silently never boots. The
+      // canonical case is an ESP32-S3 board: it compiles, but the bundled
+      // QEMU has no esp32s3 machine, so the worker reports a clear message
+      // here rather than crashing cryptically. Stop "running" and pop the
+      // monitor open so the note is visible immediately.
+      console.error(`[esp32:${id}] ${message}`);
+      serialCallback(`\r\n[Velxio] ${message}\r\n`);
+      set((s) => {
+        const boards = s.boards.map((b) => (b.id === id ? { ...b, running: false } : b));
+        const isActive = s.activeBoardId === id;
+        return {
+          boards,
+          serialMonitorOpen: true,
+          ...(isActive ? { running: false } : {}),
+        };
+      });
+    };
+    bridge.onPinChange = (gpioPin, state) => {
+      const boardPm = pinManagerMap.get(id);
+      if (boardPm) boardPm.triggerPinChange(gpioPin, state, 'mcu');
+    };
+    // Wire scope sampling for ESP32 (GPIO transitions + synthesized
+    // UART TX bits).  Mirrors what AVR/RP2040 simulators get for free
+    // by passing the oscilloscope callback into createSimulator().
+    bridge.onPinChangeWithTime = getOscilloscopeCallback(id);
+    bridge.onCrash = () => {
+      set({ esp32CrashBoardId: id });
+    };
+    bridge.onDisconnected = () => {
+      set((s) => {
+        const boards = s.boards.map((b) => (b.id === id ? { ...b, running: false } : b));
+        const isActive = s.activeBoardId === id;
+        return { boards, ...(isActive ? { running: false } : {}) };
+      });
+    };
+    signalRouterMap.set(id, new SignalRouter());
+    bridge.onLedcDuty = makeLedcDutyHandler(id);
+    bridge.onGpioRouting = makeGpioRoutingHandler(id);
+    bridge.onGpioRoutingClear = makeGpioRoutingClearHandler(id);
+    bridge.onPinPull = makePinPullHandler(id);
+    bridge.onWs2812Update = (channel, pixels) => {
+      // Forward WS2812 pixel data to any DOM element with id=`ws2812-{id}-{channel}`
+      // (set by NeoPixel components rendered in SimulatorCanvas).
+      // We fire a custom event that NeoPixel components can listen to.
+      const eventTarget = document.getElementById(`ws2812-${id}-${channel}`);
+      if (eventTarget) {
+        eventTarget.dispatchEvent(new CustomEvent('ws2812-pixels', { detail: { pixels } }));
+      }
+    };
+    bridge.onWifiStatus = (ws) => {
+      set((s) => ({
+        boards: s.boards.map((b) => (b.id === id ? { ...b, wifiStatus: ws } : b)),
+      }));
+    };
+    bridge.onBleStatus = (bs) => {
+      set((s) => ({
+        boards: s.boards.map((b) => (b.id === id ? { ...b, bleStatus: bs } : b)),
+      }));
+    };
+    esp32BridgeMap.set(id, bridge);
+    // Provide a shim so PartSimulationRegistry components (DHT22, etc.)
+    // can call setPinState / access pinManager on ESP32 boards.
+    const shim = new Esp32BridgeShim(bridge, pm);
+    shim.onSerialData = serialCallback;
+    // If a shim already exists for this id (e.g. tests recreate the
+    // same kind after reset, or the pro overlay rebuilds the bridge),
+    // dispose any active proxies / timers so the orphaned instance
+    // doesn't keep firing.
+    const existingShim = simulatorMap.get(id) as any;
+    if (existingShim?.clearAllProxies) {
+      try { existingShim.clearAllProxies(); } catch { /* ignore */ }
+    }
+    simulatorMap.set(id, shim);
+  }
+
   const initialSim = createSimulator(
     'arduino-uno',
     initialPm,
@@ -1074,6 +1175,19 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
     // ── Multi-board state ─────────────────────────────────────────────────
     boards: [INITIAL_BOARD],
     activeBoardId: INITIAL_BOARD_ID,
+
+    rebuildEsp32Bridge: (boardId: string): boolean => {
+      const board = get().boards.find((b) => b.id === boardId);
+      const pm = pinManagerMap.get(boardId);
+      if (!board || !pm || !isEsp32Kind(board.boardKind)) return false;
+      if (board.running) return false; // never yank a live simulation
+      const old = esp32BridgeMap.get(boardId);
+      if (old) {
+        try { old.disconnect(); } catch { /* ignore */ }
+      }
+      wireEsp32Board(boardId, board.boardKind, pm);
+      return true;
+    },
 
     addBoard: (boardKind: BoardKind, x: number, y: number, explicitId?: string) => {
       let id: string;
@@ -1123,63 +1237,7 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         };
         bridgeMap.set(id, bridge);
       } else if (isEsp32Kind(boardKind)) {
-        const bridge = new Esp32Bridge(id, boardKind);
-        bridge.onSerialData = serialCallback;
-        bridge.onPinChange = (gpioPin, state) => {
-          const boardPm = pinManagerMap.get(id);
-          if (boardPm) boardPm.triggerPinChange(gpioPin, state, 'mcu');
-        };
-        // Wire scope sampling for ESP32 (GPIO transitions + synthesized
-        // UART TX bits).  Mirrors what AVR/RP2040 simulators get for free
-        // by passing the oscilloscope callback into createSimulator().
-        bridge.onPinChangeWithTime = getOscilloscopeCallback(id);
-        bridge.onCrash = () => {
-          set({ esp32CrashBoardId: id });
-        };
-        bridge.onDisconnected = () => {
-          set((s) => {
-            const boards = s.boards.map((b) => (b.id === id ? { ...b, running: false } : b));
-            const isActive = s.activeBoardId === id;
-            return { boards, ...(isActive ? { running: false } : {}) };
-          });
-        };
-        signalRouterMap.set(id, new SignalRouter());
-        bridge.onLedcDuty = makeLedcDutyHandler(id);
-        bridge.onGpioRouting = makeGpioRoutingHandler(id);
-        bridge.onGpioRoutingClear = makeGpioRoutingClearHandler(id);
-        bridge.onPinPull = makePinPullHandler(id);
-        bridge.onWs2812Update = (channel, pixels) => {
-          // Forward WS2812 pixel data to any DOM element with id=`ws2812-{id}-{channel}`
-          // (set by NeoPixel components rendered in SimulatorCanvas).
-          // We fire a custom event that NeoPixel components can listen to.
-          const eventTarget = document.getElementById(`ws2812-${id}-${channel}`);
-          if (eventTarget) {
-            eventTarget.dispatchEvent(new CustomEvent('ws2812-pixels', { detail: { pixels } }));
-          }
-        };
-        bridge.onWifiStatus = (ws) => {
-          set((s) => ({
-            boards: s.boards.map((b) => (b.id === id ? { ...b, wifiStatus: ws } : b)),
-          }));
-        };
-        bridge.onBleStatus = (bs) => {
-          set((s) => ({
-            boards: s.boards.map((b) => (b.id === id ? { ...b, bleStatus: bs } : b)),
-          }));
-        };
-        esp32BridgeMap.set(id, bridge);
-        // Provide a shim so PartSimulationRegistry components (DHT22, etc.)
-        // can call setPinState / access pinManager on ESP32 boards.
-        const shim = new Esp32BridgeShim(bridge, pm);
-        shim.onSerialData = serialCallback;
-        // If a shim already exists for this id (e.g. tests recreate the
-        // same kind after reset), dispose any active proxies / timers
-        // so the orphaned instance doesn't keep firing.
-        const existingShim = simulatorMap.get(id) as any;
-        if (existingShim?.clearAllProxies) {
-          try { existingShim.clearAllProxies(); } catch { /* ignore */ }
-        }
-        simulatorMap.set(id, shim);
+        wireEsp32Board(id, boardKind, pm);
       } else if (isStm32BoardKind(boardKind)) {
         const bridge = new Stm32Bridge(id, boardKind);
         // Onboard-LED pin + polarity per board kind. Blue/Black Pill drive PC13
@@ -2110,7 +2168,7 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
 
       if (isEsp32Kind(type as BoardKind)) {
         // ESP32: use bridge, not AVR simulator
-        const bridge = new Esp32Bridge(boardId, type as BoardKind);
+        const bridge = createEsp32Bridge(boardId, type as BoardKind);
         bridge.onSerialData = serialCallback;
         bridge.onPinChange = (gpioPin, state) => {
           const boardPm = pinManagerMap.get(boardId);
@@ -2223,7 +2281,7 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
 
       if (isEsp32Kind(boardType as BoardKind)) {
         // ESP32: create bridge + shim (same as setBoardType)
-        const bridge = new Esp32Bridge(boardId, boardType as BoardKind);
+        const bridge = createEsp32Bridge(boardId, boardType as BoardKind);
         bridge.onSerialData = serialCallback;
         bridge.onPinChange = (gpioPin, state) => {
           const boardPm = pinManagerMap.get(boardId);

@@ -20,6 +20,7 @@ import { robotDesktopExamples } from './examples-robot-desktop';
 import { microsdExamples } from './examples-storage-microsd';
 import { esp32MqttExamples } from './examples-esp32-mqtt';
 import { esp32s3TftExamples } from './examples-esp32s3-tft';
+import { jsemuChipExamples } from './examples-jsemu-chips';
 
 /** Per-board setup for multi-board examples */
 export interface ExampleBoard {
@@ -47,6 +48,7 @@ export interface ExampleProject {
     | 'raspberry-pi-pico'
     | 'pi-pico-w'
     | 'esp32'
+    | 'esp32-s3'
     | 'esp32-c3'
     | 'esp32-cam';
   /** Board filter key used in the gallery board selector. Derived from boardType if omitted. */
@@ -10001,6 +10003,7 @@ export const exampleProjects: ExampleProject[] = [
   ...microsdExamples,
   ...esp32MqttExamples,
   ...esp32s3TftExamples,
+  ...jsemuChipExamples,
 ];
 
 // Get examples by category

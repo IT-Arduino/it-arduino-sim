@@ -33,6 +33,7 @@ const BOARD_TABS: BoardTab[] = [
   { id: 'pi-pico-w', label: 'Pico W (Wi-Fi)', color: '#ffffff', bg: '#8c0e1e' },
   { id: 'esp32', label: 'ESP32 (Xtensa)', color: '#ffffff', bg: '#e77d11' },
   { id: 'esp32-cam', label: 'ESP32-CAM', color: '#ffffff', bg: '#d35400' },
+  { id: 'esp32-s3', label: 'ESP32-S3 (Xtensa)', color: '#ffffff', bg: '#b3540e' },
   { id: 'esp32-c3', label: 'ESP32-C3 (RISC-V)', color: '#ffffff', bg: '#27ae60' },
   { id: 'stm32-bluepill', label: 'STM32 Blue Pill', color: '#ffffff', bg: '#0a7ea4' },
   { id: 'stm32-blackpill', label: 'STM32 Black Pill', color: '#ffffff', bg: '#2d3436' },

@@ -24,6 +24,7 @@ const BOARD_LABELS: Record<string, string> = {
   'arduino-mega': 'Arduino Mega',
   'raspberry-pi-pico': 'Raspberry Pi Pico (RP2040)',
   esp32: 'ESP32',
+  'esp32-s3': 'ESP32-S3',
   'esp32-c3': 'ESP32-C3',
 };
 
