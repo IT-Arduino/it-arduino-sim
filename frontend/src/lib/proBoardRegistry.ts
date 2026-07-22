@@ -65,10 +65,11 @@ export interface ProBoardDef {
   createSimulator?: (pm: unknown) => ProBoardSimulator;
   /** Load compiled firmware into a createSimulator() instance at run time —
    *  the overlay owns the whole sequence (PIO attach, binary load, demo I2C
-   *  devices, ...). `program` is the compiled binary the backend returned. */
+   *  devices, ...). `program` is the compiled artifact exactly as the store
+   *  holds it (base64/hex string, same value RP2040Simulator.loadBinary gets). */
   loadFirmware?: (
     sim: ProBoardSimulator,
-    program: Uint8Array,
+    program: string,
     ctx: { boardKind: string; boardId: string },
   ) => void;
   /** Built-in bridge sensors registered without wiring (e.g. an on-board I2C
