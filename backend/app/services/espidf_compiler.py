@@ -1253,6 +1253,22 @@ class ESPIDFCompiler:
             tools_path = os.environ.get('IDF_TOOLS_PATH', os.path.expanduser('~/.espressif'))
             env['IDF_TOOLS_PATH'] = tools_path
             if os.path.isdir(tools_path):
+                # Pin the IDF Python venv. Without IDF_PYTHON_ENV_PATH, IDF's
+                # cmake derives the venv dir name from the SYSTEM python
+                # version, which in a docker image can differ from the python
+                # the venv was created with (the env is version-scoped, so a
+                # mismatched lookup fails with "python doesn't exist" before
+                # configure). We also invoke cmake directly (not via idf.py),
+                # where the PYTHON property falls back to the bare `python`
+                # from PATH — so the venv's bin must lead the PATH too.
+                for venv in sorted(Path(tools_path).glob('python_env/idf*_env'),
+                                   reverse=True):
+                    if (venv / 'bin' / 'python').exists():
+                        env['IDF_PYTHON_ENV_PATH'] = str(venv)
+                        env['PATH'] = (str(venv / 'bin') + os.pathsep
+                                       + env.get('PATH', ''))
+                        env['VIRTUAL_ENV'] = str(venv)
+                        break
                 extra_paths: list[str] = []
                 # Xtensa toolchain: ESP32/S2 -> xtensa-esp32-elf,
                 # ESP32-S3 -> xtensa-esp32s3-elf (IDF 4.4), unified on 5.x.
@@ -1268,6 +1284,23 @@ class ESPIDFCompiler:
                 # ESP-IDF host tools (esptool, partition_table, etc.)
                 for tool_dir in Path(tools_path).glob('tools/*/*/bin'):
                     extra_paths.append(str(tool_dir))
+                # When several generations of a toolchain share the tools root,
+                # glob order decides which wins the PATH race — order by the
+                # versions the chosen IDF tree declares in tools/tools.json so
+                # the matching toolchain always leads.
+                preferred_versions: set[str] = set()
+                try:
+                    with open(os.path.join(self.idf_path, 'tools', 'tools.json'),
+                              encoding='utf-8') as fh:
+                        for tool in json.load(fh).get('tools', []):
+                            for v in tool.get('versions', []):
+                                if v.get('status') == 'recommended' and v.get('name'):
+                                    preferred_versions.add(str(v['name']))
+                except (OSError, ValueError):
+                    pass
+                if preferred_versions:
+                    extra_paths.sort(
+                        key=lambda p: 0 if any(v in p for v in preferred_versions) else 1)
                 if extra_paths:
                     env['PATH'] = os.pathsep.join(extra_paths) + os.pathsep + env.get('PATH', '')
 
