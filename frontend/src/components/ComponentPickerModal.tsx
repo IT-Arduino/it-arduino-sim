@@ -35,8 +35,10 @@ import { BOARD_KIND_LABELS } from '../types/board';
 import { isProBoardKind } from '../lib/proBoardGate';
 import {
   ONLINE_ONLY_BOARD_ADS,
+  ONLINE_ONLY_COMPONENT_ADS,
   ONLINE_EDITOR_URL,
   type OnlineOnlyBoardAd,
+  type OnlineOnlyComponentAd,
 } from '../lib/onlineOnlyBoards';
 import raspberryPi3Svg from '../assets/Raspberry_Pi_3_illustration.svg';
 import raspberryPi4Png from '../assets/raspberry-pi-4-board.png';
@@ -203,6 +205,20 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
     return components;
   }, [searchQuery, selectedCategory, registry, isLoading]);
 
+  // Online-only component ads: shown where the real component would sit, and
+  // hidden automatically in any build whose registry has the real component
+  // (the hosted overlay merges it in) — same contract as VISIBLE_BOARD_ADS.
+  const visibleComponentAds = useMemo(() => {
+    if (isLoading) return [];
+    const q = searchQuery.toLowerCase();
+    return ONLINE_ONLY_COMPONENT_ADS.filter(
+      (ad) =>
+        !registry.getById(ad.id) &&
+        (selectedCategory === 'all' || ad.category === selectedCategory) &&
+        (!q || ad.label.toLowerCase().includes(q)),
+    );
+  }, [registry, isLoading, searchQuery, selectedCategory]);
+
   // Get available categories
   const categories = useMemo(() => {
     if (isLoading) return [];
@@ -357,7 +373,7 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
                     <div className="spinner"></div>
                     <p>{t('editor.componentPicker.loading')}</p>
                   </div>
-                ) : filteredComponents.length === 0 ? (
+                ) : filteredComponents.length === 0 && visibleComponentAds.length === 0 ? (
                   <div className="no-results">
                     <p>{t('editor.componentPicker.noResults')}</p>
                     {searchQuery && (
@@ -393,6 +409,10 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
                     />
                   ))
                 )}
+                {!isLoading &&
+                  visibleComponentAds.map((ad) => (
+                    <OnlineOnlyComponentCard key={ad.id} ad={ad} />
+                  ))}
               </div>
             </div>
 
@@ -762,6 +782,28 @@ const OnlineBadge: React.FC = () => (
   >
     ONLINE
   </span>
+);
+
+/** Advertisement card for a component only available in the hosted editor. */
+const OnlineOnlyComponentCard: React.FC<{ ad: OnlineOnlyComponentAd }> = ({ ad }) => (
+  <button
+    className="component-card"
+    style={{ position: 'relative' }}
+    title={`${ad.label} — available in the online editor at velxio.com`}
+    onClick={() => window.open(ONLINE_EDITOR_URL, '_blank', 'noopener')}
+  >
+    <OnlineBadge />
+    <div className="card-thumbnail">
+      <div
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        dangerouslySetInnerHTML={{ __html: ad.thumbnailSvg }}
+      />
+    </div>
+    <div className="card-content">
+      <div className="card-name">{ad.label}</div>
+      <div className="card-description">{ad.description}</div>
+    </div>
+  </button>
 );
 
 /** Advertisement card for a board only available in the hosted editor. */

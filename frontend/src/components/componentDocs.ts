@@ -45,6 +45,18 @@ for (const path in modules) {
 const cache = new Map<string, ComponentDoc | null>();
 
 /**
+ * Overlay seam: a private build (velxio.com) can register the datasheet
+ * markdown for a component it injects at runtime — the import.meta.glob above
+ * only sees files committed in this tree. Same raw format as the .md files
+ * (optional front-matter + body). Last write wins; the parsed cache for the
+ * id is invalidated so a re-render picks the new doc up.
+ */
+export function registerComponentDoc(id: string, raw: string): void {
+  byId[id] = () => Promise.resolve(raw);
+  cache.delete(id);
+}
+
+/**
  * Split an optional `---`-delimited front-matter block off the top of a
  * Markdown string. Only a leading block counts, so table separators
  * (`| --- |`) and thematic breaks inside the body are never mistaken for it.
