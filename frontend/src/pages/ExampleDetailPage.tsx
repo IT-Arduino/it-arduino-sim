@@ -10,8 +10,9 @@
  */
 
 import React from 'react';
+import { useSyncExternalStore } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { exampleProjects } from '../data/examples';
+import { exampleProjects, subscribeProExamples, getProExamplesVersion } from '../data/examples';
 import { AppHeader } from '../components/layout/AppHeader';
 import { ExampleThumbnail } from '../components/examples/ExampleThumbnail';
 import { useSEO } from '../utils/useSEO';
@@ -44,6 +45,9 @@ const DIFFICULTY_COLOR: Record<string, string> = {
 };
 
 export const ExampleDetailPage: React.FC = () => {
+  // Re-render when the pro overlay registers late examples (dynamic import).
+  useSyncExternalStore(subscribeProExamples, getProExamplesVersion, getProExamplesVersion);
+
   const { exampleId } = useParams<{ exampleId: string }>();
   const navigate = useNavigate();
 

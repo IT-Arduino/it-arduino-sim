@@ -10023,10 +10023,27 @@ export function getExampleById(id: string): ExampleProject | undefined {
  * registers at runtime. Push-based (the exported array is the single source
  * the gallery and /example/:slug both read), idempotent per example id.
  */
+let proExamplesVersion = 0;
+const proExamplesListeners = new Set<() => void>();
+
 export function registerProExamples(examples: ExampleProject[]): void {
   for (const ex of examples) {
     if (!exampleProjects.some((e) => e.id === ex.id)) exampleProjects.push(ex);
   }
+  // Overlay registration can land AFTER a direct-URL page render resolved the
+  // array (the @pro import is dynamic) — notify subscribers so example pages
+  // re-render instead of sticking on a 404 (same contract as proRoutes).
+  proExamplesVersion++;
+  for (const l of proExamplesListeners) l();
+}
+
+export function subscribeProExamples(cb: () => void): () => void {
+  proExamplesListeners.add(cb);
+  return () => proExamplesListeners.delete(cb);
+}
+
+export function getProExamplesVersion(): number {
+  return proExamplesVersion;
 }
 
 // Get all categories

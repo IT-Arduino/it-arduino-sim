@@ -21,9 +21,9 @@
  * id is set on useProjectStore, so it can't overwrite anything).
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useParams } from 'react-router-dom';
-import { exampleProjects } from '../data/examples';
+import { exampleProjects, subscribeProExamples, getProExamplesVersion } from '../data/examples';
 import { loadExample, type LibraryInstallProgress } from '../utils/loadExample';
 import { EditorPage } from './EditorPage';
 import { AppHeader } from '../components/layout/AppHeader';
@@ -32,6 +32,9 @@ import { useSEO } from '../utils/useSEO';
 const DOMAIN = 'https://velxio.dev';
 
 export const ExampleEditorPage: React.FC = () => {
+  // Re-render when the pro overlay registers late examples (dynamic import).
+  useSyncExternalStore(subscribeProExamples, getProExamplesVersion, getProExamplesVersion);
+
   const { exampleId } = useParams<{ exampleId: string }>();
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
