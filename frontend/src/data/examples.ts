@@ -50,7 +50,9 @@ export interface ExampleProject {
     | 'esp32'
     | 'esp32-s3'
     | 'esp32-c3'
-    | 'esp32-cam';
+    | 'esp32-cam'
+    // Overlay-registered boards (proBoardRegistry) use their kind string.
+    | (string & {});
   /** Board filter key used in the gallery board selector. Derived from boardType if omitted. */
   boardFilter?: string;
   /**
@@ -10014,6 +10016,17 @@ export function getExamplesByCategory(category: ExampleProject['category']): Exa
 // Get example by ID
 export function getExampleById(id: string): ExampleProject | undefined {
   return exampleProjects.find((example) => example.id === id);
+}
+
+/**
+ * Overlay seam: a private build can append gallery examples for the boards it
+ * registers at runtime. Push-based (the exported array is the single source
+ * the gallery and /example/:slug both read), idempotent per example id.
+ */
+export function registerProExamples(examples: ExampleProject[]): void {
+  for (const ex of examples) {
+    if (!exampleProjects.some((e) => e.id === ex.id)) exampleProjects.push(ex);
+  }
 }
 
 // Get all categories

@@ -1,3 +1,4 @@
+import { getProBoard } from '../lib/proBoardRegistry';
 /**
  * Board Pin Mapping Utility
  *
@@ -254,6 +255,12 @@ export function isBoardComponent(componentId: string): boolean {
  * @returns Numeric pin/GPIO number, or null if unmapped
  */
 export function boardPinToNumber(boardId: string, pinName: string): number | null {
+  // Overlay-registered boards resolve through their own mapping first.
+  const proDef = getProBoard(boardId);
+  if (proDef?.pinToNumber) {
+    const n = proDef.pinToNumber(pinName);
+    if (n !== null) return n;
+  }
   if (boardId === 'arduino-uno' || boardId === 'arduino-nano') {
     // Power / GND pins — not real GPIOs, skip silently
     if (/^(GND|VCC|VIN|IOREF|AREF|RESET|3\.3V|3V3|5V|3V)/.test(pinName)) return -1;

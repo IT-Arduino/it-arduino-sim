@@ -14,6 +14,15 @@ import { importProjectFile, PROJECT_FILE_ACCEPT } from '../../utils/importProjec
 import { showMessageDialog, showConfirmDialog } from '../../store/useMessageDialogStore';
 import './FileExplorer.css';
 
+/** Neutral chip glyph for overlay-registered boards without a bespoke icon. */
+const PRO_FALLBACK_ICON = (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <rect x="3" y="3" width="10" height="10" rx="2" fill="#8b5cf6" />
+    <rect x="5.5" y="5.5" width="5" height="5" rx="1" fill="#1e1b2e" />
+  </svg>
+);
+
+
 // SVG icons — same style as EditorToolbar (stroke-based, 16x16)
 const IcoFile = () => (
   <svg
@@ -582,7 +591,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
           const groupFiles = fileGroups[groupId] ?? [];
           const isActiveBoard = board.id === activeBoardId;
           const isOpen = !collapsed[board.id];
-          const color = BOARD_COLOR[board.boardKind];
+          const color = BOARD_COLOR[board.boardKind] ?? '#8b5cf6';
 
           // Status dot color
           const statusColor = board.running
@@ -614,7 +623,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
                 </button>
 
                 <span className="fe-board-icon" style={{ color }}>
-                  {BOARD_ICON[board.boardKind]}
+                  {BOARD_ICON[board.boardKind] ?? PRO_FALLBACK_ICON}
                 </span>
 
                 {renamingSection?.id === board.id && renamingSection.kind === 'board' ? (

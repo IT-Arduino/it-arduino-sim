@@ -35,13 +35,17 @@
  */
 
 import type { BoardKind } from '../types/board';
+import { getProBoard } from '../lib/proBoardRegistry';
 import { generateUUID } from '../utils/uuid';
 
 /**
  * Map any ESP32-family board kind to the 3 base QEMU machine types understood
  * by the backend esp_qemu_manager.
  */
-export function toQemuBoardType(kind: BoardKind): 'esp32' | 'esp32-s3' | 'esp32-c3' {
+export function toQemuBoardType(kind: BoardKind): 'esp32' | 'esp32-s3' | 'esp32-c3' | 'esp32-c6' {
+  // Overlay-registered boards carry their base chip in the registry.
+  const proFam = getProBoard(kind)?.esp32Family;
+  if (proFam) return proFam;
   if (kind === 'esp32-s3' || kind === 'xiao-esp32-s3' || kind === 'arduino-nano-esp32')
     return 'esp32-s3';
   if (kind === 'esp32-c3' || kind === 'xiao-esp32-c3' || kind === 'aitewinrobot-esp32c3-supermini')
@@ -117,6 +121,11 @@ export class Esp32Bridge {
    * it as a synchronous SD-over-SPI slave (esp32_sd_slave.SdSpiSlave).
    */
   sdImageB64: string | undefined = undefined;
+
+  /** SD chip-select GPIO for a board with a BUILT-IN SD sharing the SPI bus —
+   * the worker CS-gates the slave so it doesn't consume the display stream.
+   * Undefined for a standalone microsd-card component (owns the bus). */
+  sdCsPin: number | undefined = undefined;
 
   // Callbacks wired up by useSimulatorStore
   onSerialData: ((char: string, uart?: number) => void) | null = null;
@@ -235,6 +244,8 @@ export class Esp32Bridge {
       case 'xiao-esp32-s3':
       case 'arduino-nano-esp32':
         return 43;
+      case 'esp32-c6':
+        return 16; // U0TXD default on the C6 (silkscreen TX on the DevKitC-1)
       case 'esp32-c3':
       case 'xiao-esp32-c3':
       case 'aitewinrobot-esp32c3-supermini':
@@ -317,7 +328,14 @@ export class Esp32Bridge {
           ...(this._pendingFirmware ? { firmware_b64: this._pendingFirmware } : {}),
           sensors: this._pendingSensors,
           wifi_enabled: this.wifiEnabled,
-          ...(this.sdImageB64 ? { sd_card: { image_b64: this.sdImageB64 } } : {}),
+          ...(this.sdImageB64
+            ? {
+                sd_card: {
+                  image_b64: this.sdImageB64,
+                  ...(this.sdCsPin !== undefined ? { cs_pin: this.sdCsPin } : {}),
+                },
+              }
+            : {}),
         },
       });
     };
@@ -878,6 +896,16 @@ export class Esp32Bridge {
       setTimeout(sendChunk, CHUNK_DELAY_MS);
     };
     sendChunk();
+  }
+
+  /**
+   * Push a key press/release for a board's built-in matrix keyboard. `row`/
+   * `col` are the logical grid position dispatched by the board Web Component;
+   * the worker's keyboard slave encodes it and pulses its interrupt line.
+   * No-op for boards without a keyboard peripheral configured.
+   */
+  sendKey(row: number, col: number, pressed: boolean): void {
+    this._send({ type: 'esp32_keyboard_key', data: { row, col, pressed } });
   }
 
   private _send(payload: unknown): void {

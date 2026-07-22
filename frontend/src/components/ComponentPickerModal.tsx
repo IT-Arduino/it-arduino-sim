@@ -33,6 +33,7 @@ interface CardHoverApi {
 import type { BoardKind } from '../types/board';
 import { BOARD_KIND_LABELS } from '../types/board';
 import { isProBoardKind } from '../lib/proBoardGate';
+import { getProBoard, listProBoards } from '../lib/proBoardRegistry';
 import {
   ONLINE_ONLY_BOARD_ADS,
   ONLINE_ONLY_COMPONENT_ADS,
@@ -205,6 +206,11 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
     return components;
   }, [searchQuery, selectedCategory, registry, isLoading]);
 
+  // Boards list: static OSS kinds + overlay-registered boards (proBoardRegistry).
+  const allBoards = useMemo(() => {
+    return [...ALL_BOARDS, ...(listProBoards().map((d) => d.kind) as BoardKind[])];
+  }, []);
+
   // Online-only component ads: shown where the real component would sit, and
   // hidden automatically in any build whose registry has the real component
   // (the hosted overlay merges it in) — same contract as VISIBLE_BOARD_ADS.
@@ -317,7 +323,7 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
         {/* Boards Panel */}
         {selectedCategory === 'boards' ? (
           <div className="components-grid" onScroll={clearHover}>
-            {ALL_BOARDS.map((kind) => (
+            {allBoards.map((kind) => (
               <BoardCard
                 key={kind}
                 kind={kind}
@@ -328,7 +334,7 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
                 hoverApi={hoverApi}
               />
             ))}
-            {VISIBLE_BOARD_ADS.map((ad) => (
+            {visibleBoardAds().map((ad) => (
               <OnlineOnlyBoardCard key={ad.id} ad={ad} />
             ))}
           </div>
@@ -343,7 +349,7 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
                   className="components-grid components-grid--inline"
                   style={{ borderBottom: '1px solid #333', paddingBottom: 8, marginBottom: 4 }}
                 >
-                  {ALL_BOARDS.filter(
+                  {allBoards.filter(
                     (k) =>
                       !searchQuery ||
                       BOARD_KIND_LABELS[k].toLowerCase().includes(searchQuery.toLowerCase()),
@@ -358,7 +364,7 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
                       hoverApi={hoverApi}
                     />
                   ))}
-                  {VISIBLE_BOARD_ADS.filter(
+                  {visibleBoardAds().filter(
                     (ad) =>
                       !searchQuery || ad.label.toLowerCase().includes(searchQuery.toLowerCase()),
                   ).map((ad) => (
@@ -672,7 +678,7 @@ const BoardCard: React.FC<BoardCardProps> = ({ kind, onSelect, hoverApi }) => {
       id: kind,
       name: BOARD_KIND_LABELS[kind],
       category: 'Boards',
-      description: BOARD_DESCRIPTIONS[kind],
+      description: BOARD_DESCRIPTIONS[kind] ?? getProBoard(kind)?.description ?? '',
       pinCount: 0,
       properties: [],
       tags: [],
@@ -695,7 +701,7 @@ const BoardCard: React.FC<BoardCardProps> = ({ kind, onSelect, hoverApi }) => {
     )
       return;
 
-    const tag = BOARD_TAG[kind];
+    const tag = BOARD_TAG[kind] ?? getProBoard(kind)?.tag;
     if (!tag) return;
 
     const el = document.createElement(tag) as HTMLElement;
@@ -750,7 +756,7 @@ const BoardCard: React.FC<BoardCardProps> = ({ kind, onSelect, hoverApi }) => {
       </div>
       <div className="card-content">
         <div className="card-name">{BOARD_KIND_LABELS[kind]}</div>
-        <div className="card-description">{BOARD_DESCRIPTIONS[kind]}</div>
+        <div className="card-description">{BOARD_DESCRIPTIONS[kind] ?? getProBoard(kind)?.description}</div>
       </div>
     </button>
   );
@@ -759,7 +765,9 @@ const BoardCard: React.FC<BoardCardProps> = ({ kind, onSelect, hoverApi }) => {
 // ── Online-only board ads ───────────────────────────────────────────────────
 // Boards implemented by the hosted editor (velxio.com), free to use there.
 // Hidden automatically in any build that registers the real BoardKind.
-const VISIBLE_BOARD_ADS = ONLINE_ONLY_BOARD_ADS.filter((ad) => !(ad.id in BOARD_KIND_LABELS));
+/** Recomputed on access (not module load): overlay board registration patches
+ *  BOARD_KIND_LABELS at mount, which must hide the corresponding ad. */
+const visibleBoardAds = () => ONLINE_ONLY_BOARD_ADS.filter((ad) => !(ad.id in BOARD_KIND_LABELS));
 
 /** Teal "ONLINE" pill: the board runs (free) in the hosted editor. */
 const OnlineBadge: React.FC = () => (

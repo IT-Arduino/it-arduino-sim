@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getProBoard, isProBoardSimulator, type ProBoardSimulator } from '../lib/proBoardRegistry';
 import { AVRSimulator } from '../simulation/AVRSimulator';
 import { RP2040Simulator } from '../simulation/RP2040Simulator';
 import { RiscVSimulator } from '../simulation/RiscVSimulator';
@@ -775,11 +776,14 @@ const ESP32_RISCV_KINDS = new Set<BoardKind>([
 ]);
 
 function isEsp32Kind(kind: BoardKind): boolean {
-  return ESP32_KINDS.has(kind) || ESP32_RISCV_KINDS.has(kind);
+  if (ESP32_KINDS.has(kind) || ESP32_RISCV_KINDS.has(kind)) return true;
+  // Overlay-registered ESP32-class boards route through the same bridge path.
+  return getProBoard(kind)?.esp32Family !== undefined;
 }
 
 function isRiscVEsp32Kind(kind: BoardKind): boolean {
-  return ESP32_RISCV_KINDS.has(kind);
+  const fam = getProBoard(kind)?.esp32Family;
+  return ESP32_RISCV_KINDS.has(kind) || fam === 'esp32-c3' || fam === 'esp32-c6';
 }
 
 // ── Component type ────────────────────────────────────────────────────────
@@ -992,9 +996,13 @@ function createSimulator(
   onSerial: (ch: string) => void,
   onBaud: (baud: number) => void,
   onPinTime: (pin: number, state: boolean, t: number) => void,
-): AVRSimulator | RP2040Simulator | RiscVSimulator | Esp32C3Simulator {
-  let sim: AVRSimulator | RP2040Simulator | RiscVSimulator | Esp32C3Simulator;
-  if (boardKind === 'arduino-mega') {
+): AVRSimulator | RP2040Simulator | RiscVSimulator | Esp32C3Simulator | ProBoardSimulator {
+  let sim: AVRSimulator | RP2040Simulator | RiscVSimulator | Esp32C3Simulator | ProBoardSimulator;
+  const proDef = getProBoard(boardKind);
+  if (proDef?.createSimulator) {
+    // Overlay-provided in-browser simulator (e.g. the RP2350/Hazard3 engine).
+    sim = proDef.createSimulator(pm);
+  } else if (boardKind === 'arduino-mega') {
     sim = new AVRSimulator(pm, 'mega');
   } else if (boardKind === 'attiny85') {
     sim = new AVRSimulator(pm, 'tiny85');
@@ -1295,6 +1303,11 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         // surfaces WiFi status via setBoardWifiStatus().
         if (sim instanceof RP2040Simulator) {
           sim.attachPioPeripheral(boardKind, id);
+        } else if (isProBoardSimulator(sim)) {
+          (sim as { attachPioPeripheral?: (k: string, i: string) => void }).attachPioPeripheral?.(
+            boardKind,
+            id,
+          );
         }
       }
 
@@ -1381,6 +1394,7 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
       // Detach the PIO peripheral (it disconnects its own bridge).
       const rpSim = getBoardSimulator(boardId);
       if (rpSim instanceof RP2040Simulator) rpSim.detachPioPeripheral();
+      else if (isProBoardSimulator(rpSim)) rpSim.detachPioPeripheral?.();
       set((s) => {
         const boards = s.boards.filter((b) => b.id !== boardId);
         const activeBoardId =
@@ -1569,6 +1583,13 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
               sim.addI2CDevice(new VirtualDS1307() as RP2040I2CDevice);
               sim.addI2CDevice(new VirtualTempSensor() as RP2040I2CDevice);
               sim.addI2CDevice(new I2CMemoryDevice(0x50) as RP2040I2CDevice);
+            } else if (isProBoardSimulator(sim)) {
+              // Overlay-registered board: the overlay owns the whole load
+              // sequence (PIO/peripheral attach, binary format, demo devices).
+              getProBoard(board.boardKind)?.loadFirmware?.(sim, program, {
+                boardKind: board.boardKind,
+                boardId,
+              });
             }
           } catch (err) {
             console.error(`compileBoardProgram(${boardId}):`, err);
@@ -1890,6 +1911,11 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
             sensors.push(props);
           }
 
+          // Built-in bridge peripherals an overlay-registered board declares
+          // (e.g. an on-board I2C keyboard) — no canvas wiring involved.
+          for (const builtIn of getProBoard(board.boardKind)?.builtInSensors ?? []) {
+            sensors.push({ ...builtIn });
+          }
           esp32Bridge.setSensors(sensors);
 
           // Use WiFi flag set by the compiler (most reliable — avoids stale file group issues).
@@ -1920,17 +1946,25 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
           // it to the bridge so the QEMU worker can attach it as an SD-over-SPI
           // slave. No card -> clear any stale image from a previous run.
           const sdCard = components.find((c) => c.metadataId === 'microsd-card');
-          if (sdCard) {
+          // Overlay-registered boards can declare a BUILT-IN microSD on a
+          // shared SPI bus: attach it even without a card component, and tell
+          // the bridge to CS-gate it so it doesn't eat the display's pixel
+          // stream. A standalone card owns the bus -> no gating.
+          const builtInSdCs = getProBoard(board.boardKind)?.builtInSdCsPin;
+          if (sdCard || builtInSdCs !== undefined) {
             try {
-              const uploaded = decodeSdFiles(sdCard.properties.sdFiles);
+              const uploaded = sdCard ? decodeSdFiles(sdCard.properties.sdFiles) : [];
               const image = buildProjectSdImage(useEditorStore.getState().files, uploaded);
               esp32Bridge.sdImageB64 = bytesToB64(image);
+              esp32Bridge.sdCsPin = sdCard ? undefined : builtInSdCs;
             } catch (e) {
               console.warn('[microsd] SD image build failed:', e);
               esp32Bridge.sdImageB64 = undefined;
+              esp32Bridge.sdCsPin = undefined;
             }
           } else {
             esp32Bridge.sdImageB64 = undefined;
+            esp32Bridge.sdCsPin = undefined;
           }
 
           // Ensure firmware is loaded into the bridge (handles page-refresh case

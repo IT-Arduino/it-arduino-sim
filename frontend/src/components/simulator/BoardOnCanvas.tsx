@@ -1,4 +1,5 @@
 import React from 'react';
+import { getProBoard } from '../../lib/proBoardRegistry';
 import type { BoardInstance } from '../../types/board';
 import { ArduinoUno } from '../velxio-components/ArduinoUno';
 import { ArduinoNano } from '../velxio-components/ArduinoNano';
@@ -101,12 +102,24 @@ export const BoardOnCanvas = ({
   zoom = 1,
 }: BoardOnCanvasProps) => {
   const { id, boardKind, x, y } = board;
-  const size = BOARD_SIZE[boardKind] ?? { w: 300, h: 200 };
+  const size = BOARD_SIZE[boardKind] ?? getProBoard(boardKind)?.size ?? { w: 300, h: 200 };
 
   // Status dot color: green=running, amber=compiled, gray=idle
   const statusColor = board.running ? '#22c55e' : board.compiledProgram ? '#f59e0b' : '#6b7280';
 
   const boardEl = (() => {
+    // Overlay-registered board (proBoardRegistry): the overlay either provides
+    // a render function or we mount its custom element directly — the element
+    // was defined by the overlay's import, and pinInfo lives on the DOM node
+    // like any other board Web Component.
+    const proDef = getProBoard(boardKind);
+    if (proDef) {
+      if (proDef.render) return proDef.render({ id, x, y, running: !!board.running });
+      return React.createElement(proDef.tag, {
+        id,
+        style: { position: 'absolute', left: x, top: y },
+      });
+    }
     switch (boardKind) {
       case 'arduino-uno':
         return <ArduinoUno id={id} x={x} y={y} led13={led13} />;
