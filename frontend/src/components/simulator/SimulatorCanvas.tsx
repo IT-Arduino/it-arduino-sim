@@ -1,4 +1,5 @@
-import { useSimulatorStore, getEsp32Bridge } from '../../store/useSimulatorStore';
+import { useSimulatorStore, getEsp32Bridge, getBoardSimulator } from '../../store/useSimulatorStore';
+import { getProBoard } from '../../lib/proBoardRegistry';
 import { useElectricalStore } from '../../store/useElectricalStore';
 import { openDeviceGateway } from '../../lib/openDeviceGateway';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
@@ -205,6 +206,36 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
       registry.loadPromise.then(() => setRegistryLoaded(true));
     }
   }, [registry, registryLoaded]);
+
+  // Overlay-registered boards: built-in peripheral attachment (LCD decoder on
+  // the board's own canvas, speaker, on-board button/keyboard forwarding). The
+  // overlay owns the wiring via ProBoardDef.attachBuiltins; we hand it the DOM
+  // element + the board's simulator/bridge handles shortly after run start
+  // (the element and bridge need a beat to exist) and dispose on stop/unmount.
+  useEffect(() => {
+    const cleanups: (() => void)[] = [];
+    boards.forEach((board) => {
+      const proDef = getProBoard(board.boardKind);
+      if (!proDef?.attachBuiltins || !board.running) return;
+      const timeout = setTimeout(() => {
+        const el = document.getElementById(board.id);
+        if (!el) return;
+        try {
+          cleanups.push(
+            proDef.attachBuiltins!({
+              el,
+              sim: getBoardSimulator(board.id),
+              bridge: getEsp32Bridge(board.id),
+            }),
+          );
+        } catch (e) {
+          console.warn(`[${board.boardKind}] built-in peripheral attach failed:`, e);
+        }
+      }, 500);
+      cleanups.push(() => clearTimeout(timeout));
+    });
+    return () => cleanups.forEach((fn) => fn());
+  }, [boards]);
 
   // Component selection
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);

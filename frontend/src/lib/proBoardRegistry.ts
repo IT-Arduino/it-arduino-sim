@@ -78,6 +78,17 @@ export interface ProBoardDef {
   /** Built-in microSD on a shared SPI bus: the CS pin the bridge must gate.
    *  (A standalone SD card component still overrides this to un-gated.) */
   builtInSdCsPin?: number;
+  /** Built-in peripheral attachment for a RUNNING board (LCD decoder onto the
+   *  element's own canvas, speaker, on-board button/keyboard event forwarding).
+   *  Called shortly after run start with the board's DOM element plus its
+   *  simulator shim and ESP32 bridge (either may be null depending on the run
+   *  path); must return a cleanup that detaches everything. */
+  attachBuiltins?: (ctx: {
+    el: HTMLElement;
+    sim: unknown;
+    bridge: unknown;
+  }) => () => void;
+
   /** Sidebar / toolbar accents (fall back to a neutral chip icon). */
   icon?: string;
   color?: string;
