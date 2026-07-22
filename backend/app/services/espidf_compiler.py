@@ -270,6 +270,15 @@ _QEMU_WIFI_CHANNEL = 5
 class ESPIDFCompiler:
     """Compile Arduino sketches using ESP-IDF for QEMU-compatible output."""
 
+    # Instance attributes resolved in __init__ (declared here so type
+    # checkers see them without inferring through the discovery logic).
+    idf_path: str          # pinned ESP-IDF v4.4.7 tree (Arduino fallback)
+    idf5_path: str         # ESP-IDF v5.x tree (family default + only C6)
+    arduino_path: str      # arduino-esp32 2.x core (IDF 4.4-based)
+    arduino5_path: str     # arduino-esp32 3.x core (IDF 5.x-based)
+    has_arduino: bool      # a usable 2.x core was found
+    has_arduino5: bool     # a usable 3.x core was found
+
     def __init__(self):
         self.idf_path = os.environ.get('IDF_PATH', '')
         self.arduino_path = os.environ.get('ARDUINO_ESP32_PATH', '')
@@ -286,7 +295,9 @@ class ESPIDFCompiler:
                     self.idf_path = candidate
                     break
 
-        # Auto-detect Arduino-as-component if not explicitly set
+        # Auto-detect the 2.x Arduino core (IDF 4.4-based) if not explicitly
+        # set. This is the core used for Arduino sketches on the v4.4.7
+        # fallback path (esp32/s2/s3/c3).
         if self.idf_path and not self.has_arduino:
             for candidate in [
                 r'C:\Espressif\components\arduino-esp32',
@@ -298,6 +309,25 @@ class ESPIDFCompiler:
                     self.has_arduino = True
                     break
 
+        # ── ESP-IDF v5.x root (IDF5-only targets: ESP32-C6) ─────────────
+        # The pinned v4.4.7 tree has no esp32c6 target, so C6 builds resolve
+        # a separate IDF v5.x install. Kept independent of self.idf_path so
+        # the classic targets keep building against the known-good 4.4 tree.
+        self.idf5_path = os.environ.get('IDF5_PATH', '')
+        if not self.idf5_path:
+            candidates5: list[str] = []
+            win55 = Path(r'C:\Espressif5.5\frameworks')
+            if win55.is_dir():
+                # Newest first when several v5 frameworks are installed.
+                candidates5 += sorted(
+                    (str(p) for p in win55.glob('esp-idf-v5*')), reverse=True
+                )
+            candidates5.append('/opt/esp-idf-v5')
+            for candidate in candidates5:
+                if os.path.isdir(candidate):
+                    self.idf5_path = candidate
+                    break
+
         if self.idf_path:
             logger.info(f'[espidf] IDF_PATH={self.idf_path}')
             if self.has_arduino:
@@ -306,30 +336,163 @@ class ESPIDFCompiler:
                 logger.info('[espidf] Arduino component: no (pure ESP-IDF fallback)')
         else:
             logger.warning('[espidf] IDF_PATH not set — ESP-IDF compilation unavailable')
+        if self.idf5_path:
+            logger.info(f'[espidf] IDF v5.x (esp32c6): {self.idf5_path}')
+        else:
+            logger.info('[espidf] IDF v5.x not found — esp32c6 compilation unavailable')
+
+        # ── arduino-esp32 3.x core (IDF 5.x-based) ──────────────────────
+        # A separate install used for Arduino sketches on the v5.x path —
+        # the ONLY core that can build esp32c6 .ino sketches. Discovered
+        # under the v5 install's components/ (or ARDUINO_ESP32_5_PATH).
+        # Kept independent of the 2.x core so both remain available and the
+        # pipeline picks per build.
+        self.arduino5_path = os.environ.get('ARDUINO_ESP32_5_PATH', '')
+        if not self.arduino5_path:
+            for candidate in [
+                r'C:\Espressif5.5\components\arduino-esp32',
+                (os.path.join(os.path.dirname(self.idf5_path), '..',
+                              'components', 'arduino-esp32')
+                 if self.idf5_path else ''),
+                '/opt/arduino-esp32-3',
+            ]:
+                if candidate and os.path.isdir(candidate):
+                    self.arduino5_path = os.path.abspath(candidate)
+                    break
+        self.has_arduino5 = (
+            bool(self.arduino5_path) and os.path.isdir(self.arduino5_path)
+        )
+        if self.has_arduino5:
+            logger.info(f'[espidf] arduino-esp32 3.x core (IDF5): {self.arduino5_path}')
+        else:
+            logger.info('[espidf] arduino-esp32 3.x core: no (C6 .ino unavailable)')
 
     @property
     def available(self) -> bool:
         """Whether ESP-IDF toolchain is available."""
         return bool(self.idf_path) and os.path.isdir(self.idf_path)
 
+    # Targets that only exist in ESP-IDF v5.x — the pinned v4.4.7 tree
+    # predates them, so they build against idf5_path instead of idf_path.
+    _IDF5_TARGETS: frozenset[str] = frozenset({'esp32c6'})
+
+    # Flash offset where each chip's boot ROM expects the 2nd-stage
+    # bootloader. ESP32 / ESP32-S2 use 0x1000; every newer chip (S3, C2,
+    # C3, C6, H2) boots from 0x0, so that is the default for unlisted
+    # targets. (A future P4/C5 entry would be 0x2000.)
+    _BOOTLOADER_OFFSETS: dict[str, int] = {
+        'esp32': 0x1000,
+        'esp32s2': 0x1000,
+    }
+
     def _is_esp32c3(self, board_fqbn: str) -> bool:
         """Return True if FQBN targets ESP32-C3 (RISC-V)."""
         return 'esp32c3' in board_fqbn or 'esp32-c3' in board_fqbn
 
-    def _is_esp32s3(self, board_fqbn: str) -> bool:
-        """Return True if FQBN targets an ESP32-S3 (Xtensa LX7).
+    def _is_esp32c6(self, board_fqbn: str) -> bool:
+        """Return True if FQBN targets ESP32-C6 (RISC-V, IDF v5.x only)."""
+        f = board_fqbn.lower()
+        return 'esp32c6' in f or 'esp32-c6' in f
 
-        Covers all three S3 board FQBNs the frontend emits: esp32s3,
-        XIAO_ESP32S3 (uppercase) and nano_nora (Arduino Nano ESP32 -- carries
-        no 's3' token), so a bare substring test is insufficient.
+    def _idf_root(self, use_idf5: bool) -> str:
+        """The ESP-IDF tree a compile builds against."""
+        return self.idf5_path if use_idf5 else self.idf_path
+
+    def _use_idf5(self, idf_target: str, arduino_mode: bool) -> bool:
+        """Decide which IDF major this compile builds against.
+
+        Policy: IDF v5.x is THE toolchain for the whole ESP32 family
+        (esp32 / s2 / s3 / c3 / c6); the pinned v4.4.7 tree is legacy.
+
+        - esp32c6 only exists in v5.x → always v5.
+        - Arduino-as-component builds are tied to the core's IDF. When an
+          arduino-esp32 3.x core (IDF 5.x based — 3.3.x pairs with IDF
+          5.5) is installed, Arduino sketches build on v5 with it. Without
+          a 3.x core they FALL BACK to v4.4.7 + the 2.x core (which is IDF
+          4.4-based). Escape hatches: VELXIO_ARDUINO_IDF5=0 forces the
+          v4.4 path even when a 3.x core exists; =1 forces v5.
+        - Pure-IDF builds (user code defines app_main) use v5 whenever the
+          v5 install exists, and fall back to v4.4 when it doesn't (OSS
+          self-host without the v5 install).
         """
-        fq = board_fqbn.lower()
-        return 'esp32s3' in fq or 'nano_nora' in fq
+        if idf_target in self._IDF5_TARGETS:
+            return True
+        has_idf5 = bool(self.idf5_path) and os.path.isdir(self.idf5_path)
+        if arduino_mode:
+            override = os.environ.get('VELXIO_ARDUINO_IDF5', '')
+            if override in ('1', 'true', 'True'):
+                return has_idf5
+            if override in ('0', 'false', 'False'):
+                return False
+            # Auto: prefer v5 + the 3.x core when both are present.
+            return has_idf5 and self.has_arduino5
+        return has_idf5
+
+    def _arduino_path_for(self, use_idf5: bool) -> str:
+        """The arduino-esp32 core a build uses: the 3.x core on v5, the
+        2.x core on v4.4 — falling back to whichever exists if the
+        preferred one is absent."""
+        if use_idf5:
+            return self.arduino5_path or self.arduino_path
+        return self.arduino_path or self.arduino5_path
+
+    def _arduino_supports_target(self, idf_target: str) -> bool:
+        """True when SOME installed arduino-esp32 core can build this IDF
+        target as Arduino-as-component.
+
+        IDF5-only targets (esp32c6) need an arduino-esp32 3.x core (IDF
+        5.x based) — the 2.x core has no such target. Classic targets
+        (esp32/s2/s3/c3) build with either core. When no usable core
+        exists for the target the sketch is refused with a structured
+        error rather than being pattern-translated into something it
+        isn't.
+        """
+        if idf_target in self._IDF5_TARGETS:
+            return self.has_arduino5
+        return self.has_arduino or self.has_arduino5
+
+    def _arduino_core_version(self, arduino_path: Optional[str] = None) -> Optional[str]:
+        """Best-effort version of an arduino-esp32 core (package.json
+        ``version``), for user-facing messages. Defaults to the 2.x core."""
+        path = arduino_path or self.arduino_path
+        if not path:
+            return None
+        try:
+            with open(
+                os.path.join(path, 'package.json'), encoding='utf-8'
+            ) as fh:
+                return json.load(fh).get('version')
+        except (OSError, ValueError):
+            return None
+
+    @staticmethod
+    def _contains_app_main(code: str) -> bool:
+        """True when the code defines its own ESP-IDF entry point
+        (``void app_main(void)``) — i.e. it is a plain ESP-IDF program
+        rather than an Arduino setup()/loop() sketch."""
+        return bool(re.search(r'\bvoid\s+app_main\s*\(', code))
+
+    def _is_esp32s3(self, board_fqbn: str) -> bool:
+        """Return True if FQBN targets ESP32-S3 (Xtensa LX7).
+
+        Most S3 FQBNs contain 'esp32s3' (esp32s3, XIAO_ESP32S3 uppercase — the
+        lowercased substring test still matches), but a few S3 boards use a
+        variant name that doesn't: Arduino Nano ESP32 = nano_nora, M5 Cardputer/
+        StampS3 = m5stack_cardputer / m5stack_stamps3, so those are matched
+        explicitly. Without this every S3 board compiled for the 'esp32' (LX6)
+        target and could not boot the esp32s3 QEMU machine.
+        """
+        f = board_fqbn.lower()
+        if 'esp32s3' in f:
+            return True
+        return any(v in f for v in ('nano_nora', 'm5stack_cardputer', 'm5stack_stamps3', 'm5stamp_s3'))
 
     def _idf_target(self, board_fqbn: str) -> str:
         """Map FQBN to IDF_TARGET."""
         if self._is_esp32c3(board_fqbn):
             return 'esp32c3'
+        if self._is_esp32c6(board_fqbn):
+            return 'esp32c6'
         if self._is_esp32s3(board_fqbn):
             return 'esp32s3'
         # Default to esp32 (Xtensa LX6) for the original ESP32 / ESP32-S2
@@ -665,6 +828,24 @@ class ESPIDFCompiler:
         'WiFiServer.h', 'WiFiType.h', 'esp_wifi.h',
     })
 
+    # Basenames of C/C++ standard headers. A user library that ships a private
+    # header with one of these names (e.g. LovyanGFX's src/lgfx/internal/
+    # limits.h, algorithm.h, memory.h, alloca.h) must NOT put that directory on
+    # the global -I path: doing so shadows the toolchain header for the WHOLE
+    # build. Concretely, FreeRTOS/portmacro.h does `#include <limits.h>` inside
+    # an `extern "C"` block (reached via Arduino.h), and if it resolves to
+    # LovyanGFX's limits.h — which pulls the C++ <limits> — the compile dies
+    # with "template specialization with C linkage". Libraries reach these
+    # private headers through file-relative includes (`#include "../internal/
+    # limits.h"`), so the directory is never needed on -I. See
+    # `_generate_merged_component` where dirs holding these are excluded.
+    _SHADOW_STD_HEADERS: frozenset[str] = frozenset({
+        'limits.h', 'stdio.h', 'stdlib.h', 'string.h', 'math.h', 'assert.h',
+        'ctype.h', 'errno.h', 'time.h', 'stddef.h', 'stdint.h', 'setjmp.h',
+        'signal.h', 'locale.h', 'wchar.h', 'stdbool.h', 'stdarg.h', 'float.h',
+        'algorithm.h', 'memory.h', 'alloca.h', 'new.h',
+    })
+
     # arduino-esp32 uses a single library architecture id ("esp32") across
     # every chip variant (esp32 / esp32c3 / esp32s3 ...). A library whose
     # library.properties declares architectures= without "esp32" or "*" is
@@ -692,8 +873,12 @@ class ESPIDFCompiler:
         if cached is not None:
             return cached
         headers: set[str] = set(self._CORE_ESP32_HEADERS)
-        root = Path(self.arduino_path) if self.arduino_path else None
-        if root and root.is_dir():
+        # Union both installed cores (2.x and 3.x) so the guard holds
+        # whichever one a given build selects.
+        for core_path in {self.arduino_path, getattr(self, 'arduino5_path', '')}:
+            root = Path(core_path) if core_path else None
+            if not (root and root.is_dir()):
+                continue
             for sub in ('cores', 'libraries'):
                 base = root / sub
                 if not base.is_dir():
@@ -887,7 +1072,12 @@ class ESPIDFCompiler:
             if allowed_libraries is not None else None
         )
         if allowed_norm is not None:
-            logger.info(f'[espidf] library manifest scope active: {sorted(allowed_libraries)}')
+            # `or set()` only narrows the Optional for type checkers —
+            # allowed_norm being non-None implies allowed_libraries is too.
+            logger.info(
+                f'[espidf] library manifest scope active: '
+                f'{sorted(allowed_libraries or set())}'
+            )
 
         comp_dir = user_libs_dir / 'user_libs_all'
         comp_dir.mkdir(exist_ok=True)
@@ -991,7 +1181,16 @@ class ESPIDFCompiler:
                     parts = rel_path.parts
                     if any(part.lower() in excluded_dirs for part in parts[:-1]):
                         return False
-                    if rel_path.suffix not in ('.h', '.hpp', '.c', '.cpp'):
+                    # Copy compiled sources (.c/.cpp) AND every flavour of header
+                    # or text-included fragment. `.inl`/`.inc`/`.ipp`/`.tcc` are
+                    # `#include`d verbatim from a sibling source (e.g. M5Unified's
+                    # `#include "BMI270_config.inl"`), so dropping them breaks the
+                    # build with "No such file or directory" even though the file
+                    # ships with the library.
+                    if rel_path.suffix.lower() not in (
+                        '.h', '.hpp', '.hh', '.hxx', '.c', '.cpp',
+                        '.inl', '.inc', '.ipp', '.tcc',
+                    ):
                         return False
                     if has_src_layout:
                         return parts[0] == 'src' or len(parts) == 1
@@ -1020,8 +1219,13 @@ class ESPIDFCompiler:
                 # Scan newly copied headers for transitive includes.
                 # Use rglob so libs with `src/` layout (e.g. GxEPD2, ArduinoJson)
                 # are scanned recursively — otherwise their headers live under
-                # `src/`/subdirs and we'd miss every transitive include.
-                for lib_file in comp_dir.rglob('*.h'):
+                # `src/`/subdirs and we'd miss every transitive include. Scan
+                # ALL header extensions (.h/.hpp/.hh/.hxx/.inc): C++ libs like
+                # M5Unified put the transitive `#include <M5GFX.h>` in a .hpp,
+                # so a `*.h`-only scan silently drops that dependency.
+                for lib_file in comp_dir.rglob('*'):
+                    if lib_file.suffix.lower() not in ('.h', '.hpp', '.hh', '.hxx', '.inc'):
+                        continue
                     try:
                         lib_content = lib_file.read_text(encoding='utf-8', errors='ignore')
                         for th in self._detect_external_includes(lib_content):
@@ -1049,13 +1253,57 @@ class ESPIDFCompiler:
         # Generate INCLUDE_DIRS from the directory structure of copied files.
         # Use PurePosixPath so paths stay forward-slashed on Windows — CMake
         # parses backslashes as string escapes (e.g. "src\bitmaps" → invalid \b).
+        # Directories that ship a header shadowing a C/C++ standard header must
+        # be kept OFF the global -I path (see `_SHADOW_STD_HEADERS`) — otherwise
+        # a stray `#include <limits.h>` deep in FreeRTOS resolves to the
+        # library's copy and breaks the build. The files stay copied so the
+        # owning library's file-relative includes still resolve.
+        shadow_dirs: set[str] = set()
+        for file_key in seen_names:
+            if PurePosixPath(file_key).name.lower() in self._SHADOW_STD_HEADERS:
+                parent = str(PurePosixPath(file_key).parent)
+                if parent and parent != '.':
+                    shadow_dirs.add(parent)
+
         include_dirs: set[str] = {'.'}
         for file_key in seen_names:
             parent = str(PurePosixPath(file_key).parent)
-            if parent and parent != '.':
+            if parent and parent != '.' and parent not in shadow_dirs:
                 include_dirs.add(parent)
 
+        if shadow_dirs:
+            logger.info(
+                f'[espidf] kept {len(shadow_dirs)} dir(s) off -I to avoid '
+                f'shadowing standard headers: {sorted(shadow_dirs)}'
+            )
+
         include_dirs_line = 'INCLUDE_DIRS ' + ' '.join(f'"{d}"' for d in sorted(include_dirs))
+
+        # LovyanGFX's Bus_EPD.cpp (e-paper bus, compiled unconditionally as part
+        # of the M5GFX merge) includes <esp_lcd_panel_io.h>, which is provided by
+        # the IDF `esp_lcd` component. Add it to REQUIRES so its headers land on
+        # the include path. Guard on the component existing so builds on an IDF
+        # without it (esp_lcd landed in IDF 4.4) are unaffected.
+        extra_requires = ''
+        if self.idf_path and os.path.isdir(
+            os.path.join(self.idf_path, 'components', 'esp_lcd')
+        ):
+            extra_requires = ' esp_lcd'
+        # Arduino libraries include IDF headers directly (<nvs.h>,
+        # <esp_efuse.h>, <driver/...>, ...). Under IDF 4.4 those arrived
+        # transitively through the arduino component's PUBLIC requires; the
+        # arduino-esp32 3.x / IDF v5 pairing keeps most of its requires
+        # PRIVATE, so the merged user-libs component died one missing header
+        # at a time (nvs.h, then esp_efuse.h, ... — M5GFX/M5Unified touch
+        # several). Require the standard set Arduino-facing libraries lean
+        # on, guarded on existence so both IDF generations stay happy.
+        for _comp in ('nvs_flash', 'efuse', 'esp_timer', 'driver',
+                      'spi_flash', 'esp_adc', 'esp_wifi', 'esp_event',
+                      'esp_netif', 'esp_partition'):
+            for _root in filter(None, (self.idf5_path, self.idf_path)):
+                if os.path.isdir(os.path.join(_root, 'components', _comp)):
+                    extra_requires += f' {_comp}'
+                    break
 
         cmake_content = (
             '# Auto-generated by Velxio — all user libraries merged into one component.\n'
@@ -1063,8 +1311,17 @@ class ESPIDFCompiler:
             'idf_component_register(\n'
             f'    {srcs_line}\n'
             f'    {include_dirs_line}\n'
-            f'    REQUIRES {arduino_comp_name}\n'
+            f'    REQUIRES {arduino_comp_name}{extra_requires}\n'
             ')\n'
+            '# LovyanGFX (the engine inside M5GFX) uses alloca()/memcpy_P/\n'
+            '# memcmp_P without a prior declaration — its C utility files\n'
+            '# (lgfx_pngle.c, qoi …) call the PROGMEM aliases but never include\n'
+            '# pgmspace.h, so the flat IDF-component merge trips over an implicit\n'
+            '# declaration. Map them to always-available equivalents (identical\n'
+            '# to pgmspace.h, so redefinition is benign) so C++ graphics libs\n'
+            '# compile as a merged component.\n'
+            'target_compile_definitions(${COMPONENT_LIB} PRIVATE'
+            ' alloca=__builtin_alloca memcpy_P=memcpy memcmp_P=memcmp)\n'
         )
         (comp_dir / 'CMakeLists.txt').write_text(cmake_content, encoding='utf-8')
         logger.info(
@@ -1211,41 +1468,237 @@ class ESPIDFCompiler:
         )
         return safe_name
 
-    def _build_env(self, idf_target: str) -> dict:
-        """Build environment dict for ESP-IDF subprocess."""
+    def _discover_espressif_win(
+        self, idf_path: Optional[str] = None
+    ) -> tuple[str | None, str | None]:
+        """Locate the Espressif install (tools root + registered Python venv).
+
+        The official Windows offline installer writes ``esp_idf.json`` at the
+        install root recording ``idfToolsPath`` and the exact python venv for
+        each installed IDF version. Parsing it lets a backend launched from ANY
+        shell (no ``export.ps1``) still find the cross-compilers and the
+        confgen venv. Returns ``(tools_root, python_env_dir)``; either may be
+        ``None`` if it can't be resolved. Windows only.
+
+        ``idf_path`` selects WHICH install to discover (each IDF root ships
+        its own ``esp_idf.json`` two levels up); defaults to the pinned 4.4
+        tree for backwards compatibility.
+        """
+        idf_path = idf_path or self.idf_path
+        candidate_roots: list[str] = []
+        if idf_path:
+            # Installer layout: <root>/frameworks/esp-idf-vX  →  <root>
+            candidate_roots.append(
+                os.path.abspath(os.path.join(idf_path, '..', '..'))
+            )
+        candidate_roots.append(r'C:\Espressif')
+
+        for root in candidate_roots:
+            cfg = os.path.join(root, 'esp_idf.json')
+            if not os.path.isfile(cfg):
+                continue
+            try:
+                with open(cfg, 'r', encoding='utf-8') as fh:
+                    data = json.load(fh)
+            except Exception as e:  # noqa: BLE001 — best-effort discovery
+                logger.warning(f'[espidf] could not parse {cfg}: {e}')
+                continue
+            tools_root = data.get('idfToolsPath') or root
+            py_env: str | None = None
+            installed = data.get('idfInstalled') or {}
+            want = os.path.normcase(os.path.abspath(idf_path)) if idf_path else None
+            for info in installed.values():
+                ipath = (info.get('path') or '').rstrip('/\\')
+                pexe = info.get('python') or ''
+                if not pexe:
+                    continue
+                # python.exe lives at <env>/Scripts/python.exe → <env>
+                env_dir = os.path.dirname(os.path.dirname(pexe))
+                if want and ipath and os.path.normcase(os.path.abspath(ipath)) == want:
+                    py_env = env_dir  # exact IDF match wins
+                    break
+                if py_env is None:
+                    py_env = env_dir  # first registered as fallback
+            return tools_root, py_env
+
+        # No metadata found: derive the root from IDF_PATH.
+        if idf_path:
+            return os.path.abspath(os.path.join(idf_path, '..', '..')), None
+        return r'C:\Espressif', None
+
+    def _build_env(
+        self,
+        idf_target: str,
+        use_idf5: Optional[bool] = None,
+        arduino_mode: Optional[bool] = None,
+    ) -> dict:
+        """Build environment dict for ESP-IDF subprocess.
+
+        Per-compile IDF selection (see _use_idf5): pure-IDF builds default
+        to the v5.x install for the whole family; Arduino-as-component
+        builds fall back to the pinned v4.4.7 install their 2.x core is
+        built for. Everything derived from the IDF root — tools root,
+        python venv, toolchain PATH — follows that choice.
+        """
+        if arduino_mode is None:
+            arduino_mode = self._arduino_supports_target(idf_target)
+        if use_idf5 is None:
+            use_idf5 = self._use_idf5(idf_target, arduino_mode)
         env = os.environ.copy()
-        env['IDF_PATH'] = self.idf_path
+        idf_path = self._idf_root(use_idf5) or self.idf_path
+        is_idf5 = use_idf5
+        env['IDF_PATH'] = idf_path
         env['IDF_TARGET'] = idf_target
 
-        if self.has_arduino:
-            env['ARDUINO_ESP32_PATH'] = self.arduino_path
+        if arduino_mode:
+            # Pick the core matching the chosen IDF major: 3.x on v5,
+            # 2.x on v4.4.
+            env['ARDUINO_ESP32_PATH'] = self._arduino_path_for(use_idf5)
+            # arduino-esp32 3.x refuses to configure unless the IDF version
+            # is within its supported window; the 3.3.x/IDF-5.5.4 pair is,
+            # but keep this defensive so a future minor bump doesn't hard-
+            # fail the configure before we notice.
+            env['ARDUINO_SKIP_IDF_VERSION_CHECK'] = '1'
+        else:
+            # The project template switches to Arduino-as-component whenever
+            # ARDUINO_ESP32_PATH is defined — make sure an ambient value
+            # can't drag a pure-IDF build (or an unsupported target such as
+            # esp32c6 with no 3.x core) into that mode.
+            env.pop('ARDUINO_ESP32_PATH', None)
 
-        # On Windows, ESP-IDF uses its own Python venv
-        if os.name == 'nt':
-            py_venv = os.path.join(
-                os.path.dirname(self.idf_path), '..',
-                'python_env', 'idf4.4_py3.10_env'
-            )
-            # Also try the standard Espressif location
-            if not os.path.isdir(py_venv):
-                py_venv = r'C:\Espressif\python_env\idf4.4_py3.10_env'
+        # On Windows, ESP-IDF uses its own Python venv and out-of-PATH tools.
+        # We self-configure so a backend launched from a plain shell (no
+        # export.ps1) still compiles. The tricky part on multi-install boxes:
+        # ambient IDF_TOOLS_PATH / IDF_PYTHON_ENV_PATH can point at a DIFFERENT
+        # IDF version than IDF_PATH (e.g. IDF_TOOLS_PATH=C:\Espressif5.5 while we
+        # build with the 4.4 install under C:\Espressif). So we trust the
+        # per-install metadata (esp_idf.json) and VALIDATE every candidate root
+        # actually contains a matching xtensa toolchain before using it.
+        # os.name goes through str() ONLY so type checkers pinned to a
+        # single platform (typeshed types os.name as Literal['nt'] under
+        # Windows analysis) keep the Linux/Docker branch below reachable —
+        # this backend deploys on both. Runtime behaviour is identical.
+        if str(os.name) == 'nt':
+            # A backend launched from Git Bash inherits MSYSTEM, and ESP-IDF
+            # 5.x's idf_tools.py fatals on its mere presence ("MSys/Mingw is
+            # not supported") during cmake's python-dependency check. The
+            # build subprocess is a plain Windows process either way — scrub
+            # the variable so the launching shell can't poison the build.
+            env.pop('MSYSTEM', None)
 
-            if os.path.isdir(py_venv):
-                py_scripts = os.path.join(py_venv, 'Scripts')
-                env['PATH'] = py_scripts + os.pathsep + env.get('PATH', '')
+            discovered_root, registered_py = self._discover_espressif_win(idf_path)
+
+            # ── Python venv (confgen / kconfiglib) ──
+            # The installer-registered venv is version-matched and authoritative;
+            # prefer it over an ambient IDF_PYTHON_ENV_PATH that may be stale
+            # (this box's env var points at the broken py3.10). Only fall back to
+            # the override / derived paths when no registered venv exists.
+            if is_idf5:
+                # Known-good recipe for the v5.x install: it ships NO
+                # python_env of its own (idfInstalled is empty in its
+                # esp_idf.json), and the 4.4 py3.10 venv on this layout has
+                # the v5.x core requirements pip-installed into it. Ambient
+                # IDF_PYTHON_ENV_PATH is not trusted here — it points at
+                # whatever the 4.4 flow last used.
+                py_candidates: tuple[str | None, ...] = (
+                    os.environ.get('IDF5_PYTHON_ENV_PATH'),
+                    registered_py,
+                    r'C:\Espressif\python_env\idf4.4_py3.10_env',
+                )
+            else:
+                py_candidates = (
+                    registered_py,
+                    os.environ.get('IDF_PYTHON_ENV_PATH'),
+                    os.path.join(os.path.dirname(idf_path), '..',
+                                 'python_env', 'idf4.4_py3.10_env'),
+                    r'C:\Espressif\python_env\idf4.4_py3.10_env',
+                )
+            for cand in py_candidates:
+                if cand and os.path.isdir(cand):
+                    py_venv = cand
+                    break
+            else:
+                py_venv = None
+            if py_venv:
+                env['PATH'] = os.path.join(py_venv, 'Scripts') + os.pathsep + env.get('PATH', '')
                 env['VIRTUAL_ENV'] = py_venv
+                if is_idf5:
+                    # IDF 5.x cmake honours IDF_PYTHON_ENV_PATH when picking
+                    # its interpreter — pin it so an ambient 4.4-era value
+                    # can't win over the resolved venv.
+                    env['IDF_PYTHON_ENV_PATH'] = py_venv
 
-            # Add ESP-IDF tools to PATH
-            tools_path = os.environ.get('IDF_TOOLS_PATH', r'C:\Users\David\.espressif')
-            if os.path.isdir(tools_path):
-                # Add all tool bin dirs
-                for tool_dir in Path(tools_path).glob('tools/*/*/bin'):
-                    env['PATH'] = str(tool_dir) + os.pathsep + env['PATH']
-                # Xtensa toolchain
-                for tc_dir in Path(tools_path).glob('tools/xtensa-esp32-elf/*/xtensa-esp32-elf/bin'):
-                    env['PATH'] = str(tc_dir) + os.pathsep + env['PATH']
-                for tc_dir in Path(tools_path).glob('tools/riscv32-esp-elf/*/riscv32-esp-elf/bin'):
-                    env['PATH'] = str(tc_dir) + os.pathsep + env['PATH']
+            # ── Cross-compilers + build tools ──
+            # Pick the first candidate root that actually holds the toolchain
+            # THIS target compiles with (validates against version mismatch);
+            # if none does, take the first existing dir so at least host tools
+            # resolve. The old xtensa-only glob wrongly rejected RISC-V-only
+            # roots such as the v5.x install used for esp32c6.
+            xtensa_glob = 'tools/xtensa-esp32-elf/*/xtensa-esp32-elf/bin'
+            if idf_target in ('esp32c3', 'esp32c6'):
+                required_globs: tuple[str, ...] = (
+                    'tools/riscv32-esp-elf/*/riscv32-esp-elf/bin',
+                )
+            else:
+                # IDF 4.4 ships per-chip xtensa toolchains; 5.x unifies them
+                # under xtensa-esp-elf.
+                required_globs = (
+                    xtensa_glob,
+                    'tools/xtensa-esp-elf/*/xtensa-esp-elf/bin',
+                )
+            if is_idf5:
+                # v5.x targets must resolve against the v5.x root only:
+                # ambient IDF_TOOLS_PATH / C:\Espressif hold 4.4-era
+                # toolchains that would pass the riscv glob but cannot
+                # build IDF 5.x sources.
+                root_candidates = [
+                    discovered_root,
+                    os.path.abspath(os.path.join(idf_path, '..', '..')) if idf_path else None,
+                ]
+            else:
+                root_candidates = [
+                    discovered_root,
+                    os.environ.get('IDF_TOOLS_PATH'),
+                    os.path.abspath(os.path.join(idf_path, '..', '..')) if idf_path else None,
+                    r'C:\Espressif',
+                    os.path.expanduser(r'~\.espressif'),
+                ]
+            tools_path = None
+            first_existing = None
+            for cand in root_candidates:
+                if not cand or not os.path.isdir(cand):
+                    continue
+                if first_existing is None:
+                    first_existing = cand
+                if any(any(Path(cand).glob(g)) for g in required_globs):
+                    tools_path = cand
+                    break
+            tools_path = tools_path or first_existing
+
+            if tools_path:
+                env['IDF_TOOLS_PATH'] = tools_path
+                # Note: ninja and ccache live directly under tools/<name>/<ver>/
+                # (no bin/ subdir), so the generic tools/*/*/bin glob misses
+                # them — enumerate them explicitly. Order: put toolchains first.
+                prepend: list[str] = []
+                for pattern in (
+                    xtensa_glob,
+                    'tools/xtensa-esp-elf/*/xtensa-esp-elf/bin',
+                    'tools/riscv32-esp-elf/*/riscv32-esp-elf/bin',
+                    'tools/cmake/*/bin',
+                    'tools/ninja/*',
+                    'tools/ccache/*',
+                    'tools/ccache/*/*',  # windows: ccache/<ver>/ccache-<ver>-windows-64/
+                    'tools/*/*/bin',
+                ):
+                    for d in Path(tools_path).glob(pattern):
+                        if d.is_dir() and (any(d.glob('*.exe')) or pattern != 'tools/ccache/*/*'):
+                            prepend.append(str(d))
+                # De-duplicate while preserving order.
+                seen: set[str] = set()
+                ordered = [d for d in prepend if not (d in seen or seen.add(d))]
+                if ordered:
+                    env['PATH'] = os.pathsep.join(ordered) + os.pathsep + env['PATH']
         else:
             # Linux/Docker: explicitly add toolchain bin dirs to PATH so cmake
             # can find the cross-compilers even when the process wasn't started
@@ -1255,34 +1708,28 @@ class ESPIDFCompiler:
             if os.path.isdir(tools_path):
                 # Pin the IDF Python venv. Without IDF_PYTHON_ENV_PATH, IDF's
                 # cmake derives the venv dir name from the SYSTEM python
-                # version, which in a docker image can differ from the python
-                # the venv was created with (the env is version-scoped, so a
-                # mismatched lookup fails with "python doesn't exist" before
-                # configure). We also invoke cmake directly (not via idf.py),
-                # where the PYTHON property falls back to the bare `python`
-                # from PATH — so the venv's bin must lead the PATH too.
-                # Prefer the env matching THIS IDF tree's version (a 5.x env
-                # satisfies 5.x requirements but fails 4.4's dependency check
-                # and vice versa); fall back to the newest available.
-                idf_ver_prefix = 'idf'
-                try:
-                    ver_src = open(os.path.join(self.idf_path, 'tools', 'cmake',
-                                                'version.cmake'),
-                                   encoding='utf-8').read()
-                    major = re.search(r'IDF_VERSION_MAJOR (\d+)', ver_src)
-                    minor = re.search(r'IDF_VERSION_MINOR (\d+)', ver_src)
-                    if major and minor:
-                        idf_ver_prefix = f'idf{major.group(1)}.{minor.group(1)}'
-                except OSError:
-                    pass
-                venv_candidates = sorted(
-                    Path(tools_path).glob(f'python_env/{idf_ver_prefix}*_env'),
-                    reverse=True,
-                ) or sorted(Path(tools_path).glob('python_env/idf*_env'),
-                            reverse=True)
-                for venv in venv_candidates:
+                # version — which in the docker image can differ from the
+                # python the venv was built with (the image ships
+                # idf5.5_py3.10_env; a py3.12 system python makes cmake look
+                # for idf5.5_py3.12_env and fail with "python doesn't
+                # exist"). Glob the env matching the chosen IDF major
+                # instead of trusting the name derivation.
+                ver_prefix = 'idf5.' if is_idf5 else 'idf4.'
+                # Newest first: when several envs exist (e.g. a stale one
+                # from an older base image beside the freshly created one),
+                # the highest python version is the one the image can run.
+                for venv in sorted(Path(tools_path).glob(f'python_env/{ver_prefix}*_env'),
+                                   reverse=True):
                     if (venv / 'bin' / 'python').exists():
                         env['IDF_PYTHON_ENV_PATH'] = str(venv)
+                        # We invoke cmake DIRECTLY (not through idf.py), and
+                        # IDF's cmake resolves its PYTHON property as the bare
+                        # `python` from PATH — IDF_PYTHON_ENV_PATH alone is
+                        # ignored in that flow. Prepend the venv's bin so the
+                        # bare name resolves to the venv interpreter (this is
+                        # what made "interface_version: invalid choice" persist:
+                        # the SYSTEM python's ancient idf-component-manager was
+                        # answering instead of the venv's).
                         env['PATH'] = (str(venv / 'bin') + os.pathsep
                                        + env.get('PATH', ''))
                         env['VIRTUAL_ENV'] = str(venv)
@@ -1299,16 +1746,35 @@ class ESPIDFCompiler:
                 # RISC-V toolchain (ESP32-C3)
                 for tc_dir in Path(tools_path).glob('tools/riscv32-esp-elf/*/riscv32-esp-elf/bin'):
                     extra_paths.append(str(tc_dir))
+                # cmake / ninja / ccache — ninja and ccache have no bin/ subdir,
+                # so the tools/*/*/bin glob below misses them; add explicitly.
+                for tool_dir in Path(tools_path).glob('tools/cmake/*/bin'):
+                    extra_paths.append(str(tool_dir))
+                for tool_dir in Path(tools_path).glob('tools/ninja/*'):
+                    if tool_dir.is_dir():
+                        extra_paths.append(str(tool_dir))
+                for tool_dir in Path(tools_path).glob('tools/ccache/*'):
+                    if tool_dir.is_dir():
+                        extra_paths.append(str(tool_dir))
+                for tool_dir in Path(tools_path).glob('tools/ccache/*/*'):
+                    if tool_dir.is_dir() and any(tool_dir.glob('ccache*')):
+                        extra_paths.append(str(tool_dir))
                 # ESP-IDF host tools (esptool, partition_table, etc.)
                 for tool_dir in Path(tools_path).glob('tools/*/*/bin'):
                     extra_paths.append(str(tool_dir))
-                # When several generations of a toolchain share the tools root,
-                # glob order decides which wins the PATH race — order by the
-                # versions the chosen IDF tree declares in tools/tools.json so
-                # the matching toolchain always leads.
+                # De-duplicate while preserving order.
+                _seen: set[str] = set()
+                extra_paths = [d for d in extra_paths if not (d in _seen or _seen.add(d))]
+                # Both IDF generations install their toolchains under the SAME
+                # tools root (riscv32-esp-elf/esp-2021r2... for 4.4 next to
+                # esp-14.2.0... for 5.5). Whichever glob order put first won
+                # the PATH race — the C6 build failed its tool-version check
+                # against the 8.4 GCC, and classic builds died mid-compile on
+                # newlib header mismatches. Order by the versions the CHOSEN
+                # IDF tree declares in its tools.json instead.
                 preferred_versions: set[str] = set()
                 try:
-                    with open(os.path.join(self.idf_path, 'tools', 'tools.json'),
+                    with open(os.path.join(idf_path, 'tools', 'tools.json'),
                               encoding='utf-8') as fh:
                         for tool in json.load(fh).get('tools', []):
                             for v in tool.get('versions', []):
@@ -1482,10 +1948,19 @@ class ESPIDFCompiler:
                     )
                 normalized[k] = v
 
-        # ESP32-C3 has no external PSRAM controller — silently disable so
-        # a stale field from an upgraded project doesn't trip up the build.
-        if idf_target == 'esp32c3':
+        # ESP32-C3 / ESP32-C6 have no external PSRAM controller — silently
+        # disable so a stale field from an upgraded project doesn't trip up
+        # the build.
+        if idf_target in ('esp32c3', 'esp32c6'):
             normalized['psram'] = 'disabled'
+
+        # ESP32-C3 / ESP32-C6 top out at 160 MHz — clamp the historical 240
+        # default (and any stale higher value) instead of failing the build.
+        # (On C3 the 240 choice was always an unknown kconfig symbol that
+        # 4.4's kconfgen silently ignored, leaving the chip at its 160
+        # default — the clamp makes that explicit and v5.x-clean.)
+        if idf_target in ('esp32c3', 'esp32c6') and int(normalized['cpuFreqMHz']) > 160:
+            normalized['cpuFreqMHz'] = 160
 
         # OPI PSRAM (octal) is an S3-only mode. Downgrade to 'enabled' on
         # classic Xtensa so users who switched boards mid-project don't get
@@ -1495,7 +1970,80 @@ class ESPIDFCompiler:
 
         return normalized
 
-    def _render_sdkconfig(self, normalized: dict, template_dir: Path) -> str:
+    # sdkconfig.defaults.in is written against IDF v4.4 + the 2.x Arduino
+    # core. On a v5 PURE-IDF build the Arduino component options, the ARDUHAL
+    # log level, and the Bluedroid stack (only ever needed by Arduino BLE
+    # sketches) aren't wanted, and IDF 5.0 renamed ESP_TASK_WDT →
+    # ESP_TASK_WDT_EN. Dropping them keeps kconfgen output clean instead of
+    # spraying "unknown kconfig symbol" warnings into every build log. On a
+    # v5 ARDUINO build (3.x core present) the Arduino/BT symbols ARE valid
+    # (the 3.x component's Kconfig defines them) so only the WDT rename and
+    # the target-specific drops apply.
+    _IDF5_PUREIDF_DROP_PREFIXES: tuple[str, ...] = (
+        'CONFIG_ARDUHAL_',
+        'CONFIG_AUTOSTART_ARDUINO',
+        'CONFIG_ARDUINO_',
+        'CONFIG_BT_',
+        'CONFIG_BTDM_',
+    )
+
+    def _idf5_drop_prefixes_for(
+        self, idf_target: str, arduino_mode: bool = False
+    ) -> tuple[str, ...]:
+        """Prefixes to strip from the rendered defaults for a v5.x build.
+
+        Pure-IDF builds drop the Arduino/Bluedroid options (invalid without
+        the component). Per-target: C3/C6 have no PSRAM controller and top
+        out at 160 MHz (single-core → the Arduino running-core options also
+        don't exist); the 26 MHz flash-frequency choice only exists on
+        classic ESP32.
+        """
+        drops: tuple[str, ...] = ()
+        if not arduino_mode:
+            drops += self._IDF5_PUREIDF_DROP_PREFIXES
+        elif idf_target in ('esp32c3', 'esp32c6'):
+            # Arduino v5 on a single-core RISC-V chip: the running-core
+            # options are hidden by `depends on !FREERTOS_UNICORE`, so drop
+            # just those two (keep the rest of the Arduino/BT symbols).
+            drops += (
+                'CONFIG_ARDUINO_RUNNING_CORE',
+                'CONFIG_ARDUINO_EVENT_RUNNING_CORE',
+            )
+        if idf_target in ('esp32c3', 'esp32c6'):
+            drops += (
+                'CONFIG_SPIRAM',
+                'CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240',
+            )
+        if idf_target != 'esp32':
+            drops += ('CONFIG_ESPTOOLPY_FLASHFREQ_26M',)
+        return drops
+
+    def _fixup_sdkconfig_for_idf5(
+        self, rendered: str, idf_target: str, arduino_mode: bool = False
+    ) -> str:
+        """Adapt the rendered v4.4-era defaults to an IDF v5.x build (see
+        ``_idf5_drop_prefixes_for``)."""
+        drops = self._idf5_drop_prefixes_for(idf_target, arduino_mode)
+        lines: list[str] = []
+        for line in rendered.splitlines():
+            if line.startswith(drops):
+                continue
+            # IDF 5.0 renamed ESP_TASK_WDT → ESP_TASK_WDT_EN.
+            if line.startswith('CONFIG_ESP_TASK_WDT='):
+                line = line.replace(
+                    'CONFIG_ESP_TASK_WDT=', 'CONFIG_ESP_TASK_WDT_EN=', 1
+                )
+            lines.append(line)
+        return '\n'.join(lines) + '\n'
+
+    def _render_sdkconfig(
+        self,
+        normalized: dict,
+        template_dir: Path,
+        idf_target: str = 'esp32',
+        use_idf5: Optional[bool] = None,
+        arduino_mode: bool = False,
+    ) -> str:
         """Render sdkconfig.defaults from the .in template + normalised opts."""
         template_path = template_dir / 'sdkconfig.defaults.in'
         template_text = template_path.read_text(encoding='utf-8')
@@ -1561,7 +2109,14 @@ class ESPIDFCompiler:
             'ARDUINO_EVENT_RUNNING_CORE': str(normalized['eventsRunOnCore']),
         }
 
-        return string.Template(template_text).safe_substitute(substitutions)
+        rendered = string.Template(template_text).safe_substitute(substitutions)
+        if use_idf5 is None:
+            use_idf5 = idf_target in self._IDF5_TARGETS
+        if use_idf5:
+            rendered = self._fixup_sdkconfig_for_idf5(
+                rendered, idf_target, arduino_mode
+            )
+        return rendered
 
     def _render_partition_csv(self, scheme: str) -> str:
         """Return the partition table CSV for the given scheme name."""
@@ -1711,17 +2266,19 @@ class ESPIDFCompiler:
     def _merge_flash_image(
         self,
         build_dir: Path,
-        is_c3: bool,
+        idf_target: str,
         flash_size_bytes: int = 4 * 1024 * 1024,
         spiffs_bin: Optional[Path] = None,
         spiffs_offset: int = 0,
     ) -> Path:
         """Merge bootloader + partitions + app (+ optional SPIFFS) into a
-        flash image sized to match the user's Flash Size option."""
+        flash image sized to match the user's Flash Size option. The
+        bootloader lands at the per-target ROM offset (0x1000 on classic
+        ESP32/S2, 0x0 on S3/C3/C6 — see ``_BOOTLOADER_OFFSETS``)."""
         FLASH_SIZE = flash_size_bytes
         flash = bytearray(b'\xff' * FLASH_SIZE)
 
-        bootloader_offset = 0x0000 if is_c3 else 0x1000
+        bootloader_offset = self._BOOTLOADER_OFFSETS.get(idf_target, 0x0)
 
         # ESP-IDF build output paths
         bootloader = build_dir / 'bootloader' / 'bootloader.bin'
@@ -1838,7 +2395,25 @@ class ESPIDFCompiler:
             }
 
         idf_target = self._idf_target(board_fqbn)
-        is_c3 = self._is_esp32c3(board_fqbn)
+
+        # IDF5-only targets (esp32c6) need their own toolchain install —
+        # the pinned v4.4.7 tree that `available` checks has no such target.
+        # (Other targets merely PREFER v5 and quietly fall back to v4.4 when
+        # the v5 install is absent — see _use_idf5.)
+        if idf_target in self._IDF5_TARGETS:
+            idf5 = self.idf5_path
+            if not idf5 or not os.path.isdir(idf5):
+                return {
+                    'success': False,
+                    'error': (
+                        f'{idf_target} requires ESP-IDF v5.x, which is not '
+                        f'installed on this server (the pinned v4.4.7 '
+                        f'toolchain has no {idf_target} target). Install an '
+                        f'ESP-IDF v5.x and point IDF5_PATH at its root.'
+                    ),
+                    'stdout': '',
+                    'stderr': '',
+                }
 
         logger.info(f'[espidf] Compiling for {idf_target} (FQBN: {board_fqbn})')
         logger.info(f'[espidf] Files: {[f["name"] for f in files]}')
@@ -1872,6 +2447,25 @@ class ESPIDFCompiler:
             if h not in _core_hdrs
         ))
 
+        # Per-compile mode decision (see _use_idf5). Decided HERE — not in
+        # _compile_in_dir — because it picks the IDF major, which everything
+        # downstream depends on: build env, sdkconfig rendering, and the
+        # build-dir identity (a v4.4 and a v5 build must never share a
+        # configured build/).
+        _primary_src = next(
+            (f['content'] for f in files if f['name'].endswith('.ino')),
+            files[0]['content'] if files else '',
+        )
+        arduino_mode = (
+            self._arduino_supports_target(idf_target)
+            and not self._contains_app_main(_primary_src)
+        )
+        use_idf5 = self._use_idf5(idf_target, arduino_mode)
+        logger.info(
+            f'[espidf] mode={"arduino" if arduino_mode else "pure-idf"} '
+            f'idf={"v5 (" + self.idf5_path + ")" if use_idf5 else "v4.4 (" + self.idf_path + ")"}'
+        )
+
         async def _attempt(allowed: set[str] | None) -> dict:
             # P2.1e — materialize a per-compile library scope: the manifest's
             # libs symlinked from the content-addressed cache (with a legacy-dir
@@ -1894,25 +2488,33 @@ class ESPIDFCompiler:
                 if allowed is not None else 'scanall'
             )
             eff_hash = hashlib.sha256(
-                (options_hash + '|' + _libs_token + '|i:' + _ext_inc_token).encode()
+                (
+                    options_hash + '|' + _libs_token + '|i:' + _ext_inc_token
+                    # A v4.4 and a v5 build (or arduino vs pure-IDF) must
+                    # never share a configured build/ — the cmake cache and
+                    # every object file are tied to the IDF tree.
+                    + f'|idf:{5 if use_idf5 else 4}|ard:{int(arduino_mode)}'
+                ).encode()
             ).hexdigest()[:12]
             try:
                 if _USE_PERSISTENT_DIR:
                     project_dir = _prepare_persistent_project_dir(idf_target, eff_hash)
                     logger.info(f'[espidf] Using persistent build dir: {project_dir}')
                     return await self._compile_in_dir(
-                        project_dir, files, idf_target, is_c3,
+                        project_dir, files, idf_target,
                         progress_callback, normalized_opts, spiffs_files,
                         allowed_libraries=allowed, libraries_dir=scope_dir,
+                        arduino_mode=arduino_mode, use_idf5=use_idf5,
                     )
                 with tempfile.TemporaryDirectory(prefix='espidf_') as temp_dir:
                     project_dir = Path(temp_dir) / 'project'
                     shutil.copytree(_TEMPLATE_DIR, project_dir)
                     logger.info(f'[espidf] Using ephemeral build dir: {project_dir}')
                     return await self._compile_in_dir(
-                        project_dir, files, idf_target, is_c3,
+                        project_dir, files, idf_target,
                         progress_callback, normalized_opts, spiffs_files,
                         allowed_libraries=allowed, libraries_dir=scope_dir,
+                        arduino_mode=arduino_mode, use_idf5=use_idf5,
                     )
             finally:
                 if scope_dir is not None:
@@ -1964,28 +2566,39 @@ class ESPIDFCompiler:
         project_dir: Path,
         files: list[dict],
         idf_target: str,
-        is_c3: bool,
         progress_callback: Optional[ProgressCallback] = None,
         board_options: dict | None = None,
         spiffs_files: list[dict] | None = None,
         allowed_libraries: set[str] | None = None,
         libraries_dir: Path | None = None,
+        arduino_mode: Optional[bool] = None,
+        use_idf5: Optional[bool] = None,
     ) -> dict:
         """Inner compile body: writes sketch + libs into `project_dir`,
         runs cmake + ninja, merges binaries. Caller is responsible for
         creating `project_dir` (with the template tree already copied in)
         and for managing its lifecycle (persistent vs tempfile).
+
+        ``arduino_mode`` / ``use_idf5`` are decided by compile(); the
+        defensive defaults below only serve direct test callers.
         """
         # board_options is already normalised by compile() — defensive in
         # case _compile_in_dir is called directly from a test path.
         if board_options is None:
             board_options = self._normalize_options(None, idf_target)
+        if arduino_mode is None:
+            arduino_mode = self._arduino_supports_target(idf_target)
+        if use_idf5 is None:
+            use_idf5 = self._use_idf5(idf_target, arduino_mode)
 
         # Render sdkconfig.defaults from the templated .in file using the
         # user's options. Overwrites the static file copied from the
         # template tree. Doing this BEFORE cmake configure means the new
         # CONFIG_* lines reach kconfig on its first read.
-        rendered_sdkconfig = self._render_sdkconfig(board_options, _TEMPLATE_DIR)
+        rendered_sdkconfig = self._render_sdkconfig(
+            board_options, _TEMPLATE_DIR, idf_target,
+            use_idf5=use_idf5, arduino_mode=arduino_mode,
+        )
         defaults_path = project_dir / 'sdkconfig.defaults'
         prev_defaults = (
             defaults_path.read_text(encoding='utf-8') if defaults_path.exists() else None
@@ -2023,22 +2636,30 @@ class ESPIDFCompiler:
         has_wifi = self._detect_wifi_usage(main_content)
         main_content = self._normalize_wifi_for_qemu(main_content)
 
-        if self.has_arduino:
+        # Arduino-as-component only when compile() decided so: the core must
+        # support the target (esp32c6 needs an arduino-esp32 3.x core the
+        # server doesn't ship) AND the code must be an actual sketch (plain
+        # ESP-IDF programs with their own app_main build pure-IDF on v5).
+        # Which arduino core this build uses (3.x on v5, 2.x on v4.4).
+        arduino_core_path = self._arduino_path_for(use_idf5) if arduino_mode else ''
+
+        if arduino_mode:
             # Arduino-as-component mode: copy sketch as .cpp
             sketch_cpp = project_dir / 'main' / 'sketch.ino.cpp'
-            # Prepend Arduino.h + velxio_compat.h if not already included.
-            # velxio_compat.h shims arduino-esp32 3.x APIs (ledcAttach, …)
-            # onto the 2.0.17 toolchain we currently pin. See
-            # esp-idf-template/main/velxio_compat.h.
+            # Prepend Arduino.h, and — ONLY on the 2.x core — velxio_compat.h,
+            # which shims the 3.x LEDC API (ledcAttach, …) onto 2.0.17. On the
+            # 3.x core those APIs are real functions, so including the shim
+            # would REDEFINE ledcAttach (its `#if !defined(ledcAttach)` guard
+            # doesn't fire — a function isn't a macro) and break the build.
+            compat_include = '' if use_idf5 else '#include "velxio_compat.h"\n'
             if '#include' not in main_content or 'Arduino.h' not in main_content:
                 main_content = (
-                    '#include "Arduino.h"\n'
-                    '#include "velxio_compat.h"\n' + main_content
+                    '#include "Arduino.h"\n' + compat_include + main_content
                 )
-            else:
+            elif compat_include:
                 main_content = main_content.replace(
                     '#include "Arduino.h"',
-                    '#include "Arduino.h"\n#include "velxio_compat.h"',
+                    '#include "Arduino.h"\n' + compat_include.rstrip('\n'),
                     1,
                 )
             sketch_cpp.write_text(main_content, encoding='utf-8')
@@ -2083,13 +2704,13 @@ class ESPIDFCompiler:
             ext_headers = list(ext_headers_set)
             component_names: list[str] = []
             # arduino-esp32 component name (directory basename of ARDUINO_ESP32_PATH)
-            arduino_comp_name = Path(self.arduino_path).name if self.arduino_path else 'arduino-esp32'
+            arduino_comp_name = Path(arduino_core_path).name if arduino_core_path else 'arduino-esp32'
 
             if ext_headers:
                 user_libs_dir = project_dir / 'user_libs'
                 user_libs_dir.mkdir(exist_ok=True)
 
-                esp32_libs   = Path(self.arduino_path) / 'libraries' if self.arduino_path else None
+                esp32_libs   = Path(arduino_core_path) / 'libraries' if arduino_core_path else None
                 # P2.1e — when a per-compile library scope was materialized (the
                 # manifest's libs symlinked from the content-addressed cache, with
                 # a legacy-dir fallback), resolve from THAT instead of the shared
@@ -2124,22 +2745,59 @@ class ESPIDFCompiler:
                 cmake_path.write_text(cmake_text, encoding='utf-8')
                 logger.info('[espidf] Patched main CMakeLists: REQUIRES += user_libs_all, INCLUDE_DIRS += user_libs_all')
         else:
-            # Pure ESP-IDF mode: translate sketch
-            translated = self._translate_sketch_to_espidf(main_content)
-            (project_dir / 'main' / 'sketch_translated.c').write_text(
-                translated, encoding='utf-8'
-            )
-
-            # Remove Arduino main.cpp to avoid conflict
+            # Pure ESP-IDF mode (no Arduino component usable for this
+            # target). Remove Arduino main.cpp to avoid conflict.
             main_cpp = project_dir / 'main' / 'main.cpp'
             if main_cpp.exists():
                 main_cpp.unlink()
+
+            if self._contains_app_main(main_content):
+                # The user's code is already a plain ESP-IDF program —
+                # compile it verbatim (the template's main.c #includes
+                # sketch_translated.c).
+                (project_dir / 'main' / 'sketch_translated.c').write_text(
+                    main_content, encoding='utf-8'
+                )
+                logger.info(
+                    '[espidf] app_main detected — compiling as plain ESP-IDF C'
+                )
+            elif self.has_arduino:
+                # An Arduino core IS installed, it just cannot build this
+                # target (arduino-esp32 2.x has no esp32c6 support). Refuse
+                # honestly instead of pattern-translating the sketch into
+                # something that doesn't do what the user wrote.
+                core_ver = self._arduino_core_version() or 'unknown'
+                return {
+                    'success': False,
+                    'error': (
+                        f'Arduino sketches are not supported on {idf_target} '
+                        f'yet: the installed arduino-esp32 core '
+                        f'(v{core_ver}) has no {idf_target} support — that '
+                        f'needs arduino-esp32 3.x (ESP-IDF 5.x based), which '
+                        f'is not installed on this server. Meanwhile you can '
+                        f'write the program as plain ESP-IDF C: define '
+                        f'`void app_main(void)` and use IDF APIs '
+                        f'(driver/gpio.h, freertos/task.h, ...) — those '
+                        f'compile and run today.'
+                    ),
+                    'stdout': '',
+                    'stderr': '',
+                }
+            else:
+                # Legacy fallback: no Arduino component installed at all —
+                # translate the common Arduino WiFi/WebServer patterns.
+                translated = self._translate_sketch_to_espidf(main_content)
+                (project_dir / 'main' / 'sketch_translated.c').write_text(
+                    translated, encoding='utf-8'
+                )
 
         # Build using cmake + ninja (more portable than idf.py on Windows)
         build_dir = project_dir / 'build'
         build_dir.mkdir(exist_ok=True)
 
-        env = self._build_env(idf_target)
+        env = self._build_env(
+            idf_target, use_idf5=use_idf5, arduino_mode=arduino_mode
+        )
 
         # Step 1: cmake configure
         cmake_cmd = [
@@ -2162,12 +2820,16 @@ class ESPIDFCompiler:
 
         logger.info(f'[espidf] cmake: {" ".join(cmake_cmd)}')
 
+        # IDF 5.x configure does more work per cold run (component manager,
+        # per-target tool checks) — give it more headroom than the 4.4 flow.
+        cmake_timeout = 300 if use_idf5 else 120
+
         def _run_cmake():
             return _run_with_streaming(
                 cmake_cmd,
                 cwd=str(build_dir),
                 env=env,
-                timeout=120,
+                timeout=cmake_timeout,
                 progress_callback=progress_callback,
             )
 
@@ -2176,7 +2838,7 @@ class ESPIDFCompiler:
         except subprocess.TimeoutExpired:
             return {
                 'success': False,
-                'error': 'ESP-IDF cmake configure timed out (120s)',
+                'error': f'ESP-IDF cmake configure timed out ({cmake_timeout}s)',
                 'stdout': '',
                 'stderr': '',
             }
@@ -2318,7 +2980,7 @@ class ESPIDFCompiler:
         # Step 4: Merge binaries into flash image
         try:
             merged_path = self._merge_flash_image(
-                build_dir, is_c3 or idf_target == 'esp32s3',  # S3 bootloader at 0x0 like C3
+                build_dir, idf_target,
                 flash_size_bytes=flash_size_bytes,
                 spiffs_bin=spiffs_bin,
                 spiffs_offset=spiffs_offset,
