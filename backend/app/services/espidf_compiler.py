@@ -1261,8 +1261,26 @@ class ESPIDFCompiler:
                 # configure). We also invoke cmake directly (not via idf.py),
                 # where the PYTHON property falls back to the bare `python`
                 # from PATH — so the venv's bin must lead the PATH too.
-                for venv in sorted(Path(tools_path).glob('python_env/idf*_env'),
-                                   reverse=True):
+                # Prefer the env matching THIS IDF tree's version (a 5.x env
+                # satisfies 5.x requirements but fails 4.4's dependency check
+                # and vice versa); fall back to the newest available.
+                idf_ver_prefix = 'idf'
+                try:
+                    ver_src = open(os.path.join(self.idf_path, 'tools', 'cmake',
+                                                'version.cmake'),
+                                   encoding='utf-8').read()
+                    major = re.search(r'IDF_VERSION_MAJOR (\d+)', ver_src)
+                    minor = re.search(r'IDF_VERSION_MINOR (\d+)', ver_src)
+                    if major and minor:
+                        idf_ver_prefix = f'idf{major.group(1)}.{minor.group(1)}'
+                except OSError:
+                    pass
+                venv_candidates = sorted(
+                    Path(tools_path).glob(f'python_env/{idf_ver_prefix}*_env'),
+                    reverse=True,
+                ) or sorted(Path(tools_path).glob('python_env/idf*_env'),
+                            reverse=True)
+                for venv in venv_candidates:
                     if (venv / 'bin' / 'python').exists():
                         env['IDF_PYTHON_ENV_PATH'] = str(venv)
                         env['PATH'] = (str(venv / 'bin') + os.pathsep
