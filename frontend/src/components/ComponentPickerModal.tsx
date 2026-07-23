@@ -9,7 +9,7 @@
  * - Click to select and add component
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { ComponentRegistry } from '../services/ComponentRegistry';
@@ -33,7 +33,12 @@ interface CardHoverApi {
 import type { BoardKind } from '../types/board';
 import { BOARD_KIND_LABELS } from '../types/board';
 import { isProBoardKind } from '../lib/proBoardGate';
-import { getProBoard, listProBoards } from '../lib/proBoardRegistry';
+import {
+  getProBoard,
+  listProBoards,
+  subscribeProBoards,
+  getProBoardsVersion,
+} from '../lib/proBoardRegistry';
 import {
   ONLINE_ONLY_BOARD_ADS,
   ONLINE_ONLY_COMPONENT_ADS,
@@ -204,12 +209,30 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
     }
 
     return components;
-  }, [searchQuery, selectedCategory, registry, isLoading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, selectedCategory, registry, isLoading, registryVersion]);
+
+  // Late-overlay registrations must re-render an already-mounted picker:
+  // the @pro import is dynamic, so boards/components can register AFTER the
+  // first render. Without these subscriptions the memos below freeze on the
+  // pre-registration state (boards missing, ONLINE ads instead of the real
+  // components - and which one you got depended on a reload race).
+  const proBoardsVersion = useSyncExternalStore(
+    subscribeProBoards,
+    getProBoardsVersion,
+    getProBoardsVersion,
+  );
+  const registryVersion = useSyncExternalStore(
+    registry.subscribe,
+    registry.getVersion,
+    registry.getVersion,
+  );
 
   // Boards list: static OSS kinds + overlay-registered boards (proBoardRegistry).
   const allBoards = useMemo(() => {
     return [...ALL_BOARDS, ...(listProBoards().map((d) => d.kind) as BoardKind[])];
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proBoardsVersion]);
 
   // Online-only component ads: shown where the real component would sit, and
   // hidden automatically in any build whose registry has the real component
@@ -223,7 +246,8 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
         (selectedCategory === 'all' || ad.category === selectedCategory) &&
         (!q || ad.label.toLowerCase().includes(q)),
     );
-  }, [registry, isLoading, searchQuery, selectedCategory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registry, isLoading, searchQuery, selectedCategory, registryVersion, proBoardsVersion]);
 
   // Get available categories
   const categories = useMemo(() => {

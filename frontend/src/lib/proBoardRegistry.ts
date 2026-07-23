@@ -96,6 +96,21 @@ export interface ProBoardDef {
 
 const registry = new Map<string, ProBoardDef>();
 
+// Registration happens when the overlay's dynamic import lands - potentially
+// AFTER a consumer rendered and memoized its board list. Subscribers re-render
+// on every registration (same contract as proRoutes / registerProExamples).
+let version = 0;
+const listeners = new Set<() => void>();
+
+export function subscribeProBoards(cb: () => void): () => void {
+  listeners.add(cb);
+  return () => listeners.delete(cb);
+}
+
+export function getProBoardsVersion(): number {
+  return version;
+}
+
 export function registerProBoards(defs: ProBoardDef[]): void {
   for (const def of defs) {
     registry.set(def.kind, def);
@@ -106,6 +121,8 @@ export function registerProBoards(defs: ProBoardDef[]): void {
     (BOARD_KIND_FQBN as Record<string, string | null>)[kind] = def.fqbn;
     if (def.supportsMicroPython) BOARD_SUPPORTS_MICROPYTHON.add(kind);
   }
+  version++;
+  for (const l of listeners) l();
 }
 
 export function getProBoard(kind: string): ProBoardDef | undefined {
