@@ -134,7 +134,18 @@ export const ONLINE_ONLY_BOARD_ADS: OnlineOnlyBoardAd[] = [
     description: 'Thumb-size RP2040 (Seeed Studio) - in-browser emulation',
     thumbnailSvg: '<svg width="72" height="72" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg"><rect x="18" y="8" width="36" height="56" rx="7" fill="#17181c" stroke="#4a7dbd" stroke-width="1.6"/><rect x="28" y="5" width="16" height="8" rx="2" fill="#b9bec7"/><rect x="27" y="26" width="18" height="14" rx="2" fill="#b9bec7"/><g fill="#d8b23a"><circle cx="20" cy="20" r="2"/><circle cx="20" cy="28" r="2"/><circle cx="20" cy="36" r="2"/><circle cx="20" cy="44" r="2"/><circle cx="20" cy="52" r="2"/><circle cx="52" cy="20" r="2"/><circle cx="52" cy="28" r="2"/><circle cx="52" cy="36" r="2"/><circle cx="52" cy="44" r="2"/><circle cx="52" cy="52" r="2"/></g><text x="36" y="59" text-anchor="middle" font-size="6" font-family="monospace" fill="#e8e8ec">RP</text></svg>',
   },
-
+,
+  {
+    id: 'unihiker-m10',
+    label: 'UNIHIKER M10',
+    description: 'DFRobot IoT SBC: RK3308 Linux + 2.8" touchscreen (micro:bit edge) - available in the online editor',
+    thumbnailSvg:
+      '<svg width="72" height="72" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">' +
+      '<rect x="12" y="6" width="48" height="52" rx="5" fill="#12467f" stroke="#0d3767"/>' +
+      '<rect x="18" y="12" width="36" height="30" rx="2" fill="#0d1b2e"/>' +
+      '<text x="36" y="30" text-anchor="middle" font-size="6" font-family="monospace" fill="#4fc3f7">UNIHIKER</text>' +
+      '<rect x="12" y="58" width="48" height="8" fill="#c9a227"/></svg>',
+  }
 ];
 
 /** Advertisement entry for a hosted-editor-only COMPONENT (picker part).
