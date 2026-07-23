@@ -485,7 +485,9 @@
  * ------------------------------------------------------------------ */
 .component-info-panel {
   position: fixed;
-  z-index: 2000;
+  /* Above the picker overlay (9000) — the popover is summoned by hovering
+     cards INSIDE that modal, so anything lower hides it behind the list. */
+  z-index: 9100;
   width: 316px;
   max-height: 74vh;
   overflow-y: auto;

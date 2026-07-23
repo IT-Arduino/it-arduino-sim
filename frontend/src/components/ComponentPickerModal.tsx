@@ -576,10 +576,17 @@ const ComponentCard: React.FC<ComponentCardProps> = ({ component, onSelect, hove
     (element as HTMLElement).style.transform = `scale(${scale})`;
     (element as HTMLElement).style.transformOrigin = 'center center';
 
-    // Pass the preset's default value through so value-sensitive elements
-    // (e.g. wokwi-resistor color bands) render the right look in the picker.
-    if (component.defaultValues?.value !== undefined) {
-      (element as any).value = component.defaultValues.value;
+    // Pass the preset's defaults through so variant-sensitive elements render
+    // the right look in the picker — e.g. wokwi-resistor color bands (value)
+    // or the M5Stack Chain matrix light/dark housing (mono). Same property
+    // assignment DynamicComponent performs when the part is placed, so any
+    // element that tolerates placement tolerates the preview.
+    for (const [key, val] of Object.entries(component.defaultValues ?? {})) {
+      try {
+        (element as any)[key] = val;
+      } catch {
+        /* read-only prop on some upstream element — skip */
+      }
     }
 
     // Set default properties for better preview appearance
