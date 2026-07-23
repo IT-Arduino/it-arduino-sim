@@ -11,7 +11,7 @@ import { ComponentPickerModal } from '../ComponentPickerModal';
 import { ComponentPropertyDialog } from './ComponentPropertyDialog';
 import { CustomChipDialog } from '../customChips/CustomChipDialog';
 import { SensorControlPanel } from './SensorControlPanel';
-import { SENSOR_CONTROLS } from '../../simulation/sensorControlConfig';
+import { SENSOR_CONTROLS, getSensorControl } from '../../simulation/sensorControlConfig';
 import { DynamicComponent, createComponentFromMetadata } from '../DynamicComponent';
 import { InstrumentComponent } from '../components-instruments/InstrumentComponent';
 import { ComponentRegistry } from '../../services/ComponentRegistry';
@@ -996,7 +996,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
             const component = componentsRef.current.find((c) => c.id === touchId);
             if (component) {
               if (interactionRunningRef.current) {
-                if (SENSOR_CONTROLS[component.metadataId] !== undefined) {
+                if (getSensorControl(component.metadataId) !== undefined) {
                   setSensorControlComponentId(touchId);
                   setSensorControlMetadataId(component.metadataId);
                 }
@@ -1417,7 +1417,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
     // panel). Mirrors the touch tap flow above.
     if (interactionRunning) {
       const component = components.find((c) => c.id === componentId);
-      const isSensor = !!component && SENSOR_CONTROLS[component.metadataId] !== undefined;
+      const isSensor = !!component && getSensorControl(component.metadataId) !== undefined;
       if (!isSensor) return;
     }
 
@@ -1710,7 +1710,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
               // handle its own clicks, so we suppress the property
               // dialog entirely. This is the path that also unblocks
               // wokwi-slide-switch toggling in the digital examples.
-              if (SENSOR_CONTROLS[component.metadataId] !== undefined) {
+              if (getSensorControl(component.metadataId) !== undefined) {
                 setSensorControlComponentId(draggedComponentId);
                 setSensorControlMetadataId(component.metadataId);
               }

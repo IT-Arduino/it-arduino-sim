@@ -53,7 +53,7 @@ import {
   updateWires as icUpdateWires,
   setInterconnectRuntime,
 } from '../simulation/Interconnect';
-import { SENSOR_CONTROLS } from '../simulation/sensorControlConfig';
+import { SENSOR_CONTROLS, getSensorControl } from '../simulation/sensorControlConfig';
 import { dispatchSensorUpdate } from '../simulation/SensorUpdateRegistry';
 
 // ── Sensor pre-registration ──────────────────────────────────────────────────
@@ -2150,18 +2150,18 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
       // 2.5V) and refreshes the panel's cached value; bumping sensorResetNonce
       // remounts the open SensorControlPanel so its slider snaps back too.
       const sensorComps = get().components.filter(
-        (c) => c.metadataId && SENSOR_CONTROLS[c.metadataId],
+        (c) => c.metadataId && getSensorControl(c.metadataId),
       );
       if (sensorComps.length > 0) {
         set((s) => ({
           components: s.components.map((c) => {
-            const def = c.metadataId ? SENSOR_CONTROLS[c.metadataId] : undefined;
+            const def = getSensorControl(c.metadataId);
             return def ? { ...c, properties: { ...c.properties, ...def.defaultValues } } : c;
           }),
           sensorResetNonce: s.sensorResetNonce + 1,
         }));
         for (const c of sensorComps) {
-          dispatchSensorUpdate(c.id, SENSOR_CONTROLS[c.metadataId].defaultValues);
+          dispatchSensorUpdate(c.id, getSensorControl(c.metadataId)!.defaultValues);
         }
       }
     },
