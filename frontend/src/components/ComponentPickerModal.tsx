@@ -141,6 +141,22 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
     'all',
   );
   const [registry] = useState(() => ComponentRegistry.getInstance());
+  // Late-overlay registrations must re-render an already-mounted picker:
+  // the @pro import is dynamic, so boards/components can register AFTER the
+  // first render. Without these subscriptions the memos below freeze on the
+  // pre-registration state (boards missing, ONLINE ads instead of the real
+  // components - and which one you got depended on a reload race).
+  const proBoardsVersion = useSyncExternalStore(
+    subscribeProBoards,
+    getProBoardsVersion,
+    getProBoardsVersion,
+  );
+  const registryVersion = useSyncExternalStore(
+    registry.subscribe,
+    registry.getVersion,
+    registry.getVersion,
+  );
+
   const [isLoading, setIsLoading] = useState(true);
   // Floating datasheet popover shown on card hover. A single instance is
   // driven from here so only one panel ever exists in the DOM. Hiding is
@@ -212,21 +228,6 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, selectedCategory, registry, isLoading, registryVersion]);
 
-  // Late-overlay registrations must re-render an already-mounted picker:
-  // the @pro import is dynamic, so boards/components can register AFTER the
-  // first render. Without these subscriptions the memos below freeze on the
-  // pre-registration state (boards missing, ONLINE ads instead of the real
-  // components - and which one you got depended on a reload race).
-  const proBoardsVersion = useSyncExternalStore(
-    subscribeProBoards,
-    getProBoardsVersion,
-    getProBoardsVersion,
-  );
-  const registryVersion = useSyncExternalStore(
-    registry.subscribe,
-    registry.getVersion,
-    registry.getVersion,
-  );
 
   // Boards list: static OSS kinds + overlay-registered boards (proBoardRegistry).
   const allBoards = useMemo(() => {
