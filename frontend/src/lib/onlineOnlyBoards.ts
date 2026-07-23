@@ -115,7 +115,26 @@ export const ONLINE_ONLY_BOARD_ADS: OnlineOnlyBoardAd[] = [
       '<rect x="12" y="21" width="48" height="30" fill="#f2f0ea"/>' +
       '<text x="36" y="38" text-anchor="middle" font-size="8" font-family="monospace" fill="#17181c">BADGER</text>' +
       '<circle cx="36" cy="12" r="2.5" fill="none" stroke="#3a3d42" stroke-width="2"/></svg>',
+  },,
+{
+    id: 'xiao-esp32s3-sense',
+    label: 'XIAO ESP32S3 Sense',
+    description: 'Thumb-size ESP32-S3 with camera + mic (Seeed Studio) - in-browser emulation',
+    thumbnailSvg: '<svg width="72" height="72" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg"><rect x="18" y="8" width="36" height="56" rx="7" fill="#17181c" stroke="#d9822b" stroke-width="1.6"/><rect x="28" y="5" width="16" height="8" rx="2" fill="#b9bec7"/><rect x="27" y="26" width="18" height="14" rx="2" fill="#b9bec7"/><g fill="#d8b23a"><circle cx="20" cy="20" r="2"/><circle cx="20" cy="28" r="2"/><circle cx="20" cy="36" r="2"/><circle cx="20" cy="44" r="2"/><circle cx="20" cy="52" r="2"/><circle cx="52" cy="20" r="2"/><circle cx="52" cy="28" r="2"/><circle cx="52" cy="36" r="2"/><circle cx="52" cy="44" r="2"/><circle cx="52" cy="52" r="2"/></g><text x="36" y="59" text-anchor="middle" font-size="6" font-family="monospace" fill="#e8e8ec">S3</text></svg>',
   },
+  {
+    id: 'xiao-esp32c6',
+    label: 'XIAO ESP32C6',
+    description: 'Thumb-size ESP32-C6: WiFi 6, BLE, 802.15.4 (Seeed Studio) - in-browser emulation',
+    thumbnailSvg: '<svg width="72" height="72" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg"><rect x="18" y="8" width="36" height="56" rx="7" fill="#17181c" stroke="#3f9d6b" stroke-width="1.6"/><rect x="28" y="5" width="16" height="8" rx="2" fill="#b9bec7"/><rect x="27" y="26" width="18" height="14" rx="2" fill="#b9bec7"/><g fill="#d8b23a"><circle cx="20" cy="20" r="2"/><circle cx="20" cy="28" r="2"/><circle cx="20" cy="36" r="2"/><circle cx="20" cy="44" r="2"/><circle cx="20" cy="52" r="2"/><circle cx="52" cy="20" r="2"/><circle cx="52" cy="28" r="2"/><circle cx="52" cy="36" r="2"/><circle cx="52" cy="44" r="2"/><circle cx="52" cy="52" r="2"/></g><text x="36" y="59" text-anchor="middle" font-size="6" font-family="monospace" fill="#e8e8ec">C6</text></svg>',
+  },
+  {
+    id: 'xiao-rp2040',
+    label: 'XIAO RP2040',
+    description: 'Thumb-size RP2040 (Seeed Studio) - in-browser emulation',
+    thumbnailSvg: '<svg width="72" height="72" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg"><rect x="18" y="8" width="36" height="56" rx="7" fill="#17181c" stroke="#4a7dbd" stroke-width="1.6"/><rect x="28" y="5" width="16" height="8" rx="2" fill="#b9bec7"/><rect x="27" y="26" width="18" height="14" rx="2" fill="#b9bec7"/><g fill="#d8b23a"><circle cx="20" cy="20" r="2"/><circle cx="20" cy="28" r="2"/><circle cx="20" cy="36" r="2"/><circle cx="20" cy="44" r="2"/><circle cx="20" cy="52" r="2"/><circle cx="52" cy="20" r="2"/><circle cx="52" cy="28" r="2"/><circle cx="52" cy="36" r="2"/><circle cx="52" cy="44" r="2"/><circle cx="52" cy="52" r="2"/></g><text x="36" y="59" text-anchor="middle" font-size="6" font-family="monospace" fill="#e8e8ec">RP</text></svg>',
+  },
+
 ];
 
 /** Advertisement entry for a hosted-editor-only COMPONENT (picker part).
