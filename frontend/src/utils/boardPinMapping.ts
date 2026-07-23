@@ -243,7 +243,14 @@ export const BOARD_COMPONENT_IDS = [
  * Check whether a componentId represents a board (not an external component).
  */
 export function isBoardComponent(componentId: string): boolean {
-  return BOARD_COMPONENT_IDS.some((id) => componentId === id || componentId.startsWith(id));
+  if (BOARD_COMPONENT_IDS.some((id) => componentId === id || componentId.startsWith(id))) {
+    return true;
+  }
+  // Overlay-registered boards (proBoardRegistry) are boards too — recognized
+  // without listing their closed names in the OSS array. This is what lets a
+  // wire to a pro board's Dx pad resolve through boardPinToNumber (which also
+  // consults the pro def), fixing the "wire to D2 does nothing" case.
+  return getProBoard(componentId) !== undefined;
 }
 
 /**
