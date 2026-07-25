@@ -26,6 +26,12 @@ def make_compiler() -> ESPIDFCompiler:
     comp.idf_path = ''
     comp.arduino_path = ''
     comp.has_arduino = False
+    # The v5 half of the per-compile IDF selection. A bare __new__ object
+    # skips __init__, so anything reached through _idf_root / _arduino_path_for
+    # has to be declared here or the call dies on AttributeError.
+    comp.idf5_path = ''
+    comp.arduino5_path = ''
+    comp.has_arduino5 = False
     return comp
 
 
