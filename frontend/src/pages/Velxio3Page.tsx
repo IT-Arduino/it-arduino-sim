@@ -238,7 +238,6 @@ const CHANGE_SECTIONS = [
     color: '#c8701a',
     items: [
       'Full undo/redo: components, wires, moves, rotations, properties',
-      'Draggable minimap with a moveable viewport',
       'Drag-to-move parts while the simulation runs',
       'Wires follow component rotation automatically',
       'Component deletion cascades to connected wires',
