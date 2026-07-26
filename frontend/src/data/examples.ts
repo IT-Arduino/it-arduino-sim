@@ -5975,6 +5975,11 @@ void loop() {
 }`,
     components: [
       { type: 'wokwi-pushbutton', id: 'c3-btn1', x: 440, y: 120, properties: {} },
+      // 220 ohm en serie con el LED — nunca cuelgues un LED directo de un GPIO.
+      // (3.3V - ~2.8V del azul) / 220R ~= 2 mA, holgadamente por debajo de los 20 mA
+      // que aguanta. Sin ella el verificador de circuito calcula 506 mA y, con razon,
+      // se niega a ejecutar: en una placa de verdad ese LED dura un suspiro.
+      { type: 'wokwi-resistor', id: 'c3-r-led', x: 440, y: 200, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'c3-led-btn', x: 440, y: 260, properties: { color: 'blue' } },
     ],
     wires: [
@@ -5987,6 +5992,12 @@ void loop() {
       {
         id: 'c3-bw2',
         start: { componentId: 'arduino-uno', pinName: '8' },
+        end: { componentId: 'c3-r-led', pinName: '1' },
+        color: '#2244ff',
+      },
+      {
+        id: 'c3-bw2b',
+        start: { componentId: 'c3-r-led', pinName: '2' },
         end: { componentId: 'c3-led-btn', pinName: 'A' },
         color: '#2244ff',
       },
@@ -6503,6 +6514,10 @@ void loop() {
 }`,
     components: [
       { type: 'wokwi-pushbutton', id: 'pico-btn1', x: 440, y: 120, properties: {} },
+      // 220 ohm en serie con el LED — igual que en el resto de ejemplos. Un LED
+      // colgado directo de un GPIO se pasa del limite de corriente y el verificador
+      // de circuito lo bloquea, con razon.
+      { type: 'wokwi-resistor', id: 'pico-r-led', x: 440, y: 200, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'pico-led-btn', x: 440, y: 260, properties: { color: 'yellow' } },
     ],
     wires: [
@@ -6515,6 +6530,12 @@ void loop() {
       {
         id: 'pb-led',
         start: { componentId: 'arduino-uno', pinName: 'GP3' },
+        end: { componentId: 'pico-r-led', pinName: '1' },
+        color: '#ffcc00',
+      },
+      {
+        id: 'pb-led-r',
+        start: { componentId: 'pico-r-led', pinName: '2' },
         end: { componentId: 'pico-led-btn', pinName: 'A' },
         color: '#ffcc00',
       },
