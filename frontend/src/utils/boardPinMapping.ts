@@ -350,6 +350,18 @@ export function boardPinToNumber(boardId: string, pinName: string): number | nul
     return null;
   }
 
+  // Overlay S3 boards whose pads are bare GPIO numbers but whose kind does not
+  // start with 'esp32' — the M5 Cardputer's EXT header and Grove Port A. Its
+  // pads go up to G40, above the classic ESP32's 39, so the shared branch below
+  // would reject the two highest ones even if the kind matched.
+  if (boardId === 'cardputer-adv') {
+    if (pinName.startsWith('GND') || pinName.startsWith('3V3') || pinName.startsWith('5V'))
+      return -1;
+    const num = parseInt(pinName, 10);
+    if (!isNaN(num) && num >= 0 && num <= 48) return num; // S3 has 48 GPIOs
+    return null;
+  }
+
   // ESP32 / ESP32-S3 / ESP32-C3 — GPIO numbers used directly
   if (boardId === 'esp32' || boardId.startsWith('esp32')) {
     // Power / GND pins (GND, GND.1, 3V3, 3V3.1, 5V, 5V.1, etc.)
