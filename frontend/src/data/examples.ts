@@ -5981,7 +5981,7 @@ void loop() {
       {
         id: 'c3-bw1',
         start: { componentId: 'arduino-uno', pinName: '9' },
-        end: { componentId: 'c3-btn1', pinName: '1a' },
+        end: { componentId: 'c3-btn1', pinName: '1.l' },
         color: '#00aaff',
       },
       {
@@ -5998,7 +5998,7 @@ void loop() {
       },
       {
         id: 'c3-bw4',
-        start: { componentId: 'c3-btn1', pinName: '1b' },
+        start: { componentId: 'c3-btn1', pinName: '2.l' },
         end: { componentId: 'arduino-uno', pinName: 'GND.9' },
         color: '#000000',
       },
@@ -6509,7 +6509,7 @@ void loop() {
       {
         id: 'pb-btn',
         start: { componentId: 'arduino-uno', pinName: 'GP2' },
-        end: { componentId: 'pico-btn1', pinName: '1a' },
+        end: { componentId: 'pico-btn1', pinName: '1.l' },
         color: '#00aaff',
       },
       {
@@ -6526,7 +6526,7 @@ void loop() {
       },
       {
         id: 'pb-btn-gnd',
-        start: { componentId: 'pico-btn1', pinName: '1b' },
+        start: { componentId: 'pico-btn1', pinName: '2.l' },
         end: { componentId: 'arduino-uno', pinName: 'GND.1' },
         color: '#000000',
       },

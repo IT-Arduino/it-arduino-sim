@@ -1298,7 +1298,10 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
         const boardInstance = boards.find((b) => b.id === boardId);
         const lookupKey = boardInstance ? boardInstance.boardKind : boardId;
         const gpioPin = boardPinToNumber(lookupKey, otherEndpoint.pinName);
-        if (gpioPin === null) return;
+        // boardPinToNumber returns -1 (not null) for power/ground pins, so a `=== null`
+        // guard let every button's GND leg through and registered a SECOND listener pair
+        // aimed at pin -1.
+        if (gpioPin === null || gpioPin < 0) return;
 
         // Delay lookup so the web component has time to render
         const timeout = setTimeout(() => {
@@ -1306,8 +1309,25 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
           if (!el) return;
           const tag = el.tagName.toLowerCase();
 
-          // Push-button: forward press/release as GPIO level changes
-          if (tag === 'wokwi-pushbutton') {
+          // Push-button: forward press/release as GPIO level changes.
+          //
+          // ONLY for simulators that opt out of the electrical solve. This shortcut
+          // hardcodes "pressed = HIGH", which is backwards for the canonical Arduino
+          // button (pin -> switch -> GND with INPUT_PULLUP, active-LOW) — pressing drove
+          // the pin to its IDLE level and releasing drove it to the ACTIVE one. It also
+          // wrote straight into the emulator's input latch behind connectDigitalInputsToMcu's
+          // back, desyncing the lastLevel cache that file documents itself as the sole
+          // writer of. esp32-doom was the visible casualty: four active-low buttons that
+          // did the opposite of what you pressed.
+          //
+          // When spiceDrivenInputs is set, the button's level comes from the circuit
+          // instead: the guest's own INPUT_PULLUP (reported as a gpio_pull) stamps a 45k
+          // pull-up to the 3V3 rail, and closing the switch shorts the net to whatever its
+          // other leg is wired to. That gets the polarity right from the wiring rather
+          // than assuming it, and works the same for a button wired to 3V3.
+          const spiceDriven = (getBoardSimulator(boardId) as { spiceDrivenInputs?: boolean } | null)
+            ?.spiceDrivenInputs;
+          if (tag === 'wokwi-pushbutton' && !spiceDriven) {
             const onPress = () => bridge.sendPinEvent(gpioPin, true);
             const onRelease = () => bridge.sendPinEvent(gpioPin, false);
             el.addEventListener('button-press', onPress);
