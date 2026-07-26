@@ -1360,11 +1360,27 @@ class ESPIDFCompiler:
         )
         return ['user_libs_all'], header_to_comp
 
-    def _detect_external_includes(self, code: str) -> list[str]:
-        """Return library header names that are likely from external libraries."""
+    def _detect_external_includes(
+        self, code: str, own_files: set[str] | None = None
+    ) -> list[str]:
+        """Return library header names that are likely from external libraries.
+
+        BOTH include forms count. Arduino treats `#include "Lib.h"` and
+        `#include <Lib.h>` alike for libraries, and vendors' own examples lean on
+        the quoted form — M5Stack ships `#include "M5Cardputer.h"` in theirs. Only
+        scanning the angled form meant such a sketch never reached the library
+        resolver at all and died on `fatal error: M5Cardputer.h: No such file`,
+        while the very same sketch with angle brackets built fine.
+
+        `own_files` are the sketch's own file names; a quoted include naming one
+        of them is a project-local header, not a library.
+        """
         headers = []
-        for m in re.finditer(r'#\s*include\s*<([^>]+)>', code):
-            h = m.group(1)
+        own = own_files or set()
+        for m in re.finditer(r'#\s*include\s*(?:<([^>]+)>|"([^"]+)")', code):
+            h = m.group(1) or m.group(2)
+            if h in own:
+                continue
             if h in self._BUILTIN_HEADERS:
                 continue
             # Skip paths with / (esp-idf internal headers like freertos/FreeRTOS.h)
@@ -2497,9 +2513,10 @@ class ESPIDFCompiler:
         # which causes intermittent "cmake configure failed" and stale-object
         # false positives when a different project/manifest compiles next.
         _sketch_text = '\n'.join(f.get('content', '') for f in files)
+        _own_names = {Path(str(f.get('name') or '')).name for f in files}
         _core_hdrs = self._core_provided_headers()
         _ext_inc_token = ','.join(sorted(
-            h for h in set(self._detect_external_includes(_sketch_text))
+            h for h in set(self._detect_external_includes(_sketch_text, _own_names))
             if h not in _core_hdrs
         ))
 
@@ -2811,13 +2828,15 @@ class ESPIDFCompiler:
             # was scanned, so libs only referenced from project headers
             # never reached _resolve_library_components and the build
             # died with "fatal error: ESP32Servo.h: No such file".
+            own_names = {PurePosixPath(str(_f.get('name') or '').replace('\\', '/')).name
+                         for _f in files}
             ext_headers_set: set[str] = set(
-                self._detect_external_includes(main_content)
+                self._detect_external_includes(main_content, own_names)
             )
             for _f in files:
                 if _f.get('name', '').endswith(('.h', '.hpp', '.ino', '.c', '.cpp')):
                     ext_headers_set.update(
-                        self._detect_external_includes(_f.get('content', ''))
+                        self._detect_external_includes(_f.get('content', ''), own_names)
                     )
             ext_headers = list(ext_headers_set)
             component_names: list[str] = []

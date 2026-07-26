@@ -455,3 +455,48 @@ if __name__ == '__main__':
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
     sys.exit(0 if result.wasSuccessful() else 1)
+
+
+class TestDetectExternalIncludesQuotedForm(unittest.TestCase):
+    """Both include forms must reach the library resolver.
+
+    Arduino treats `#include "Lib.h"` and `#include <Lib.h>` alike for
+    libraries, and vendors' own examples use the quoted form — M5Stack's
+    Cardputer examples open with `#include "M5Cardputer.h"`. Scanning only the
+    angled form meant those sketches never reached the resolver and died on
+    `fatal error: M5Cardputer.h: No such file`, while the same sketch with angle
+    brackets built fine.
+    """
+
+    def setUp(self):
+        self.comp = make_compiler()
+
+    def test_angled_include_is_detected(self):
+        self.assertIn('M5Cardputer.h',
+                      self.comp._detect_external_includes('#include <M5Cardputer.h>'))
+
+    def test_quoted_include_is_detected(self):
+        self.assertIn('M5Cardputer.h',
+                      self.comp._detect_external_includes('#include "M5Cardputer.h"'))
+
+    def test_both_forms_in_one_sketch(self):
+        code = '#include "M5Cardputer.h"\n#include <M5GFX.h>\n'
+        found = self.comp._detect_external_includes(code)
+        self.assertIn('M5Cardputer.h', found)
+        self.assertIn('M5GFX.h', found)
+
+    def test_a_projects_own_header_is_not_a_library(self):
+        code = '#include "Common.h"\n#include "M5Cardputer.h"\n'
+        found = self.comp._detect_external_includes(code, {'Common.h', 'sketch.ino'})
+        self.assertNotIn('Common.h', found)
+        self.assertIn('M5Cardputer.h', found)
+
+    def test_idf_internal_headers_are_still_skipped(self):
+        code = '#include "freertos/FreeRTOS.h"\n#include "esp_wifi.h"\n'
+        self.assertEqual(self.comp._detect_external_includes(code), [])
+
+    def test_spacing_variants(self):
+        for code in ('#include"M5Cardputer.h"', '#  include   "M5Cardputer.h"'):
+            with self.subTest(code=code):
+                self.assertIn('M5Cardputer.h',
+                              self.comp._detect_external_includes(code))
