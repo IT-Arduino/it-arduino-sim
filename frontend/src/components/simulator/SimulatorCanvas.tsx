@@ -48,6 +48,7 @@ import {
   seatOnDrop,
   snapPositionToBreadboard,
 } from '../../utils/breadboardSnap';
+import { snapBoardToSocket } from '../../utils/socketSnap';
 import {
   findWireNearPoint,
   findSegmentNearPoint,
@@ -878,13 +879,13 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
         const touchId = touchDraggedComponentIdRef.current;
         if (touchId && touchId.startsWith('__board__:')) {
           const boardId = touchId.slice('__board__:'.length);
-          setBoardPosition(
-            {
-              x: world.x - touchDragOffsetRef.current.x,
-              y: world.y - touchDragOffsetRef.current.y,
-            },
-            boardId,
-          );
+          const nb = {
+            x: world.x - touchDragOffsetRef.current.x,
+            y: world.y - touchDragOffsetRef.current.y,
+          };
+          const bk = useSimulatorStore.getState().boards.find((b) => b.id === boardId)?.boardKind;
+          const seated = bk && snapBoardToSocket(boardId, bk, nb.x, nb.y, componentsRef.current ?? []);
+          setBoardPosition(seated || nb, boardId);
         } else if (touchId === '__board__') {
           setBoardPosition({
             x: world.x - touchDragOffsetRef.current.x,
@@ -1515,7 +1516,14 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
       const world = toWorld(e.clientX, e.clientY);
       if (draggedComponentId.startsWith('__board__:')) {
         const boardId = draggedComponentId.slice('__board__:'.length);
-        setBoardPosition({ x: world.x - dragOffset.x, y: world.y - dragOffset.y }, boardId);
+        {
+          // Socket magnet: a shield that declares boardSocket (the Round
+          // Display's XIAO header) grabs a matching board dragged onto it.
+          const nb = { x: world.x - dragOffset.x, y: world.y - dragOffset.y };
+          const bk = useSimulatorStore.getState().boards.find((b) => b.id === boardId)?.boardKind;
+          const seated = bk && snapBoardToSocket(boardId, bk, nb.x, nb.y, componentsRef.current ?? []);
+          setBoardPosition(seated || nb, boardId);
+        }
       } else if (draggedComponentId === '__board__') {
         // legacy fallback
         setBoardPosition({ x: world.x - dragOffset.x, y: world.y - dragOffset.y });
