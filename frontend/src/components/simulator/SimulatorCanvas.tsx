@@ -1,4 +1,8 @@
-import { useSimulatorStore, getEsp32Bridge, getBoardSimulator } from '../../store/useSimulatorStore';
+import {
+  useSimulatorStore,
+  getEsp32Bridge,
+  getBoardSimulator,
+} from '../../store/useSimulatorStore';
 import { getProBoard } from '../../lib/proBoardRegistry';
 import { useElectricalStore } from '../../store/useElectricalStore';
 import { openDeviceGateway } from '../../lib/openDeviceGateway';
@@ -6,7 +10,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Undo2, Redo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ESP32_ADC_PIN_MAP } from '../velxio-components/Esp32Element';
+import { adcPinMapFor } from '../velxio-components/Esp32Element';
 import { ComponentPickerModal } from '../ComponentPickerModal';
 import { ComponentPropertyDialog } from './ComponentPropertyDialog';
 import { CustomChipDialog } from '../customChips/CustomChipDialog';
@@ -62,7 +66,11 @@ import { useIsCoarsePointer } from '../../utils/useTouchDevice';
 import type { ComponentMetadata } from '../../types/component-metadata';
 import type { BoardKind } from '../../types/board';
 import { BOARD_KIND_FQBN, boardDisplayName } from '../../types/board';
-import { boardGateDecision, proBoardFeatureName, triggerProUpgradePrompt } from '../../lib/proBoardGate';
+import {
+  boardGateDecision,
+  proBoardFeatureName,
+  triggerProUpgradePrompt,
+} from '../../lib/proBoardGate';
 import { FlashModal } from './FlashModal';
 import { isTauri as isTauriRuntimeFn } from '../../desktop/tauriBridge';
 import { isEsp32Family } from '../../types/boardOptions';
@@ -266,9 +274,10 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
   // body (not a tiny pin overlay) and we want to let them pick a pin from a
   // list. `kind` distinguishes board vs component so we can pull the right
   // metadata for the dialog title.
-  const [pinPicker, setPinPicker] = useState<
-    { kind: 'component' | 'board'; targetId: string } | null
-  >(null);
+  const [pinPicker, setPinPicker] = useState<{
+    kind: 'component' | 'board';
+    targetId: string;
+  } | null>(null);
 
   // Component property dialog
   const [showPropertyDialog, setShowPropertyDialog] = useState(false);
@@ -459,9 +468,11 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
   // DRAG_PROMOTE_THRESHOLD_PX, we cancel the passthrough and start a real
   // drag — so the user can rearrange interactive parts live without first
   // pausing the simulation.
-  const pendingTouchDragRef = useRef<
-    { componentId: string; startX: number; startY: number } | null
-  >(null);
+  const pendingTouchDragRef = useRef<{
+    componentId: string;
+    startX: number;
+    startY: number;
+  } | null>(null);
   const touchOnPinRef = useRef(false);
   const lastTapTimeRef = useRef(0);
 
@@ -763,9 +774,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                     clientY: pending.startY,
                   }),
                 );
-                target.dispatchEvent(
-                  new MouseEvent('mouseleave', { bubbles: false }),
-                );
+                target.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false }));
               }
             }
             touchPassthroughRef.current = false;
@@ -901,8 +910,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
             const cur = useSimulatorStore
               .getState()
               .components.find((c) => c.id === touchDraggedComponentIdRef.current);
-            const snapped =
-              cur && snapPositionToBreadboard(cur, nx, ny, simState.components);
+            const snapped = cur && snapPositionToBreadboard(cur, nx, ny, simState.components);
             if (snapped) {
               nx = snapped.x;
               ny = snapped.y;
@@ -1085,7 +1093,9 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
               world.x,
               world.y,
             );
-            useSimulatorStore.getState().updateWire(wire.id, { waypoints: newWaypoints, autoRouted: false });
+            useSimulatorStore
+              .getState()
+              .updateWire(wire.id, { waypoints: newWaypoints, autoRouted: false });
             useSimulatorStore.getState().setSelectedWire(wire.id);
           }
           lastTapTimeRef.current = 0;
@@ -1340,7 +1350,9 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
 
           // Potentiometer: forward analog value as ADC millivolts
           if (tag === 'wokwi-potentiometer' && selfEndpoint.pinName === 'SIG') {
-            const adcInfo = ESP32_ADC_PIN_MAP[gpioPin];
+            // Per CHIP: the S3's ADC pins are absent from the classic map (knob did
+            // nothing) and the C3/C6 would have pushed GPIO0 to channel 9 instead of 0.
+            const adcInfo = adcPinMapFor(lookupKey)[gpioPin];
             if (adcInfo) {
               const onInput = (e: Event) => {
                 const pct = parseFloat((e.target as any).value ?? '0'); // 0–100
@@ -1527,8 +1539,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
           const cur = useSimulatorStore
             .getState()
             .components.find((c) => c.id === draggedComponentId);
-          const snapped =
-            cur && snapPositionToBreadboard(cur, nx, ny, simState.components);
+          const snapped = cur && snapPositionToBreadboard(cur, nx, ny, simState.components);
           if (snapped) {
             nx = snapped.x;
             ny = snapped.y;
@@ -1801,12 +1812,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
       // and just opens the property dialog — no history entry needed.
       const start = dragStartPosRef.current;
       const isClick = posDiff < 5 && timeDiff < 300;
-      if (
-        !isClick &&
-        start &&
-        draggedComponentId &&
-        !draggedComponentId.startsWith('__board__')
-      ) {
+      if (!isClick && start && draggedComponentId && !draggedComponentId.startsWith('__board__')) {
         // Seat BEFORE recording the move, so undo restores the pre-drag
         // position in one step instead of leaving the part mid-seat.
         seatDroppedComponent(draggedComponentId);
@@ -1836,9 +1842,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
     // convention used in Figma / Miro / draw.io.
     const leftButton = e.button === 0;
     const middleOrRight = e.button === 1 || e.button === 2;
-    const isPanGesture =
-      middleOrRight ||
-      (leftButton && !wireInProgress && !showPropertyDialog);
+    const isPanGesture = middleOrRight || (leftButton && !wireInProgress && !showPropertyDialog);
 
     if (isPanGesture) {
       e.preventDefault();
@@ -2229,8 +2233,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
       // primary way to pick pins, so the tiny overlay squares are hidden —
       // they're hard to hit with a finger anyway. Desktop shows overlays on
       // hover / while wiring only — selection alone doesn't light them up.
-      const showPinsForComponent =
-        !dialogOpen && !isTouchDevice && (wireInProgress || isHovered);
+      const showPinsForComponent = !dialogOpen && !isTouchDevice && (wireInProgress || isHovered);
       return (
         <React.Fragment key={component.id}>
           <div
@@ -2293,8 +2296,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
     // light them up (a selected breadboard lit 170 squares permanently).
     // Hidden when a dialog is open. Hidden entirely on touch — there the
     // PinPickerDialog (tap component → list of pins) replaces the overlays.
-    const showPinsForComponent =
-      !dialogOpen && !isTouchDevice && (wireInProgress || isHovered);
+    const showPinsForComponent = !dialogOpen && !isTouchDevice && (wireInProgress || isHovered);
 
     // Breadboards are the physical base of a circuit — everything plugs into
     // them — so they always sit at the very back: below boards (z 0), other
@@ -2431,161 +2433,197 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
       <div className="simulator-canvas">
         {(() => {
           const headerJsx = (
-        <div className={`canvas-header${headerSlot ? ' canvas-header--portaled' : ''}`}>
-          <div className="canvas-header-left">
-            {/* Status LED */}
-            <span
-              className={`status-dot ${running ? 'running' : 'stopped'}`}
-              title={running ? t('editor.canvas.status.running') : t('editor.canvas.status.stopped')}
-            />
+            <div className={`canvas-header${headerSlot ? ' canvas-header--portaled' : ''}`}>
+              <div className="canvas-header-left">
+                {/* Status LED */}
+                <span
+                  className={`status-dot ${running ? 'running' : 'stopped'}`}
+                  title={
+                    running ? t('editor.canvas.status.running') : t('editor.canvas.status.stopped')
+                  }
+                />
 
-            {/* Active board selector (multi-board) — hidden when no boards */}
-            {boards.length > 0 ? (
-              <select
-                className="board-selector"
-                value={activeBoardId ?? ''}
-                onChange={(e) => useSimulatorStore.getState().setActiveBoardId(e.target.value)}
-                disabled={running}
-                title={t('editor.canvas.activeBoard')}
-              >
-                {boards.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {boardDisplayName(b)}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span
-                className="board-selector"
-                style={{ opacity: 0.55, fontStyle: 'italic', cursor: 'default' }}
-                title={t('editor.canvas.noBoardHint')}
-              >
-                {t('editor.canvas.noBoard')}
-              </span>
-            )}
+                {/* Active board selector (multi-board) — hidden when no boards */}
+                {boards.length > 0 ? (
+                  <select
+                    className="board-selector"
+                    value={activeBoardId ?? ''}
+                    onChange={(e) => useSimulatorStore.getState().setActiveBoardId(e.target.value)}
+                    disabled={running}
+                    title={t('editor.canvas.activeBoard')}
+                  >
+                    {boards.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {boardDisplayName(b)}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span
+                    className="board-selector"
+                    style={{ opacity: 0.55, fontStyle: 'italic', cursor: 'default' }}
+                    title={t('editor.canvas.noBoardHint')}
+                  >
+                    {t('editor.canvas.noBoard')}
+                  </span>
+                )}
 
-            {/* Undo / Redo — canvas-scoped, mirrors the Ctrl+Z / Ctrl+Y
+                {/* Undo / Redo — canvas-scoped, mirrors the Ctrl+Z / Ctrl+Y
                 handler in EditorPage. Tooltip surfaces the description of
                 the command that would be applied. Disabled when the stack
                 is exhausted in that direction. */}
-            <button
-              onClick={() => undo()}
-              disabled={historyIndex < 0}
-              className="canvas-icon-btn"
-              title={
-                historyIndex >= 0
-                  ? t('editor.canvas.undo.title', { description: history[historyIndex].description })
-                  : t('editor.canvas.undo.empty')
-              }
-              aria-label={t('editor.canvas.undo.label')}
-            >
-              <Undo2 size={16} strokeWidth={2} aria-hidden="true" />
-            </button>
-            <button
-              onClick={() => redo()}
-              disabled={historyIndex >= history.length - 1}
-              className="canvas-icon-btn"
-              title={
-                historyIndex < history.length - 1
-                  ? t('editor.canvas.redo.title', { description: history[historyIndex + 1].description })
-                  : t('editor.canvas.redo.empty')
-              }
-              aria-label={t('editor.canvas.redo.label')}
-            >
-              <Redo2 size={16} strokeWidth={2} aria-hidden="true" />
-            </button>
-
-            {/* Serial Monitor toggle */}
-            <button
-              onClick={() => {
-                toggleSerialMonitor();
-                trackToggleSerialMonitor(!serialMonitorOpen);
-              }}
-              className={`canvas-serial-btn${serialMonitorOpen ? ' canvas-serial-btn-active' : ''}`}
-              title={t('editor.canvas.toggleSerialMonitor')}
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="2" y="3" width="20" height="14" rx="2" />
-                <path d="M8 21h8M12 17v4" />
-              </svg>
-              {t('editor.canvas.serial')}
-            </button>
-
-            {/* ESP32-CAM webcam stream toggle */}
-            {activeBoard?.boardKind === 'esp32-cam' && (
-              <CameraToggle boardId={activeBoard.id} />
-            )}
-
-            {/* WiFi status indicator + IoT-gateway launcher (ESP32 + Pico W) */}
-            {activeBoard &&
-              (isEsp32Kind(activeBoard.boardKind) ||
-                activeBoard.boardKind === 'pi-pico-w') &&
-              activeBoard.wifiStatus &&
-              (() => {
-                // The Pico W virtual net assigns its IP deterministically when
-                // the sketch connects; the bridge reports 'started' carrying the
-                // IP. Treat that as got_ip so the badge matches the ESP32 (green,
-                // clickable → the same /api/gateway proxy).
-                const rawStatus = activeBoard.wifiStatus.status;
-                const status =
-                  activeBoard.boardKind === 'pi-pico-w' &&
-                  rawStatus === 'started' &&
-                  activeBoard.wifiStatus.ip
-                    ? 'got_ip'
-                    : rawStatus;
-                const hasIp = status === 'got_ip';
-                const sessionId = getTabSessionId();
-                const clientId = `${sessionId}::${activeBoard.id}`;
-                const backendBase =
-                  (import.meta.env.VITE_API_BASE as string | undefined) ??
-                  'http://localhost:8001/api';
-                const gatewayUrl = `${backendBase}/gateway/${clientId}/`;
-
-                const openGateway = () => {
-                  if (!hasIp) return;
-                  // A private overlay (velxio.dev) can install a synchronous
-                  // gate to keep the IoT gateway behind a paid plan. When it
-                  // returns true it has already handled the click (e.g. shown
-                  // an in-place upgrade modal), so we don't open the tab.
-                  // OSS builds have no hook → always open.
-                  const gate = (window as unknown as {
-                    __velxio_iot_gateway_open_gate__?: () => boolean;
-                  }).__velxio_iot_gateway_open_gate__;
-                  if (gate && gate()) return;
-                  // Pico W runs in THIS tab — a new tab would background and
-                  // freeze the emulation. Show the page in an in-app iframe.
-                  if (activeBoard.boardKind === 'pi-pico-w') {
-                    openDeviceGateway(gatewayUrl);
-                  } else {
-                    window.open(gatewayUrl, '_blank');
+                <button
+                  onClick={() => undo()}
+                  disabled={historyIndex < 0}
+                  className="canvas-icon-btn"
+                  title={
+                    historyIndex >= 0
+                      ? t('editor.canvas.undo.title', {
+                          description: history[historyIndex].description,
+                        })
+                      : t('editor.canvas.undo.empty')
                   }
-                };
-                return (
+                  aria-label={t('editor.canvas.undo.label')}
+                >
+                  <Undo2 size={16} strokeWidth={2} aria-hidden="true" />
+                </button>
+                <button
+                  onClick={() => redo()}
+                  disabled={historyIndex >= history.length - 1}
+                  className="canvas-icon-btn"
+                  title={
+                    historyIndex < history.length - 1
+                      ? t('editor.canvas.redo.title', {
+                          description: history[historyIndex + 1].description,
+                        })
+                      : t('editor.canvas.redo.empty')
+                  }
+                  aria-label={t('editor.canvas.redo.label')}
+                >
+                  <Redo2 size={16} strokeWidth={2} aria-hidden="true" />
+                </button>
+
+                {/* Serial Monitor toggle */}
+                <button
+                  onClick={() => {
+                    toggleSerialMonitor();
+                    trackToggleSerialMonitor(!serialMonitorOpen);
+                  }}
+                  className={`canvas-serial-btn${serialMonitorOpen ? ' canvas-serial-btn-active' : ''}`}
+                  title={t('editor.canvas.toggleSerialMonitor')}
+                >
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="2" y="3" width="20" height="14" rx="2" />
+                    <path d="M8 21h8M12 17v4" />
+                  </svg>
+                  {t('editor.canvas.serial')}
+                </button>
+
+                {/* ESP32-CAM webcam stream toggle */}
+                {activeBoard?.boardKind === 'esp32-cam' && (
+                  <CameraToggle boardId={activeBoard.id} />
+                )}
+
+                {/* WiFi status indicator + IoT-gateway launcher (ESP32 + Pico W) */}
+                {activeBoard &&
+                  (isEsp32Kind(activeBoard.boardKind) || activeBoard.boardKind === 'pi-pico-w') &&
+                  activeBoard.wifiStatus &&
+                  (() => {
+                    // The Pico W virtual net assigns its IP deterministically when
+                    // the sketch connects; the bridge reports 'started' carrying the
+                    // IP. Treat that as got_ip so the badge matches the ESP32 (green,
+                    // clickable → the same /api/gateway proxy).
+                    const rawStatus = activeBoard.wifiStatus.status;
+                    const status =
+                      activeBoard.boardKind === 'pi-pico-w' &&
+                      rawStatus === 'started' &&
+                      activeBoard.wifiStatus.ip
+                        ? 'got_ip'
+                        : rawStatus;
+                    const hasIp = status === 'got_ip';
+                    const sessionId = getTabSessionId();
+                    const clientId = `${sessionId}::${activeBoard.id}`;
+                    const backendBase =
+                      (import.meta.env.VITE_API_BASE as string | undefined) ??
+                      'http://localhost:8001/api';
+                    const gatewayUrl = `${backendBase}/gateway/${clientId}/`;
+
+                    const openGateway = () => {
+                      if (!hasIp) return;
+                      // A private overlay (velxio.dev) can install a synchronous
+                      // gate to keep the IoT gateway behind a paid plan. When it
+                      // returns true it has already handled the click (e.g. shown
+                      // an in-place upgrade modal), so we don't open the tab.
+                      // OSS builds have no hook → always open.
+                      const gate = (
+                        window as unknown as {
+                          __velxio_iot_gateway_open_gate__?: () => boolean;
+                        }
+                      ).__velxio_iot_gateway_open_gate__;
+                      if (gate && gate()) return;
+                      // Pico W runs in THIS tab — a new tab would background and
+                      // freeze the emulation. Show the page in an in-app iframe.
+                      if (activeBoard.boardKind === 'pi-pico-w') {
+                        openDeviceGateway(gatewayUrl);
+                      } else {
+                        window.open(gatewayUrl, '_blank');
+                      }
+                    };
+                    return (
+                      <span
+                        className={`canvas-wifi-badge canvas-wifi-${status}${hasIp ? ' canvas-wifi-clickable' : ''}`}
+                        onClick={openGateway}
+                        title={
+                          hasIp
+                            ? `WiFi: ${activeBoard.wifiStatus.ssid ?? 'Velxio-GUEST'} — IP: ${activeBoard.wifiStatus.ip}\nClick to open IoT Gateway ↗`
+                            : status === 'connected'
+                              ? `WiFi: ${activeBoard.wifiStatus.ssid ?? 'Velxio-GUEST'} — Connecting...`
+                              : status === 'initializing'
+                                ? 'WiFi: Initializing...'
+                                : 'WiFi: Disconnected'
+                        }
+                      >
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+                          <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+                          <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+                          <circle cx="12" cy="20" r="1" />
+                        </svg>
+                      </span>
+                    );
+                  })()}
+
+                {/* BLE status indicator (ESP32 boards only) */}
+                {activeBoard && isEsp32Kind(activeBoard.boardKind) && activeBoard.bleStatus && (
                   <span
-                    className={`canvas-wifi-badge canvas-wifi-${status}${hasIp ? ' canvas-wifi-clickable' : ''}`}
-                    onClick={openGateway}
+                    className={`canvas-ble-badge canvas-ble-${activeBoard.bleStatus.status}`}
                     title={
-                      hasIp
-                        ? `WiFi: ${activeBoard.wifiStatus.ssid ?? 'Velxio-GUEST'} — IP: ${activeBoard.wifiStatus.ip}\nClick to open IoT Gateway ↗`
-                        : status === 'connected'
-                          ? `WiFi: ${activeBoard.wifiStatus.ssid ?? 'Velxio-GUEST'} — Connecting...`
-                          : status === 'initializing'
-                            ? 'WiFi: Initializing...'
-                            : 'WiFi: Disconnected'
+                      activeBoard.bleStatus.status === 'advertising'
+                        ? 'BLE: Advertising'
+                        : 'BLE: Initialized'
                     }
                   >
                     <svg
-                      width="18"
-                      height="18"
+                      width="16"
+                      height="16"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -2593,168 +2631,139 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     >
-                      <path d="M5 12.55a11 11 0 0 1 14.08 0" />
-                      <path d="M1.42 9a16 16 0 0 1 21.16 0" />
-                      <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-                      <circle cx="12" cy="20" r="1" />
+                      <polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5" />
                     </svg>
                   </span>
-                );
-              })()}
+                )}
 
-            {/* BLE status indicator (ESP32 boards only) */}
-            {activeBoard && isEsp32Kind(activeBoard.boardKind) && activeBoard.bleStatus && (
-              <span
-                className={`canvas-ble-badge canvas-ble-${activeBoard.bleStatus.status}`}
-                title={
-                  activeBoard.bleStatus.status === 'advertising'
-                    ? 'BLE: Advertising'
-                    : 'BLE: Initialized'
-                }
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                {/* Oscilloscope toggle */}
+                <button
+                  onClick={toggleOscilloscope}
+                  className={`canvas-serial-btn${oscilloscopeOpen ? ' canvas-serial-btn-active' : ''}`}
+                  title={t('editor.canvas.toggleScope')}
                 >
-                  <polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5" />
-                </svg>
-              </span>
-            )}
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="2 14 6 8 10 14 14 6 18 14 22 10" />
+                  </svg>
+                  {t('editor.canvas.scope')}
+                </button>
+              </div>
 
-            {/* Oscilloscope toggle */}
-            <button
-              onClick={toggleOscilloscope}
-              className={`canvas-serial-btn${oscilloscopeOpen ? ' canvas-serial-btn-active' : ''}`}
-              title={t('editor.canvas.toggleScope')}
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="2 14 6 8 10 14 14 6 18 14 22 10" />
-              </svg>
-              {t('editor.canvas.scope')}
-            </button>
-          </div>
+              <div className="canvas-header-right">
+                {/* Zoom controls */}
+                <div className="zoom-controls">
+                  <button
+                    className="zoom-btn"
+                    onClick={() =>
+                      handleWheel({
+                        deltaY: 100,
+                        clientX: 0,
+                        clientY: 0,
+                        preventDefault: () => {},
+                      } as any)
+                    }
+                    title={t('editor.canvas.zoomOut')}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    >
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                  </button>
+                  <button
+                    className="zoom-level"
+                    onClick={handleResetView}
+                    title={t('editor.canvas.resetView')}
+                  >
+                    {Math.round(zoom * 100)}%
+                  </button>
+                  <button
+                    className="zoom-btn"
+                    onClick={() =>
+                      handleWheel({
+                        deltaY: -100,
+                        clientX: 0,
+                        clientY: 0,
+                        preventDefault: () => {},
+                      } as any)
+                    }
+                    title={t('editor.canvas.zoomIn')}
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    >
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                  </button>
+                </div>
 
-          <div className="canvas-header-right">
-            {/* Zoom controls */}
-            <div className="zoom-controls">
-              <button
-                className="zoom-btn"
-                onClick={() =>
-                  handleWheel({
-                    deltaY: 100,
-                    clientX: 0,
-                    clientY: 0,
-                    preventDefault: () => {},
-                  } as any)
-                }
-                title={t('editor.canvas.zoomOut')}
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
+                {/* Component count */}
+                <span
+                  className="component-count"
+                  title={t('editor.canvas.componentCount', { count: components.length })}
                 >
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-              </button>
-              <button
-                className="zoom-level"
-                onClick={handleResetView}
-                title={t('editor.canvas.resetView')}
-              >
-                {Math.round(zoom * 100)}%
-              </button>
-              <button
-                className="zoom-btn"
-                onClick={() =>
-                  handleWheel({
-                    deltaY: -100,
-                    clientX: 0,
-                    clientY: 0,
-                    preventDefault: () => {},
-                  } as any)
-                }
-                title={t('editor.canvas.zoomIn')}
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="2" y="7" width="20" height="14" rx="2" />
+                    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                  </svg>
+                  {components.length}
+                </span>
+
+                {/* Add Component */}
+                <button
+                  className="add-component-btn"
+                  onClick={() => setShowComponentPicker(true)}
+                  title={t('editor.canvas.addComponentTitle')}
+                  disabled={running}
                 >
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-              </button>
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  {t('editor.canvas.add')}
+                </button>
+              </div>
             </div>
-
-            {/* Component count */}
-            <span
-              className="component-count"
-              title={t('editor.canvas.componentCount', { count: components.length })}
-            >
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="2" y="7" width="20" height="14" rx="2" />
-                <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
-              </svg>
-              {components.length}
-            </span>
-
-            {/* Add Component */}
-            <button
-              className="add-component-btn"
-              onClick={() => setShowComponentPicker(true)}
-              title={t('editor.canvas.addComponentTitle')}
-              disabled={running}
-            >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              {t('editor.canvas.add')}
-            </button>
-          </div>
-        </div>
           );
           return headerSlot ? createPortal(headerJsx, headerSlot) : headerJsx;
         })()}
@@ -2906,8 +2915,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
               // Suppressed while a dialog is open. Hidden entirely on touch
               // since the PinPickerDialog (tap board to open list) replaces
               // the overlays — fingers can't reliably hit a 12px pin anyway.
-              const showPins =
-                !dialogOpen && !isTouchDevice && (wireInProgress || isHovered);
+              const showPins = !dialogOpen && !isTouchDevice && (wireInProgress || isHovered);
               return (
                 <BoardOnCanvas
                   key={board.id}
@@ -2970,7 +2978,8 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                 bar is pinned top-center so it never covers pins near the wire.
               - COMPONENT selection stays touch-only — desktop already has the
                 Delete key + the right-click rotate menu. */}
-          {!wireInProgress && !interactionRunning &&
+          {!wireInProgress &&
+            !interactionRunning &&
             (() => {
               if (selectedWireId) {
                 const wire = wires.find((w) => w.id === selectedWireId);
@@ -3085,7 +3094,13 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                 } else {
                   const c = components.find((x) => x.id === targetId);
                   const rot = c ? Number(c.properties?.rotation) || 0 : 0;
-                  const pos = calculatePinPosition(targetId, pinName, (c?.x ?? 0) + 6, (c?.y ?? 0) + 6, rot);
+                  const pos = calculatePinPosition(
+                    targetId,
+                    pinName,
+                    (c?.x ?? 0) + 6,
+                    (c?.y ?? 0) + 6,
+                    rot,
+                  );
                   worldX = pos?.x ?? (c?.x ?? 0) + pin.x;
                   worldY = pos?.y ?? (c?.y ?? 0) + pin.y;
                 }
@@ -3166,11 +3181,11 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
           return (
             <CustomChipDialog
               initial={{
-                chipName:   String(props.chipName   ?? 'My Chip'),
-                sourceC:    String(props.sourceC    ?? ''),
-                chipJson:   String(props.chipJson   ?? ''),
+                chipName: String(props.chipName ?? 'My Chip'),
+                sourceC: String(props.sourceC ?? ''),
+                chipJson: String(props.chipJson ?? ''),
                 wasmBase64: String(props.wasmBase64 ?? ''),
-                attrs:      (props.attrs as Record<string, number>) ?? {},
+                attrs: (props.attrs as Record<string, number>) ?? {},
               }}
               onClose={() => setCustomChipComponentId(null)}
               onSave={(data) => {
@@ -3249,11 +3264,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                       type="button"
                       title={color}
                       onClick={() => {
-                        recordUpdateWire(
-                          wireContextMenu.wireId,
-                          { color: wire.color },
-                          { color },
-                        );
+                        recordUpdateWire(wireContextMenu.wireId, { color: wire.color }, { color });
                         setWireContextMenu(null);
                       }}
                       style={{
@@ -3529,13 +3540,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
             setFlashModalFor(null);
             return null;
           }
-          return (
-            <FlashModal
-              board={b}
-              fqbn={fqbn}
-              onClose={() => setFlashModalFor(null)}
-            />
-          );
+          return <FlashModal board={b} fqbn={fqbn} onClose={() => setFlashModalFor(null)} />;
         })()}
 
       {/* Board Options modal (ESP32 only) */}
@@ -3562,7 +3567,9 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
       {boardToRemove &&
         (() => {
           const board = boards.find((b) => b.id === boardToRemove);
-          const label = board ? boardDisplayName(board) : t('editor.canvas.removeConfirm.boardFallback');
+          const label = board
+            ? boardDisplayName(board)
+            : t('editor.canvas.removeConfirm.boardFallback');
           const connectedWires = wires.filter(
             (w) => w.start.componentId === boardToRemove || w.end.componentId === boardToRemove,
           ).length;

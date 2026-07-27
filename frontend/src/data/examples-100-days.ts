@@ -1969,8 +1969,13 @@ CITY = "city"
 i2c = I2C(0, scl=Pin(22), sda=Pin(21))
 oled = ssd1306.SSD1306_I2C(128, 64, i2c)
 
-touch_next = Pin(14, Pin.IN) 
-touch_sel  = Pin(27, Pin.IN) 
+# PULL_DOWN, no Pin.IN a secas: los botones van entre 3V3 y el pin, asi que sin
+# pull-down el pin queda FLOTANDO cuando el boton esta abierto y pin.value() no
+# vale nada. En una placa de verdad se lee ruido; aqui el nodo resuelve a 3,3 V y
+# los dos botones parecen pulsados para siempre, con wait_for_release() girando
+# en vacio. Es el mismo fallo que en hardware, no un artefacto del emulador.
+touch_next = Pin(14, Pin.IN, Pin.PULL_DOWN)
+touch_sel  = Pin(27, Pin.IN, Pin.PULL_DOWN)
 
 # ================= UTILS =================
 def wifi_connect():
@@ -2298,7 +2303,7 @@ class SSD1306_SPI(SSD1306):
       { id: 'w-oled-scl', start: { componentId: 'esp32', pinName: '22' },    end: { componentId: 'oled1', pinName: 'CLK' }, color: '#ff8800' },
       // Buttons — HIGH-when-pressed (one side to 3V3, other to GPIO). Code
       // reads pin.value() == 1 on press, so they sit between 3.3V and the
-      // input pin. Add Pin.PULL_DOWN in MicroPython if the pin floats.
+      // input pin, with Pin.PULL_DOWN in the sketch so the open state reads 0.
       { id: 'w-btn-next-3v3', start: { componentId: 'esp32', pinName: '3V3' }, end: { componentId: 'btn-next', pinName: '1.l' }, color: '#ff4444' },
       { id: 'w-btn-next-gpio', start: { componentId: 'btn-next', pinName: '2.l' }, end: { componentId: 'esp32', pinName: '14' }, color: '#aa66ff' },
       { id: 'w-btn-sel-3v3',  start: { componentId: 'esp32', pinName: '3V3' }, end: { componentId: 'btn-sel', pinName: '1.l' }, color: '#ff4444' },
