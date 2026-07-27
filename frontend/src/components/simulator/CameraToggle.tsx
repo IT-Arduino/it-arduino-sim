@@ -16,6 +16,7 @@
  */
 import React from 'react';
 import { useWebcamFrames } from '../../hooks/useWebcamFrames';
+import { useSimulatorStore } from '../../store/useSimulatorStore';
 
 interface CameraToggleProps {
   boardId: string | null;
@@ -32,6 +33,25 @@ export const CameraToggle: React.FC<CameraToggleProps> = ({ boardId }) => {
     start,
     stop,
   } = useWebcamFrames();
+
+  // Auto-start when the sketch RUNS. An ESP32-CAM sketch exists to capture, so
+  // waiting for a click on this toggle just reads as "the camera is broken":
+  // the guest boots, esp_camera_init succeeds against the modelled OV2640, and
+  // then cam_hal times out forever waiting for frames nobody is sending. Ask
+  // for the webcam the moment the run starts - the browser's permission prompt
+  // is the user consent, so the toggle stays as the manual off-switch. Only
+  // once per run: stopping the stream by hand must not re-trigger it.
+  const running = useSimulatorStore((st) => st.running);
+  const autoStartedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!running) {
+      autoStartedRef.current = false;
+      return;
+    }
+    if (autoStartedRef.current || !boardId || status === 'streaming') return;
+    autoStartedRef.current = true;
+    void start(boardId);
+  }, [running, boardId, status, start]);
 
   const handleClick = () => {
     if (!boardId) return;
