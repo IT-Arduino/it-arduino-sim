@@ -184,7 +184,12 @@ export const BoardOnCanvas = ({
     // sibling of PinOverlay) made moving onto a pin fire mouseleave, which
     // cleared the hover and hid the pins before you could click one.
     <div
-      style={{ position: 'absolute', left: 0, top: 0, zIndex: 0 }}
+      // Boards paint ABOVE components (which sit at zIndex 1, 2 selected).
+      // The case that decides it is stacking: a XIAO seated on the Round
+      // Display's socket must be the thing you see, the way the board you
+      // just dropped is the thing on top of the pile. Side-by-side layouts
+      // never overlap, so nothing else changes.
+      style={{ position: 'absolute', left: 0, top: 0, zIndex: 3 }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
