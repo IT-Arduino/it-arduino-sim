@@ -63,6 +63,14 @@ CONFIG_AUTOSTART_ARDUINO=n
 
 # Which core Arduino's setup/loop and event task run on. Both default to
 # core 1 (matches Arduino IDE) but the user can pin them independently.
+# Which board variant Arduino builds against. This is what puts
+# variants/<VARIANT>/pins_arduino.h on the include path, and therefore what
+# makes the board's own pin names (D0..D10 on a XIAO, the M5 silk names, ...)
+# exist at all. Left at its default it is just the chip name, so every board
+# compiles as a generic dev-kit and any sketch copied from a vendor's wiki
+# fails on its very first pin macro.
+CONFIG_ARDUINO_VARIANT="${ARDUINO_VARIANT}"
+
 CONFIG_ARDUINO_RUNNING_CORE=${ARDUINO_RUNNING_CORE}
 CONFIG_ARDUINO_EVENT_RUNNING_CORE=${ARDUINO_EVENT_RUNNING_CORE}
 
