@@ -10105,9 +10105,17 @@ void loop() {
       {
         type: 'wokwi-ili9341',
         id: 'tft1',
-        x: 320,
-        y: 60,
-        properties: {},
+        x: 360,
+        y: 100,
+        // Rotated 90 CW, which fixes both complaints at once. The module is
+        // portrait with its header along the BOTTOM edge, and the sketch draws
+        // setRotation(1) landscape - per the part's own MADCTL mapping
+        // (ComplexParts writePixel: rot-1 content's top edge lies on the
+        // canvas's LEFT edge), so upright viewing needs the module turned a
+        // quarter clockwise, exactly like the physical bench setup. The same
+        // turn brings the header to the LEFT edge, facing the board, so the
+        // wires run straight between the two instead of over the glass.
+        properties: { rotation: 90 },
       },
     ],
     wires: [
