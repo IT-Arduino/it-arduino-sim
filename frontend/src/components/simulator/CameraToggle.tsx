@@ -125,10 +125,13 @@ export const CameraToggle: React.FC<CameraToggleProps> = ({ boardId }) => {
         color,
         fontSize: 13,
         cursor: boardId ? 'pointer' : 'not-allowed',
+        // Inline only while requesting. 'none' here would OVERRIDE the
+        // .velxio-ants class animation (inline beats class), which is exactly
+        // how the ants shipped dead the first time.
         animation:
           status === 'requesting'
             ? 'velxio-pulse 1s ease-in-out infinite'
-            : 'none',
+            : undefined,
       }}
     >
       <svg
