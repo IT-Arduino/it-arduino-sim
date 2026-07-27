@@ -103,9 +103,20 @@ export const CameraToggle: React.FC<CameraToggleProps> = ({ boardId }) => {
       onClick={handleClick}
       disabled={!boardId || status === 'requesting'}
       title={tooltip}
+      // Ants while the button wants a click (idle after a failed/stopped
+      // auto-start, denied, error). Solid border once streaming or asking.
+      className={
+        boardId && status !== 'streaming' && status !== 'requesting'
+          ? 'velxio-ants'
+          : undefined
+      }
       style={{
-        background: isOn ? 'rgba(63,185,80,0.15)' : 'transparent',
-        border: `1px solid ${isOn ? '#3fb950' : '#555'}`,
+        // backgroundColor, NOT the background shorthand: inline shorthand
+        // would wipe the class's background-image and kill the ants.
+        backgroundColor: isOn ? 'rgba(63,185,80,0.15)' : 'transparent',
+        border: `1px solid ${
+          isOn ? '#3fb950' : status === 'requesting' ? '#555' : 'transparent'
+        }`,
         borderRadius: 4,
         padding: '4px 10px',
         display: 'flex',

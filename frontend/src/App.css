@@ -448,3 +448,26 @@ body {
   0%, 100% { opacity: 0.4; transform: scale(0.85); }
   50%      { opacity: 1.0; transform: scale(1.0); }
 }
+
+/* Marching-ants attention border (CameraToggle while it wants a click):
+   four thin repeating-gradient strips, one per edge, sliding one dash
+   period per cycle. Drawn as backgrounds rather than a border because a
+   CSS border cannot animate its dash offset. Uses currentColor so the
+   ants inherit the button's state colour (grey idle, red on error). */
+@keyframes velxio-marching-ants {
+  to { background-position: 12px 0, -12px 100%, 0 -12px, 100% 12px; }
+}
+.velxio-ants {
+  background-image:
+    repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 12px),
+    repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 12px),
+    repeating-linear-gradient(0deg, currentColor 0 6px, transparent 6px 12px),
+    repeating-linear-gradient(0deg, currentColor 0 6px, transparent 6px 12px);
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+  background-size: 12px 1px, 12px 1px, 1px 12px, 1px 12px;
+  background-position: 0 0, 0 100%, 0 0, 100% 0;
+  animation: velxio-marching-ants 0.7s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .velxio-ants { animation: none; }
+}
