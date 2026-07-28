@@ -215,14 +215,23 @@ class Esp32BridgeShim {
    * Returns true if the pin is a valid ADC pin.
    */
   setAdcVoltage(pin: number, voltage: number): boolean {
-    let channel = -1;
-    if (pin >= 36 && pin <= 39)
-      channel = pin - 36; // GPIO 36→CH0, 37→CH1, 38→CH2, 39→CH3
-    else if (pin >= 32 && pin <= 35) channel = pin - 28; // GPIO 32→CH4, 33→CH5, 34→CH6, 35→CH7
+    const channel = this.adcChannelForPin(pin);
     if (channel < 0) return false;
     const millivolts = Math.round(voltage * 1000);
     this.bridge.setAdc(channel, millivolts);
     return true;
+  }
+
+  /** GPIO -> ADC channel. The mapping is CHIP-specific, so ask the bridge
+   *  when it knows its chip (S3: GPIO1..10 -> ADC1 ch0..9; C-family differs);
+   *  fall back to the classic ESP32 map, which was the only one this shim
+   *  handled before and silently returned false for every S3 pin. */
+  private adcChannelForPin(pin: number): number {
+    const b = this.bridge as unknown as { adcChannelForGpio?: (gpio: number) => number };
+    if (typeof b.adcChannelForGpio === 'function') return b.adcChannelForGpio(pin);
+    if (pin >= 36 && pin <= 39) return pin - 36; // GPIO 36→CH0 .. 39→CH3
+    if (pin >= 32 && pin <= 35) return pin - 28; // GPIO 32→CH4 .. 35→CH7
+    return -1;
   }
 
   /**
@@ -234,9 +243,7 @@ class Esp32BridgeShim {
    * `samples` are 12-bit raw values (0-4095) aligned on a uniform grid.
    */
   setAdcWaveform(pin: number, samples: Uint16Array, periodNs: number): boolean {
-    let channel = -1;
-    if (pin >= 36 && pin <= 39) channel = pin - 36;
-    else if (pin >= 32 && pin <= 35) channel = pin - 28;
+    const channel = this.adcChannelForPin(pin);
     if (channel < 0) return false;
     this.bridge.setAdcWaveform(channel, samples, periodNs);
     return true;
