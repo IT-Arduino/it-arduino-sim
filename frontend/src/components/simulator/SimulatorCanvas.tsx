@@ -238,32 +238,45 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
   // overlay owns the wiring via ProBoardDef.attachBuiltins; we hand it the DOM
   // element + the board's simulator/bridge handles shortly after run start
   // (the element and bridge need a beat to exist) and dispose on stop/unmount.
+  //
+  // Keyed on a STABLE run signature, not the boards array identity: `boards`
+  // is replaced on every serial batch (~60 Hz while output flows), and
+  // re-running this effect then detaches/re-attaches the peripherals in a
+  // loop — any event arriving inside the 500 ms re-attach window is lost
+  // (one-shot streams like a display list never recover, unlike the
+  // continuously-repainting SPI LCD decoders that masked this).
+  const attachKey = boards
+    .map((b) => `${b.id}:${b.boardKind}:${b.running ? 1 : 0}`)
+    .join('|');
   useEffect(() => {
     const cleanups: (() => void)[] = [];
-    boards.forEach((board) => {
-      const proDef = getProBoard(board.boardKind);
-      if (!proDef?.attachBuiltins || !board.running) return;
-      const timeout = setTimeout(() => {
-        const el = document.getElementById(board.id);
-        if (!el) return;
-        try {
-          cleanups.push(
-            proDef.attachBuiltins!({
-              el,
-              sim: getBoardSimulator(board.id),
-              // ESP32-family boards get their QEMU/JS bridge; QEMU-Linux
-              // (piFamily) boards get the Raspberry Pi bridge instead.
-              bridge: getEsp32Bridge(board.id) ?? getBoardBridge(board.id),
-            }),
-          );
-        } catch (e) {
-          console.warn(`[${board.boardKind}] built-in peripheral attach failed:`, e);
-        }
-      }, 500);
-      cleanups.push(() => clearTimeout(timeout));
-    });
+    useSimulatorStore
+      .getState()
+      .boards.forEach((board) => {
+        const proDef = getProBoard(board.boardKind);
+        if (!proDef?.attachBuiltins || !board.running) return;
+        const timeout = setTimeout(() => {
+          const el = document.getElementById(board.id);
+          if (!el) return;
+          try {
+            cleanups.push(
+              proDef.attachBuiltins!({
+                el,
+                sim: getBoardSimulator(board.id),
+                // ESP32-family boards get their QEMU/JS bridge; QEMU-Linux
+                // (piFamily) boards get the Raspberry Pi bridge instead.
+                bridge: getEsp32Bridge(board.id) ?? getBoardBridge(board.id),
+              }),
+            );
+          } catch (e) {
+            console.warn(`[${board.boardKind}] built-in peripheral attach failed:`, e);
+          }
+        }, 500);
+        cleanups.push(() => clearTimeout(timeout));
+      });
     return () => cleanups.forEach((fn) => fn());
-  }, [boards]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attachKey]);
 
   // Component selection
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
