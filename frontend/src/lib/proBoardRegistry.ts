@@ -63,6 +63,14 @@ export interface ProBoardDef {
    *  prompt (piFamily boards only). Lets a board de-brand the generic
    *  image, e.g. set its own hostname/PS1 and clear the stock motd. */
   guestSetup?: string;
+  /** Home directory of the guest user for the VFS panel and uploads
+   *  (piFamily boards only; default '/home/pi'). Boards whose guest logs
+   *  in as root pass '/root'; these also drop the hello.sh sample. */
+  guestHome?: string;
+  /** Shell command run automatically after boot: the VFS is uploaded and
+   *  this line executed, so a single click on Run boots, uploads and
+   *  starts the user's script (piFamily boards only). */
+  autoRun?: string;
   /** Canvas renderer. Receives the placed board's props; return a React node.
    *  When omitted, the canvas renders `<tag id=... style=absolute@x,y>`. */
   render?: (props: { id: string; x: number; y: number; running: boolean }) => React.ReactNode;

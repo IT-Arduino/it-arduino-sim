@@ -1249,18 +1249,35 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         // it runs before piBooted flips so the VFS upload (gated on piBooted)
         // cannot interleave with it.
         bridge.onBooted = () => {
-          const setup = getProBoard(boardKind)?.guestSetup;
+          const proDef = getProBoard(boardKind);
+          const setup = proDef?.guestSetup;
           const flip = () =>
             set((s) => ({
               boards: s.boards.map((b) => (b.id === id ? { ...b, piBooted: true } : b)),
             }));
-          if (setup) {
-            void bridge
-              .sendAndWaitForPrompt(setup.endsWith('\n') ? setup : setup + '\n')
-              .then(flip);
-          } else {
+          // Overlay boards may declare autoRun: after boot (+setup) the VFS
+          // is uploaded and the command executed, so one click on Run boots,
+          // uploads and starts the user's script — same UX as every other
+          // board's compile-and-run.
+          const autoRun = async (): Promise<void> => {
+            const cmd = proDef?.autoRun;
+            if (!cmd) return;
+            try {
+              const files = useVfsStore.getState().serializeForUpload(id);
+              const { uploadFilesToPi } = await import('../utils/piUpload');
+              await uploadFilesToPi(bridge, files);
+              bridge.sendSerialText(cmd.endsWith('\n') ? cmd : cmd + '\n');
+            } catch (e) {
+              console.warn(`[${boardKind}] autoRun failed:`, e);
+            }
+          };
+          void (async () => {
+            if (setup) {
+              await bridge.sendAndWaitForPrompt(setup.endsWith('\n') ? setup : setup + '\n');
+            }
             flip();
-          }
+            await autoRun();
+          })();
         };
         bridge.onDisconnected = () => {
           set((s) => {
@@ -1388,9 +1405,14 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
       if (get().activeBoardId === id) {
         useEditorStore.getState().setActiveGroup(`group-${id}`);
       }
-      // Init VFS for Raspberry Pi 3 boards
+      // Init VFS for QEMU-Linux boards. Overlay boards may declare their
+      // guest home (e.g. '/root' when the guest logs in as root); those
+      // also drop the historic hello.sh sample.
       if (isPiBoardKind(boardKind)) {
-        useVfsStore.getState().initBoardVfs(id);
+        const home = getProBoard(boardKind)?.guestHome;
+        useVfsStore
+          .getState()
+          .initBoardVfs(id, home ? { home, withShellSample: false } : undefined);
       }
       // ── Interconnect: register the board and rebuild routes ──────────
       icBindBoard(id, boardKind);

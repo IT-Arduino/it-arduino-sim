@@ -266,7 +266,11 @@ export const SerialMonitor: React.FC = () => {
               // parses + answers them — this only cleans the dumb mirror.)
               const text = activeBoard.serialOutput
                 .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
-                .replace(/\x1b[=>]/g, '');
+                .replace(/\x1b[=>]/g, '')
+                // Line-editing bytes the guest shell echoes (DEL on
+                // backspace, BEL, other C0 controls) render as tofu boxes
+                // in a <pre>; strip everything except \t \n \r.
+                .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
               // ESP32 (QEMU slirp) hands out 192.168.4.x; the Pico W virtual
               // net hands out 10.13.37.x. Both reach their emulated server
               // through the same /api/gateway proxy, so linkify either subnet.
