@@ -301,8 +301,17 @@ class Esp32BridgeShim {
     if (!this._spiAdapter) {
       const adapter = {
         onByte: null as ((mosi: number) => void) | null,
-        completeTransfer: (_miso: number) => {
-          /* ESP32 worker drives MISO via _spi_response — no-op here. */
+        // MISO goes back through the bridge's setSpiResponse — every bridge
+        // has it (QEMU forwards to the worker's _spi_response; the JS engines
+        // set the byte their SpiForwarder returns for THIS transfer, since the
+        // whole onByte chain runs synchronously inside the engine's transfer).
+        // This used to be a no-op "because the worker drives MISO", which was
+        // only true for QEMU-era parts: any SPI part that ANSWERS (an SD card
+        // reponding to CMD0) was talking to nobody in js mode — measured as
+        // SD.begin()=0 with sd_diskio retrying CMD0 forever.
+        completeTransfer: (miso: number) => {
+          (this.bridge as unknown as { setSpiResponse?: (b: number) => void })
+            .setSpiResponse?.(miso);
         },
       };
       // Forward every per-byte WS event into whichever handler the part
