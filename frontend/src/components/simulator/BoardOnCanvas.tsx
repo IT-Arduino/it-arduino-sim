@@ -109,9 +109,23 @@ export const BoardOnCanvas = ({
   // stacking below. Recomputed on every position change; the check is a few
   // pad lookups over the component list, cheap at render rate.
   const components = useSimulatorStore((st) => st.components);
+  // The seat check reads pinInfo/boardSocket off DOM elements; on the FIRST
+  // render neither this board nor the socket component is mounted yet, so
+  // the memo would freeze on "not seated" for an example that OPENS with the
+  // board already stacked. Re-check after mount, twice: next frame, and once
+  // more after custom-element upgrade has had time to land.
+  const [seatEpoch, setSeatEpoch] = React.useState(0);
+  React.useEffect(() => {
+    const raf = requestAnimationFrame(() => setSeatEpoch((n) => n + 1));
+    const t = setTimeout(() => setSeatEpoch((n) => n + 1), 400);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+    };
+  }, []);
   const seated = React.useMemo(
     () => isBoardSeated(id, boardKind, x, y, components),
-    [id, boardKind, x, y, components],
+    [id, boardKind, x, y, components, seatEpoch],
   );
 
   // Status dot color: green=running, amber=compiled, gray=idle
