@@ -32,11 +32,24 @@ export type BoardKind =
 
 export type LanguageMode = 'arduino' | 'micropython' | 'espidf';
 
-/** True for every Raspberry Pi backed by the QEMU bridge (Zero, 1, 2, 3, 4, 5).
+/** Extra QEMU-Linux board kinds registered at runtime by a private overlay
+ *  (proBoardRegistry defs with `piFamily: true`). They route through the same
+ *  backend qemu bridge, VFS panel and terminal UX as the Raspberry Pi family. */
+const PI_FAMILY_EXTRA_KINDS = new Set<string>();
+
+export function registerPiFamilyKind(kind: string): void {
+  PI_FAMILY_EXTRA_KINDS.add(kind);
+}
+
+/** True for every Raspberry Pi backed by the QEMU bridge (Zero, 1, 2, 3, 4, 5)
+ *  and any overlay-registered QEMU-Linux board (registerPiFamilyKind).
  *  Excludes the Pico boards (RP2040, browser emulation). */
 export function isPiBoardKind(kind: BoardKind | string): boolean {
-  return typeof kind === 'string' && kind.startsWith('raspberry-pi-')
-    && kind !== 'raspberry-pi-pico';
+  if (typeof kind !== 'string') return false;
+  return (
+    (kind.startsWith('raspberry-pi-') && kind !== 'raspberry-pi-pico') ||
+    PI_FAMILY_EXTRA_KINDS.has(kind)
+  );
 }
 
 /** True for STM32 boards backed by the QEMU bridge (libqemu-arm via

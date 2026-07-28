@@ -148,6 +148,31 @@ PI_CONFIGS: dict[str, dict] = {
 # that still send the legacy "start_pi" message without a board field.
 DEFAULT_PI_BOARD = 'raspberry-pi-3'
 
+# Every key a profile must carry — the boot path reads exactly these.
+_PI_PROFILE_KEYS = frozenset(
+    {'qemu', 'cpu', 'smp', 'memory', 'image_set', 'kernel', 'initramfs',
+     'rootfs', 'bus'}
+)
+
+
+def register_pi_board_profile(board_type: str, cfg: dict) -> None:
+    """Register (or override) a QEMU-Linux board profile at runtime.
+
+    Seam for private overlays to add board profiles (same shape as the
+    ``PI_CONFIGS`` entries) without the OSS tree carrying their names —
+    e.g. an ARM64 SBC that boots the generic arm64 image set with a
+    different -cpu model. Must be called before the board's first
+    ``start_instance`` (overlay registration time is fine).
+    """
+    missing = _PI_PROFILE_KEYS - cfg.keys()
+    if missing:
+        raise ValueError(
+            f'pi board profile {board_type!r} missing keys: {sorted(missing)}'
+        )
+    PI_CONFIGS[board_type] = dict(cfg)
+    logger.info('registered QEMU board profile %r (cpu=%s, image_set=%s)',
+                board_type, cfg['cpu'], cfg['image_set'])
+
 
 # ── Pluggable I2C/SPI/UART dispatcher ────────────────────────────────────
 #

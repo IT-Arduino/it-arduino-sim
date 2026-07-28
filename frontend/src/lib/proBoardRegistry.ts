@@ -21,6 +21,7 @@ import {
   BOARD_KIND_LABELS,
   BOARD_KIND_FQBN,
   BOARD_SUPPORTS_MICROPYTHON,
+  registerPiFamilyKind,
   type BoardKind,
 } from '../types/board';
 
@@ -54,6 +55,10 @@ export interface ProBoardDef {
    *  through the ESP32 bridge path and picks the machine/engine type. Omit for
    *  boards that provide createSimulator (RP2350 class) or AVR/RP2040. */
   esp32Family?: 'esp32' | 'esp32-s3' | 'esp32-c3' | 'esp32-c6';
+  /** QEMU-Linux run-path routing: route this kind through the Raspberry Pi
+   *  bridge (backend qemu WebSocket, VFS panel, boot terminal). The overlay
+   *  must also register a matching backend profile for the kind. */
+  piFamily?: boolean;
   /** Canvas renderer. Receives the placed board's props; return a React node.
    *  When omitted, the canvas renders `<tag id=... style=absolute@x,y>`. */
   render?: (props: { id: string; x: number; y: number; running: boolean }) => React.ReactNode;
@@ -120,6 +125,7 @@ export function registerProBoards(defs: ProBoardDef[]): void {
     (BOARD_KIND_LABELS as Record<string, string>)[kind] = def.label;
     (BOARD_KIND_FQBN as Record<string, string | null>)[kind] = def.fqbn;
     if (def.supportsMicroPython) BOARD_SUPPORTS_MICROPYTHON.add(kind);
+    if (def.piFamily) registerPiFamilyKind(def.kind);
   }
   version++;
   for (const l of listeners) l();
