@@ -2856,6 +2856,21 @@ class ESPIDFCompiler:
         )
         defaults_path.write_text(rendered_sdkconfig, encoding='utf-8')
 
+
+        # ESP-IDF only SEEDS sdkconfig from sdkconfig.defaults when sdkconfig is
+        # ABSENT. Persistent build dirs live in the build volume and keep a
+        # stale sdkconfig across image rebuilds, so a defaults change (a new
+        # CONFIG_* shipped in the template, or different board options) would
+        # otherwise never reach kconfig. Drop the generated sdkconfig when the
+        # rendered defaults change so kconfig re-seeds from them on configure.
+        # NOTHING may run between the defaults write above and this unlink: a
+        # crash in between leaves defaults==rendered with a stale sdkconfig,
+        # and the next run then never re-seeds (measured: the board_fqbn
+        # NameError left CONSOLE_SECONDARY stale in a persistent dir).
+        if prev_defaults is not None and prev_defaults != rendered_sdkconfig:
+            (project_dir / 'sdkconfig').unlink(missing_ok=True)
+            (project_dir / 'sdkconfig.old').unlink(missing_ok=True)
+
         # Board identity defines (velxio_board.cmake, included OPTIONAL by the
         # template's top CMakeLists BEFORE project() so they reach EVERY
         # component — `Serial`'s mapping is decided inside the arduino core's
@@ -2885,16 +2900,6 @@ class ESPIDFCompiler:
         )
         if prev_board_cmake != board_cmake:
             board_cmake_path.write_text(board_cmake, encoding='utf-8')
-
-        # ESP-IDF only SEEDS sdkconfig from sdkconfig.defaults when sdkconfig is
-        # ABSENT. Persistent build dirs live in the build volume and keep a
-        # stale sdkconfig across image rebuilds, so a defaults change (a new
-        # CONFIG_* shipped in the template, or different board options) would
-        # otherwise never reach kconfig. Drop the generated sdkconfig when the
-        # rendered defaults change so kconfig re-seeds from them on configure.
-        if prev_defaults is not None and prev_defaults != rendered_sdkconfig:
-            (project_dir / 'sdkconfig').unlink(missing_ok=True)
-            (project_dir / 'sdkconfig.old').unlink(missing_ok=True)
 
         # Generate partitions.csv per the selected scheme.
         partition_csv = self._render_partition_csv(board_options['partitionScheme'])
