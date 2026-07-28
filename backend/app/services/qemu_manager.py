@@ -587,38 +587,48 @@ class QemuManager:
                     inst.client_id, inst.proto_pipe_base)
 
         loop = asyncio.get_running_loop()
-        # Use add_reader to integrate the readable FIFO with the loop.
-        linebuf = bytearray()
 
-        def _on_readable() -> None:
-            fd = inst._proto_out_fd
-            if fd is None:
-                return
-            try:
-                data = os.read(fd, 4096)
-            except BlockingIOError:
-                return
-            except OSError:
-                return
-            if not data:
-                return
-            linebuf.extend(data)
-            while b'\n' in linebuf:
-                line, _, rest = linebuf.partition(b'\n')
-                linebuf[:] = rest
-                asyncio.create_task(self._handle_gpio_line(
-                    inst, line.decode('ascii', 'ignore').strip(),
-                ))
+        # Thread-based blocking pump instead of loop.add_reader. add_reader
+        # on the FIFO fd was observed (staging, 2026-07-28) to arm epoll but
+        # never deliver callbacks under uvloop when the fd number recycles a
+        # just-closed socket fd (e.g. _connect_serial's retry sockets) —
+        # nondeterministic per instance, and the guest's GPIO lines then sat
+        # unread in the pipe while LEDs stayed dark. A worker thread doing
+        # kernel select() + os.read() has no fd-reuse hazard; handler
+        # coroutines are scheduled back onto the loop. Mirrors the executor
+        # pattern _watch_stderr already uses.
+        def _pump() -> None:
+            import select as _select
+            buf = bytearray()
+            while inst.running:
+                fd = inst._proto_out_fd
+                if fd is None:
+                    return
+                try:
+                    ready, _, _ = _select.select([fd], [], [], 0.5)
+                except (OSError, ValueError):
+                    return  # fd closed by _shutdown
+                if not ready:
+                    continue
+                try:
+                    data = os.read(fd, 4096)
+                except BlockingIOError:
+                    continue
+                except OSError:
+                    return
+                if not data:
+                    continue
+                buf.extend(data)
+                while b'\n' in buf:
+                    line, _, rest = buf.partition(b'\n')
+                    buf[:] = rest
+                    asyncio.run_coroutine_threadsafe(
+                        self._handle_gpio_line(
+                            inst, line.decode('ascii', 'ignore').strip()),
+                        loop,
+                    )
 
-        loop.add_reader(inst._proto_out_fd, _on_readable)
-        # Keep this coroutine alive while inst is running so the loop
-        # doesn't garbage-collect the reader registration.
-        while inst.running:
-            await asyncio.sleep(1.0)
-        try:
-            loop.remove_reader(inst._proto_out_fd)
-        except Exception:
-            pass
+        await loop.run_in_executor(None, _pump)
 
     async def _handle_gpio_line(self, inst: PiInstance, line: str) -> None:
         """Dispatch a single text-protocol line from the Pi shim layer.
