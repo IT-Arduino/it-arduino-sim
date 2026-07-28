@@ -57,6 +57,11 @@ CONFIG_FREERTOS_HZ=1000
 
 # ── Console ──────────────────────────────────────────────────────────────
 CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+# No secondary console: on USB-Serial-JTAG chips the ROM/IDF would mirror every
+# log byte to the USB console too, and the emulator merges both streams into ONE
+# serial monitor -- the whole log would show twice on CDC builds. Logs stay on
+# UART0; the USB channel carries only what the sketch prints through HWCDC.
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
 
 # ── Arduino-as-component: we provide our own app_main (main.cpp) ─────────
 CONFIG_AUTOSTART_ARDUINO=n
