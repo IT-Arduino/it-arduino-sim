@@ -488,7 +488,15 @@ export const DynamicComponent: React.FC<DynamicComponentProps> = ({
           // glass was painting the green dot AND dragging the shield around.
           (target as { ownsPointer?: boolean }).ownsPointer === true);
       if (ownsPointer) {
-        // Let the wokwi component own this pointerdown.
+        // A declared touch SCREEN (ownsPointer property, not the wokwi tag
+        // list): its model listens on POINTER events — a separate stream —
+        // so stopping THIS mousedown costs it nothing, and it must be
+        // stopped: left-drag that reaches the canvas background pans the
+        // whole world under the finger mid-swipe. Wokwi knobs keep the
+        // legacy pass-through, their internal handlers may bind this very
+        // mouse event.
+        if ((target as { ownsPointer?: boolean }).ownsPointer === true) e.stopPropagation();
+        // Let the component own this pointerdown.
         return;
       }
       e.stopPropagation();
@@ -743,6 +751,13 @@ export const DynamicComponent: React.FC<DynamicComponentProps> = ({
         transformOrigin: 'center center',
       }}
       onMouseDownCapture={handleMouseDown}
+      onTouchStartCapture={(e) => {
+        // Mobile mirror of the ownsPointer guard: while the sim runs, a
+        // finger on a declared touch screen is INPUT for the screen (its
+        // pointer handlers still fire), never a canvas pan/drag gesture.
+        const t = e.target as { ownsPointer?: boolean };
+        if (interactionRunning && t.ownsPointer === true) e.stopPropagation();
+      }}
       onDoubleClick={handleDoubleClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
