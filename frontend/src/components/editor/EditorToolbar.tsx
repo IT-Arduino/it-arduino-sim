@@ -818,26 +818,21 @@ export const EditorToolbar = ({
         // boot straight from the rootfs — there is no firmware to compile,
         // and handleCompile's Pi early-return never sets compiledProgram, so
         // the gate below would surface a bogus "Compilation produced no
-        // firmware" error. Power the board on directly; if the guest is
-        // ALREADY booted, skip the ~45 s reboot: interrupt the running
-        // script, re-upload the edited files and run again. This branch must
-        // stay ABOVE the generic stop-then-boot restart below, which would
-        // otherwise power-cycle the live guest.
+        // firmware" error. Power the board on directly (Run follows the
+        // standard disabled-while-running convention; RESET is the fast
+        // re-run-without-reboot on a booted guest). Must stay ABOVE the
+        // generic stop-then-boot restart below.
         if (isPiBoardKind(board?.boardKind ?? '')) {
           trackRunSimulation(board?.boardKind);
           reportRun(board?.boardKind);
-          if (board?.running && board?.piBooted) {
-            console.log('[handleRun] → piRerunScript (booted, no reboot)', activeBoardId);
-            await piRerunScript(activeBoardId, board.boardKind);
-          } else {
-            if (board?.running) {
-              // Running but never reached the shell (stuck/zombie): power-cycle.
-              stopBoard(activeBoardId);
-              await new Promise((resolve) => setTimeout(resolve, 300));
-            }
-            console.log('[handleRun] → startBoard (QEMU-Linux, no firmware)', activeBoardId);
-            startBoard(activeBoardId);
+          if (board?.running) {
+            // Zombie/edge case (Run is normally disabled while running):
+            // power-cycle for a clean boot.
+            stopBoard(activeBoardId);
+            await new Promise((resolve) => setTimeout(resolve, 300));
           }
+          console.log('[handleRun] → startBoard (QEMU-Linux, no firmware)', activeBoardId);
+          startBoard(activeBoardId);
           setMessage(null);
           return;
         }
@@ -974,6 +969,15 @@ export const EditorToolbar = ({
 
   const handleReset = () => {
     trackResetSimulation();
+    // QEMU-Linux boards: Reset = re-upload the edited files and re-run the
+    // script on the live guest (no ~45 s reboot). Mirrors what Reset means
+    // elsewhere — restart the program — while Run keeps the standard
+    // disabled-while-running behaviour.
+    if (activeBoard && isPiBoardKind(activeBoard.boardKind) && activeBoard.piBooted) {
+      void piRerunScript(activeBoard.id, activeBoard.boardKind);
+      setMessage(null);
+      return;
+    }
     if (activeBoardId) resetBoard(activeBoardId);
     else resetSimulation();
     setMessage(null);
@@ -1478,13 +1482,7 @@ export const EditorToolbar = ({
                     ? digitalRunning || verifying
                     : isMultiBoard
                       ? compileAllRunning || anyBoardRunning || verifying
-                      : // QEMU-Linux boards keep Run enabled while running:
-                        // on a booted guest it re-uploads the edited files
-                        // and re-runs the script without the ~45 s reboot.
-                        (running && !isPiBoardKind(activeBoard?.boardKind ?? '')) ||
-                        compiling ||
-                        verifying ||
-                        !activeBoard
+                      : running || compiling || verifying || !activeBoard
                 }
                 className="tb-btn tb-btn-run"
                 title={
@@ -1588,12 +1586,24 @@ export const EditorToolbar = ({
               </svg>
             </button>
 
-            {/* Reset */}
+            {/* Reset — for a booted QEMU-Linux guest this re-uploads the
+                edited files and re-runs the script without rebooting. */}
             <button
               onClick={handleReset}
-              disabled={!compiledHex && !activeBoard?.compiledProgram}
+              disabled={
+                isPiBoardKind(activeBoard?.boardKind ?? '')
+                  ? !activeBoard?.piBooted
+                  : !compiledHex && !activeBoard?.compiledProgram
+              }
               className="tb-btn tb-btn-reset"
-              title={t('editor.toolbar.reset')}
+              title={
+                isPiBoardKind(activeBoard?.boardKind ?? '')
+                  ? t(
+                      'editor.toolbar.rerunScript',
+                      'Re-run script with your latest edits (no reboot)',
+                    )
+                  : t('editor.toolbar.reset')
+              }
             >
               <svg
                 width="18"
