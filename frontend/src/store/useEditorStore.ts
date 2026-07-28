@@ -387,11 +387,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         // Determine default file by group name convention or language mode.
         // All QEMU-Linux boards (Pi Zero/1/2/3/4/5 plus overlay piFamily
         // kinds like the UNIHIKER) default to script.py. Group ids follow
-        // `group-<boardId>` and the first board of a kind uses the kind as
-        // its id ('-N' suffix for later instances), so strip both and ask
-        // isPiBoardKind — the same predicate every other Pi code path uses.
-        const boardIdPart = groupId.replace(/^group-/, '').replace(/-\d+$/, '');
-        const isPi = isPiBoardKind(boardIdPart);
+        // `group-<boardId>`; the first board of a kind uses the kind as its
+        // id, later instances append '-N'. Test the FULL id first — kinds
+        // themselves end in digits ('raspberry-pi-3'), so stripping the
+        // numeric suffix unconditionally would mangle them ('raspberry-pi'
+        // matched nothing and Pis regressed to sketch.ino).
+        const boardIdPart = groupId.replace(/^group-/, '');
+        const isPi =
+          isPiBoardKind(boardIdPart) || isPiBoardKind(boardIdPart.replace(/-\d+$/, ''));
         const isMicroPython = languageMode === 'micropython';
         const mainId = `${groupId}-main`;
         let fileName: string;
