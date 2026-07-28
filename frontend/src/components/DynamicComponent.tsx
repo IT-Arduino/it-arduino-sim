@@ -480,7 +480,13 @@ export const DynamicComponent: React.FC<DynamicComponentProps> = ({
           tag === 'wokwi-analog-joystick' ||
           tag === 'wokwi-ky-040' ||
           tag === 'wokwi-membrane-keypad' ||
-          tag === 'wokwi-rotary-dialer');
+          tag === 'wokwi-rotary-dialer' ||
+          // Rule-6a escape hatch: a (possibly private-overlay) element whose
+          // surface IS the interaction — a touch screen — declares it via a
+          // property instead of this list growing pro tag names. While the
+          // sim runs, touching it must touch, not drag: the Round Display's
+          // glass was painting the green dot AND dragging the shield around.
+          (target as { ownsPointer?: boolean }).ownsPointer === true);
       if (ownsPointer) {
         // Let the wokwi component own this pointerdown.
         return;
