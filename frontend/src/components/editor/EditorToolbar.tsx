@@ -1478,7 +1478,13 @@ export const EditorToolbar = ({
                     ? digitalRunning || verifying
                     : isMultiBoard
                       ? compileAllRunning || anyBoardRunning || verifying
-                      : running || compiling || verifying || !activeBoard
+                      : // QEMU-Linux boards keep Run enabled while running:
+                        // on a booted guest it re-uploads the edited files
+                        // and re-runs the script without the ~45 s reboot.
+                        (running && !isPiBoardKind(activeBoard?.boardKind ?? '')) ||
+                        compiling ||
+                        verifying ||
+                        !activeBoard
                 }
                 className="tb-btn tb-btn-run"
                 title={
