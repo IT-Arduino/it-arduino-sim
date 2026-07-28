@@ -827,6 +827,19 @@ export const EditorToolbar = ({
           stopBoard(activeBoardId);
           await new Promise((resolve) => setTimeout(resolve, 300));
         }
+        // QEMU-Linux boards (Raspberry Pi family + overlay piFamily kinds)
+        // boot straight from the rootfs — there is no firmware to compile,
+        // and handleCompile's Pi early-return never sets compiledProgram, so
+        // the gate below would surface a bogus "Compilation produced no
+        // firmware" error. Power the board on directly instead.
+        if (isPiBoardKind(board?.boardKind ?? '')) {
+          trackRunSimulation(board?.boardKind);
+          reportRun(board?.boardKind);
+          console.log('[handleRun] → startBoard (QEMU-Linux, no firmware)', activeBoardId);
+          startBoard(activeBoardId);
+          setMessage(null);
+          return;
+        }
         if (!board?.compiledProgram || codeChangedSinceLastCompile) {
           console.log('[handleRun] auto-compile + run');
           autoRunAfterCompile.current = true;
