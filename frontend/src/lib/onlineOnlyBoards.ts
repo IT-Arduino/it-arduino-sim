@@ -115,7 +115,7 @@ export const ONLINE_ONLY_BOARD_ADS: OnlineOnlyBoardAd[] = [
       '<rect x="12" y="21" width="48" height="30" fill="#f2f0ea"/>' +
       '<text x="36" y="38" text-anchor="middle" font-size="8" font-family="monospace" fill="#17181c">BADGER</text>' +
       '<circle cx="36" cy="12" r="2.5" fill="none" stroke="#3a3d42" stroke-width="2"/></svg>',
-  },,
+  },
 {
     id: 'xiao-esp32s3-sense',
     label: 'XIAO ESP32S3 Sense',
