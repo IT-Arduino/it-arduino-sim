@@ -27,6 +27,8 @@
  *     { type: 'error',         data: { message: string } }
  */
 
+import { getTabSessionId } from './Esp32Bridge';
+
 const API_BASE = (): string => {
   // The desktop shell injects the sidecar URL at runtime (random port) via
   // window.__VELXIO_API_BASE__; honor it first so the QEMU-board WebSocket
@@ -92,8 +94,13 @@ export class RaspberryPi3Bridge {
 
     const base = API_BASE();
     const wsProtocol = base.startsWith('https') ? 'wss:' : 'ws:';
+    // Scope the backend client_id to THIS tab. With the bare boardId, two
+    // tabs (or two users) opening the same example shared one QEMU
+    // instance: serial output went to whichever WebSocket connected last,
+    // keystrokes interleaved, and one tab's stop killed the other's guest.
+    const clientId = `${this.boardId}--${getTabSessionId()}`;
     const wsUrl =
-      base.replace(/^https?:/, wsProtocol) + `/simulation/ws/${encodeURIComponent(this.boardId)}`;
+      base.replace(/^https?:/, wsProtocol) + `/simulation/ws/${encodeURIComponent(clientId)}`;
 
     const socket = new WebSocket(wsUrl);
     this.socket = socket;
