@@ -2,7 +2,7 @@
  * Editor Page — main editor + simulator with resizable panels
  */
 
-import React, { useRef, useState, useCallback, useEffect, lazy, Suspense } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { startSimulation } from '../simulation/spice/start';
 import { useSEO } from '../utils/useSEO';
@@ -13,11 +13,6 @@ import { EditorToolbar } from '../components/editor/EditorToolbar';
 import { FileExplorer } from '../components/editor/FileExplorer';
 
 // Lazy-load Pi workspace so xterm.js isn't in the main bundle
-const RaspberryPiWorkspace = lazy(() =>
-  import('../components/raspberry-pi/RaspberryPiWorkspace').then((m) => ({
-    default: m.RaspberryPiWorkspace,
-  })),
-);
 import { CompilationConsole } from '../components/editor/CompilationConsole';
 import { SimulatorCanvas } from '../components/simulator/SimulatorCanvas';
 import { SerialMonitor } from '../components/simulator/SerialMonitor';
@@ -33,7 +28,6 @@ import { useProjectStore } from '../store/useProjectStore';
 import { showConfirmDialog } from '../store/useMessageDialogStore';
 import { useAutoSaveProject } from '../hooks/useAutoSaveProject';
 import type { CompilationLog } from '../utils/compilationLogger';
-import { isPiBoardKind } from '../types/board';
 import '../App.css';
 
 const MOBILE_BREAKPOINT = 768;
@@ -77,12 +71,6 @@ export const EditorPage: React.FC = () => {
   const resizingRef = useRef(false);
   const serialMonitorOpen = useSimulatorStore((s) => s.serialMonitorOpen);
   const activeBoardId = useSimulatorStore((s) => s.activeBoardId);
-  const activeBoardKind = useSimulatorStore(
-    (s) => s.boards.find((b) => b.id === s.activeBoardId)?.boardKind,
-  );
-  // Pi 3/4/5 and Zero/1/2 all run the QEMU Linux workspace (terminal + Python),
-  // not the Arduino/Monaco editor. Pico (RP2040) is browser-emulated, not a Pi here.
-  const isLinuxPi = isPiBoardKind(activeBoardKind ?? '');
   const oscilloscopeOpen = useOscilloscopeStore((s) => s.open);
   const [consoleOpen, setConsoleOpen] = useState(false);
   // compileLogs live in a Zustand store so the velxio-pro agent overlay
@@ -599,21 +587,14 @@ export const EditorPage: React.FC = () => {
               </div>
             )}
 
-            {/* Editor area: Pi workspace or Monaco editor */}
+            {/* Editor area — Monaco for every board, QEMU-Linux included.
+                Pi boards edit script.py here like any other board edits its
+                sketch; their interactive terminal lives in the bottom serial
+                panel (SerialMonitor renders an xterm for Pi kinds). The old
+                RaspberryPiWorkspace (own file tree + own editor + upload
+                button) confused users with three competing file surfaces. */}
             <div className="editor-wrapper" style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-              {isLinuxPi && activeBoardId ? (
-                <Suspense
-                  fallback={
-                    <div style={{ color: '#666', padding: 16, fontSize: 12 }}>
-                      Loading Pi workspace…
-                    </div>
-                  }
-                >
-                  <RaspberryPiWorkspace boardId={activeBoardId} />
-                </Suspense>
-              ) : (
-                <CodeEditor />
-              )}
+              <CodeEditor />
             </div>
 
             {/* Console */}

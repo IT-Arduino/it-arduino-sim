@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore, chipFileGroupId } from '../../store/useEditorStore';
-import { useSimulatorStore } from '../../store/useSimulatorStore';
+import { useSimulatorStore, piRerunScript } from '../../store/useSimulatorStore';
 import { useElectricalStore } from '../../store/useElectricalStore';
 import { type VerificationResult } from '../../simulation/verify/circuitVerifier';
 import { verifyCircuitFromStore } from '../../simulation/verify/verifyFromStore';
@@ -814,6 +814,33 @@ export const EditorToolbar = ({
       // QEMU boards: auto-compile if no firmware available yet
       if (isQemuBoard) {
         console.log('[handleRun] QEMU path');
+        // QEMU-Linux boards (Raspberry Pi family + overlay piFamily kinds)
+        // boot straight from the rootfs — there is no firmware to compile,
+        // and handleCompile's Pi early-return never sets compiledProgram, so
+        // the gate below would surface a bogus "Compilation produced no
+        // firmware" error. Power the board on directly; if the guest is
+        // ALREADY booted, skip the ~45 s reboot: interrupt the running
+        // script, re-upload the edited files and run again. This branch must
+        // stay ABOVE the generic stop-then-boot restart below, which would
+        // otherwise power-cycle the live guest.
+        if (isPiBoardKind(board?.boardKind ?? '')) {
+          trackRunSimulation(board?.boardKind);
+          reportRun(board?.boardKind);
+          if (board?.running && board?.piBooted) {
+            console.log('[handleRun] → piRerunScript (booted, no reboot)', activeBoardId);
+            await piRerunScript(activeBoardId, board.boardKind);
+          } else {
+            if (board?.running) {
+              // Running but never reached the shell (stuck/zombie): power-cycle.
+              stopBoard(activeBoardId);
+              await new Promise((resolve) => setTimeout(resolve, 300));
+            }
+            console.log('[handleRun] → startBoard (QEMU-Linux, no firmware)', activeBoardId);
+            startBoard(activeBoardId);
+          }
+          setMessage(null);
+          return;
+        }
         // Clean restart when the board is already running. Esp32Bridge.connect()
         // is a no-op while the socket is non-CLOSED, so startBoard() on a live
         // session does NOTHING — and if the backend QEMU session has since died
@@ -826,19 +853,6 @@ export const EditorToolbar = ({
         if (board?.running) {
           stopBoard(activeBoardId);
           await new Promise((resolve) => setTimeout(resolve, 300));
-        }
-        // QEMU-Linux boards (Raspberry Pi family + overlay piFamily kinds)
-        // boot straight from the rootfs — there is no firmware to compile,
-        // and handleCompile's Pi early-return never sets compiledProgram, so
-        // the gate below would surface a bogus "Compilation produced no
-        // firmware" error. Power the board on directly instead.
-        if (isPiBoardKind(board?.boardKind ?? '')) {
-          trackRunSimulation(board?.boardKind);
-          reportRun(board?.boardKind);
-          console.log('[handleRun] → startBoard (QEMU-Linux, no firmware)', activeBoardId);
-          startBoard(activeBoardId);
-          setMessage(null);
-          return;
         }
         if (!board?.compiledProgram || codeChangedSinceLastCompile) {
           console.log('[handleRun] auto-compile + run');

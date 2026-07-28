@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { generateUUID } from '../utils/uuid';
+import { isPiBoardKind } from '../types/board';
 
 export interface WorkspaceFile {
   id: string;
@@ -384,11 +385,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         }));
       } else {
         // Determine default file by group name convention or language mode.
-        // All Linux Pi boards (Zero/1/2/3/4/5) default to script.py; the Pico
-        // (RP2040) is browser-emulated and not a Linux Pi. Mirrors
-        // isPiBoardKind() in types/board.ts, adapted to the `group-<id>` convention.
-        const isPi =
-          groupId.includes('raspberry-pi-') && !groupId.includes('raspberry-pi-pico');
+        // All QEMU-Linux boards (Pi Zero/1/2/3/4/5 plus overlay piFamily
+        // kinds like the UNIHIKER) default to script.py. Group ids follow
+        // `group-<boardId>` and the first board of a kind uses the kind as
+        // its id ('-N' suffix for later instances), so strip both and ask
+        // isPiBoardKind — the same predicate every other Pi code path uses.
+        const boardIdPart = groupId.replace(/^group-/, '').replace(/-\d+$/, '');
+        const isPi = isPiBoardKind(boardIdPart);
         const isMicroPython = languageMode === 'micropython';
         const mainId = `${groupId}-main`;
         let fileName: string;

@@ -9,7 +9,8 @@ import { useSimulatorStore } from '../../store/useSimulatorStore';
 import { getTabSessionId } from '../../simulation/Esp32Bridge';
 import { openDeviceGateway } from '../../lib/openDeviceGateway';
 import type { BoardKind } from '../../types/board';
-import { boardDisplayName } from '../../types/board';
+import { boardDisplayName, isPiBoardKind } from '../../types/board';
+import { PiTerminal } from '../raspberry-pi/PiTerminal';
 
 // Short labels for tabs
 const BOARD_SHORT_LABEL: Partial<Record<string, string>> = {
@@ -252,7 +253,14 @@ export const SerialMonitor: React.FC = () => {
         </div>
       </div>
 
-      {/* Output area */}
+      {/* Output area. QEMU-Linux boards get the interactive xterm (shell
+          input, line editing, ANSI) instead of the read-only mirror — this
+          replaced the separate RaspberryPiWorkspace as the one terminal. */}
+      {isPiBoardKind(activeBoard?.boardKind ?? '') && activeBoard?.running ? (
+        <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          <PiTerminal key={activeBoard.id} boardId={activeBoard.id} />
+        </div>
+      ) : (
       <pre ref={outputRef} style={styles.output}>
         {activeBoard?.serialOutput
           ? (() => {
@@ -332,8 +340,10 @@ export const SerialMonitor: React.FC = () => {
             ? t('editor.serial.waitingData') + '\n'
             : t('editor.serial.startSim') + '\n'}
       </pre>
+      )}
 
-      {/* Input row */}
+      {/* Input row — the xterm handles Pi input itself */}
+      {!(isPiBoardKind(activeBoard?.boardKind ?? '') && activeBoard?.running) && (
       <div style={styles.inputRow}>
         <input
           type="text"
@@ -362,6 +372,7 @@ export const SerialMonitor: React.FC = () => {
           {t('editor.serial.send')}
         </button>
       </div>
+      )}
     </div>
   );
 };

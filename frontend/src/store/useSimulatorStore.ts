@@ -762,6 +762,36 @@ const stm32BridgeMap = new Map<string, Stm32Bridge>();
 export const getBoardSimulator = (id: string) => simulatorMap.get(id);
 export const getBoardPinManager = (id: string) => pinManagerMap.get(id);
 export const getBoardBridge = (id: string) => bridgeMap.get(id);
+
+/** Upload a QEMU-Linux board's editor file group into the guest home and run
+ * its script (guestHome/autoRun overridable per overlay board). Used by the
+ * boot auto-run and by Run on an already-booted board. */
+export async function piSyncAndRunScript(boardId: string, boardKind: string): Promise<void> {
+  const bridge = bridgeMap.get(boardId);
+  if (!bridge || !bridge.connected) return;
+  const proDef = getProBoard(boardKind);
+  const home = (proDef?.guestHome ?? '/home/pi').replace(/\/+$/, '');
+  const board = useSimulatorStore.getState().boards.find((b) => b.id === boardId);
+  const groupId = board?.activeFileGroupId ?? `group-${boardId}`;
+  const files = useEditorStore
+    .getState()
+    .getGroupFiles(groupId)
+    .map((f) => ({ path: `${home}/${f.name}`, content: f.content }));
+  const { uploadFilesToPi } = await import('../utils/piUpload');
+  await uploadFilesToPi(bridge, files);
+  const cmd = proDef?.autoRun ?? `python3 ${home}/script.py`;
+  bridge.sendSerialText(cmd.endsWith('\n') ? cmd : cmd + '\n');
+}
+
+/** Re-run on a BOOTED QEMU-Linux board without rebooting: interrupt the
+ * running script (Ctrl-C), re-upload the file group, run again. */
+export async function piRerunScript(boardId: string, boardKind: string): Promise<void> {
+  const bridge = bridgeMap.get(boardId);
+  if (!bridge || !bridge.connected) return;
+  bridge.sendSerialBytes([0x03]);
+  await new Promise((r) => setTimeout(r, 400));
+  await piSyncAndRunScript(boardId, boardKind);
+}
 export const getEsp32Bridge = (id: string) => esp32BridgeMap.get(id);
 export const getStm32Bridge = (id: string) => stm32BridgeMap.get(id);
 
@@ -1255,28 +1285,21 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
             set((s) => ({
               boards: s.boards.map((b) => (b.id === id ? { ...b, piBooted: true } : b)),
             }));
-          // Overlay boards may declare autoRun: after boot (+setup) the VFS
-          // is uploaded and the command executed, so one click on Run boots,
-          // uploads and starts the user's script — same UX as every other
-          // board's compile-and-run.
-          const autoRun = async (): Promise<void> => {
-            const cmd = proDef?.autoRun;
-            if (!cmd) return;
-            try {
-              const files = useVfsStore.getState().serializeForUpload(id);
-              const { uploadFilesToPi } = await import('../utils/piUpload');
-              await uploadFilesToPi(bridge, files);
-              bridge.sendSerialText(cmd.endsWith('\n') ? cmd : cmd + '\n');
-            } catch (e) {
-              console.warn(`[${boardKind}] autoRun failed:`, e);
-            }
-          };
+          // After boot (+setup) the board's editor file group is uploaded
+          // into the guest home and the run command executed, so one click
+          // on Run boots, uploads and starts the user's script — same UX as
+          // every other board's compile-and-run. Overlay boards can override
+          // home/command via guestHome/autoRun.
           void (async () => {
             if (setup) {
               await bridge.sendAndWaitForPrompt(setup.endsWith('\n') ? setup : setup + '\n');
             }
             flip();
-            await autoRun();
+            try {
+              await piSyncAndRunScript(id, boardKind);
+            } catch (e) {
+              console.warn(`[${boardKind}] auto-run failed:`, e);
+            }
           })();
         };
         bridge.onDisconnected = () => {
@@ -1865,6 +1888,10 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
 
       if (isPiBoardKind(board.boardKind)) {
         getBoardBridge(boardId)?.connect();
+        // Pop the terminal open so the user watches the guest boot and gets
+        // the interactive shell — without it a Linux board looks frozen for
+        // the ~45 s boot.
+        set({ serialMonitorOpen: true });
       } else if (isEsp32Kind(board.boardKind)) {
         // Pre-register sensors connected to this board so the QEMU worker
         // has them ready before the firmware starts executing.

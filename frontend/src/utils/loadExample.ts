@@ -176,6 +176,18 @@ export async function loadExample(
       }
 
       if (eb.vfsFiles && isPiBoardKind(eb.boardKind)) {
+        // Pi example scripts go into the board's REGULAR file group — they
+        // are edited in Monaco like any other board's code, and the run
+        // path uploads the group into the guest home. (The old separate
+        // VFS tree + panel + editor confused users with three file
+        // surfaces; the VFS store is still updated for back-compat with
+        // anything reading it, but the editor group is the source of truth.)
+        const groupFiles = Object.entries(eb.vfsFiles).map(([name, content]) => ({
+          name,
+          content,
+        }));
+        useEditorStore.getState().setActiveGroup(board.activeFileGroupId);
+        useEditorStore.getState().loadFiles(groupFiles);
         const vfsState = useVfsStore.getState();
         const tree = vfsState.getTree(boardId);
         for (const [nodeId, node] of Object.entries(tree)) {

@@ -9,7 +9,7 @@ import {
   DEFAULT_CHIP_PROGRAM_C,
 } from '../../services/romCompileService';
 import type { BoardKind } from '../../types/board';
-import { boardDisplayName } from '../../types/board';
+import { boardDisplayName, isPiBoardKind } from '../../types/board';
 import { importProjectFile, PROJECT_FILE_ACCEPT } from '../../utils/importProject';
 import { showMessageDialog, showConfirmDialog } from '../../store/useMessageDialogStore';
 import './FileExplorer.css';
@@ -761,7 +761,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
                       (compile scope), grouped with the board's code so it is
                       clear which board it belongs to. There is one per board.
                       Clicking switches to the board and opens the Library
-                      Manager on its list. */}
+                      Manager on its list. QEMU-Linux boards run Python in a
+                      guest OS — no arduino-cli manifest, so no row. */}
+                  {!isPiBoardKind(board.boardKind) && (
                   <div
                     className={`file-explorer-item fe-file-item${
                       manifestViewBoardId === board.id ? ' file-explorer-item-active' : ''
@@ -796,6 +798,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
                       {board.libraries?.length ?? 0}
                     </span>
                   </div>
+                  )}
                 </div>
               )}
             </div>
