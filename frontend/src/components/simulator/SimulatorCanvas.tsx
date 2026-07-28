@@ -1,6 +1,7 @@
 import {
   useSimulatorStore,
   getEsp32Bridge,
+  getBoardBridge,
   getBoardSimulator,
 } from '../../store/useSimulatorStore';
 import { getProBoard } from '../../lib/proBoardRegistry';
@@ -250,7 +251,9 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
             proDef.attachBuiltins!({
               el,
               sim: getBoardSimulator(board.id),
-              bridge: getEsp32Bridge(board.id),
+              // ESP32-family boards get their QEMU/JS bridge; QEMU-Linux
+              // (piFamily) boards get the Raspberry Pi bridge instead.
+              bridge: getEsp32Bridge(board.id) ?? getBoardBridge(board.id),
             }),
           );
         } catch (e) {

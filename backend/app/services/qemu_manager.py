@@ -254,6 +254,9 @@ class PiInstance:
         self._proto_out_fd: int | None = None  # we read here  ← guest writes
         self._tasks: list[asyncio.Task] = []
         self.running = False
+        # Canvas-fed named values served to the guest via the SENS
+        # protocol op (overlay boards' built-in sensors/buttons).
+        self.sensor_state: dict[str, float] = {}
 
     async def emit(self, event_type: str, data: dict) -> None:
         try:
@@ -298,6 +301,22 @@ class QemuManager:
         inst = self._instances.get(client_id)
         if inst and inst._gpio_writer:
             asyncio.create_task(self._send_gpio(inst, int(pin), bool(state)))
+
+    def set_sensor_state(self, client_id: str, values: dict) -> None:
+        """Merge canvas-fed named values (served to the guest via SENS).
+
+        Used by overlay boards whose built-in sensors/buttons live on the
+        canvas element: the frontend pushes updates over the WebSocket and
+        the guest polls them with ``SENS <name>`` protocol requests.
+        """
+        inst = self._instances.get(client_id)
+        if not inst:
+            return
+        for key, value in values.items():
+            try:
+                inst.sensor_state[str(key)] = float(value)
+            except (TypeError, ValueError):
+                continue
 
     async def send_serial_bytes(self, client_id: str, data: bytes) -> None:
         inst = self._instances.get(client_id)
@@ -464,6 +483,17 @@ class QemuManager:
             #              rootfs uploads in Phase 4).
             '-append', 'console=hvc0 root=/dev/vda rw quiet panic=10',
         ]
+
+        # Optional read-only auxiliary disk (overlay-registered board
+        # profiles use it to ship guest-side shim libraries). Shows up as
+        # the second virtio-blk — /dev/vdb on the pci transport.
+        extra_drive = cfg.get('extra_drive')
+        if extra_drive and os.path.exists(extra_drive):
+            cmd += [
+                '-drive', f'if=none,file={extra_drive},format=raw,readonly=on,id=aux',
+                '-device', ('virtio-blk-pci,drive=aux' if cfg['bus'] == 'pci'
+                            else 'virtio-blk-device,drive=aux'),
+            ]
 
         logger.info('Launching QEMU for %s: %s',
                     inst.client_id, ' '.join(cmd))
@@ -672,6 +702,21 @@ class QemuManager:
                 )
             except ValueError:
                 pass
+            return
+
+        if op == 'SENS' and len(parts) == 2:
+            # Canvas-fed named value (overlay boards' built-in sensors /
+            # buttons). Unknown names read as 0 so guest shims degrade
+            # gracefully when nothing on the canvas feeds them.
+            value = inst.sensor_state.get(parts[1], 0.0)
+            await self._reply_gpio(inst, f'SENS {parts[1]} {value:g}')
+            return
+
+        if op == 'DISP' and len(parts) == 2:
+            # Guest display command (opaque base64 payload). Forwarded
+            # verbatim to the frontend, which renders it on the board
+            # element (overlay boards with built-in screens).
+            await inst.emit('display', {'data': parts[1]})
             return
 
         if op == 'GPIO_IN' and len(parts) == 2:

@@ -91,6 +91,13 @@ async def simulation_websocket(websocket: WebSocket, client_id: str):
                 state = msg_data.get('state', 0)
                 qemu_manager.set_pin_state(client_id, pin, state)
 
+            elif msg_type == 'pi_sensor_state':
+                # Canvas-fed named values for overlay boards' built-in
+                # sensors/buttons; the guest polls them via SENS requests.
+                values = msg_data.get('values', {})
+                if isinstance(values, dict):
+                    qemu_manager.set_sensor_state(client_id, values)
+
             elif msg_type in ('pi_attach_slave', 'pi_detach_slave'):
                 # Pluggable hook — pro overlay registers the actual handler
                 # via qemu_manager.set_pi_slave_handler(). In the OSS image

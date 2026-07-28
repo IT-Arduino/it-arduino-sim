@@ -56,6 +56,14 @@ export class RaspberryPi3Bridge {
   onDisconnected: (() => void) | null = null;
   onError: ((msg: string) => void) | null = null;
   onSystemEvent: ((event: string, data: Record<string, unknown>) => void) | null = null;
+  /** Guest display command (opaque base64 payload from the DISP protocol
+   * op). Overlay boards with built-in screens render it on their element. */
+  onDisplay: ((data: string) => void) | null = null;
+  /** Guest PWM activity (PWM_START / PWM_CHANGE / PWM_STOP). Overlay boards
+   * use it for built-in buzzers/speakers. */
+  onGpioPwm:
+    | ((pin: number, frequency: number, dutyCycle: number, event: string) => void)
+    | null = null;
   /** Fires once when the guest Linux has finished booting and reached an
    * interactive shell prompt. `connected` only means the WebSocket is open
    * (~1s); the guest still takes 30-60s to boot. Drives the "booting" UI and
@@ -122,6 +130,17 @@ export class RaspberryPi3Bridge {
         }
         case 'system':
           this.onSystemEvent?.(msg.data.event as string, msg.data);
+          break;
+        case 'display':
+          this.onDisplay?.((msg.data.data as string) ?? '');
+          break;
+        case 'gpio_pwm':
+          this.onGpioPwm?.(
+            (msg.data.pin as number) ?? 0,
+            (msg.data.frequency as number) ?? 0,
+            (msg.data.duty_cycle as number) ?? 0,
+            (msg.data.event as string) ?? 'change',
+          );
           break;
         case 'error':
           this.onError?.(msg.data.message as string);
@@ -233,6 +252,12 @@ export class RaspberryPi3Bridge {
   /** Drive a GPIO pin from an external source (e.g. connected Arduino) */
   sendPinEvent(gpioPin: number, state: boolean): void {
     this._send({ type: 'gpio_in', data: { pin: gpioPin, state: state ? 1 : 0 } });
+  }
+
+  /** Push canvas-fed named values (built-in sensors/buttons of overlay
+   * boards). The guest polls them via SENS protocol requests. */
+  setSensorState(values: Record<string, number>): void {
+    this._send({ type: 'pi_sensor_state', data: { values } });
   }
 
   /**
