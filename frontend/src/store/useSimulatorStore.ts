@@ -1244,11 +1244,23 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         };
         // Guest Linux finished booting (shell prompt reached). Flip piBooted so
         // the workspace swaps the "Booting…" overlay for the live terminal and
-        // uploads know the shell is ready.
+        // uploads know the shell is ready. Overlay boards may declare a
+        // guestSetup line (hostname/PS1/clear) to de-brand the generic image;
+        // it runs before piBooted flips so the VFS upload (gated on piBooted)
+        // cannot interleave with it.
         bridge.onBooted = () => {
-          set((s) => ({
-            boards: s.boards.map((b) => (b.id === id ? { ...b, piBooted: true } : b)),
-          }));
+          const setup = getProBoard(boardKind)?.guestSetup;
+          const flip = () =>
+            set((s) => ({
+              boards: s.boards.map((b) => (b.id === id ? { ...b, piBooted: true } : b)),
+            }));
+          if (setup) {
+            void bridge
+              .sendAndWaitForPrompt(setup.endsWith('\n') ? setup : setup + '\n')
+              .then(flip);
+          } else {
+            flip();
+          }
         };
         bridge.onDisconnected = () => {
           set((s) => {

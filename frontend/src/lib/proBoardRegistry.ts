@@ -59,6 +59,10 @@ export interface ProBoardDef {
    *  bridge (backend qemu WebSocket, VFS panel, boot terminal). The overlay
    *  must also register a matching backend profile for the kind. */
   piFamily?: boolean;
+  /** One shell line sent to the guest right after it reaches the boot
+   *  prompt (piFamily boards only). Lets a board de-brand the generic
+   *  image, e.g. set its own hostname/PS1 and clear the stock motd. */
+  guestSetup?: string;
   /** Canvas renderer. Receives the placed board's props; return a React node.
    *  When omitted, the canvas renders `<tag id=... style=absolute@x,y>`. */
   render?: (props: { id: string; x: number; y: number; running: boolean }) => React.ReactNode;

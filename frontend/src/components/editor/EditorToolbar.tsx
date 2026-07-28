@@ -502,9 +502,9 @@ export const EditorToolbar = ({
     const blog = (type: CompilationLog['type'], message: string) =>
       addLog({ timestamp: new Date(), type, message, target: boardTarget });
 
-    // Raspberry Pi 3B doesn't need arduino-cli compilation
+    // QEMU-Linux boards don't need arduino-cli compilation
     if (isPiBoardKind(kind)) {
-      blog('info', 'Raspberry Pi 3B: no compilation needed — run Python scripts directly.');
+      blog('info', `${boardLabel}: no compilation needed — run Python scripts directly.`);
       setMessage({ type: 'success', text: 'Ready (no compilation needed)' });
       setCompiling(false);
       return;
