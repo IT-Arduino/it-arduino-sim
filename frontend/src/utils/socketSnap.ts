@@ -93,3 +93,22 @@ export function snapBoardToSocket(
   }
   return best ? { x: tentativeX + best.dx, y: tentativeY + best.dy } : null;
 }
+
+/**
+ * True when the board's CURRENT position IS a socket seat (within half a
+ * pixel). This is the z-order question, not the drag question: a seated
+ * board must paint above its socket component, an unseated one must stay
+ * below components like every other board — the blanket zIndex bump that
+ * preceded this check hid a resistor behind an Arduino in every ordinary
+ * example.
+ */
+export function isBoardSeated(
+  boardId: string,
+  boardKind: string,
+  x: number,
+  y: number,
+  components: ComponentLike[],
+): boolean {
+  const seat = snapBoardToSocket(boardId, boardKind, x, y, components);
+  return !!seat && Math.hypot(seat.x - x, seat.y - y) < 0.5;
+}

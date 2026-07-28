@@ -1,4 +1,6 @@
 import React from 'react';
+import { useSimulatorStore } from '../../store/useSimulatorStore';
+import { isBoardSeated } from '../../utils/socketSnap';
 import { getProBoard } from '../../lib/proBoardRegistry';
 import type { BoardInstance } from '../../types/board';
 import { ArduinoUno } from '../velxio-components/ArduinoUno';
@@ -103,6 +105,14 @@ export const BoardOnCanvas = ({
 }: BoardOnCanvasProps) => {
   const { id, boardKind, x, y } = board;
   const size = BOARD_SIZE[boardKind] ?? getProBoard(boardKind)?.size ?? { w: 300, h: 200 };
+  // Seated on a socket component (Round Display back header)? Decides the
+  // stacking below. Recomputed on every position change; the check is a few
+  // pad lookups over the component list, cheap at render rate.
+  const components = useSimulatorStore((st) => st.components);
+  const seated = React.useMemo(
+    () => isBoardSeated(id, boardKind, x, y, components),
+    [id, boardKind, x, y, components],
+  );
 
   // Status dot color: green=running, amber=compiled, gray=idle
   const statusColor = board.running ? '#22c55e' : board.compiledProgram ? '#f59e0b' : '#6b7280';
@@ -184,12 +194,15 @@ export const BoardOnCanvas = ({
     // sibling of PinOverlay) made moving onto a pin fire mouseleave, which
     // cleared the hover and hid the pins before you could click one.
     <div
-      // Boards paint ABOVE components (which sit at zIndex 1, 2 selected).
-      // The case that decides it is stacking: a XIAO seated on the Round
-      // Display's socket must be the thing you see, the way the board you
-      // just dropped is the thing on top of the pile. Side-by-side layouts
-      // never overlap, so nothing else changes.
-      style={{ position: 'absolute', left: 0, top: 0, zIndex: 3 }}
+      // Stacking: boards normally sit BELOW components (z 0 vs their 1/2) —
+      // a resistor next to an Arduino must be visible on top, and a blanket
+      // z bump here once hid it behind the board in every ordinary example.
+      // The ONE exception is a board SEATED on a socket component (the Round
+      // Display back header): then the board is the thing you see, the way
+      // the physical XIAO stacks on the shield. The magnet snap places the
+      // board exactly on the seat, so the moment it clicks it pops on top,
+      // and dragging it off drops it back under.
+      style={{ position: 'absolute', left: 0, top: 0, zIndex: seated ? 3 : 0 }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
