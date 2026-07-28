@@ -2086,6 +2086,7 @@ class ESPIDFCompiler:
         self,
         opts: dict | None,
         idf_target: str,
+        board_fqbn: str | None = None,
     ) -> dict:
         """Fill missing keys with defaults, validate enums, strip
         target-incompatible keys (e.g. PSRAM on C3).
@@ -2124,6 +2125,17 @@ class ESPIDFCompiler:
         # a stuck build.
         if normalized['psram'] == 'opi' and idf_target != 'esp32s3':
             normalized['psram'] = 'enabled'
+
+        # The Arduino VARIANT this board builds against (F7.6). Without it the
+        # sdkconfig template falls back to the generic chip variant, and boards
+        # like the XIAO ESP32S3 lose their identity: no Dx pin names, and
+        # CDC_ON_BOOT stays off so `Serial` lands on UART0 — whose default RX
+        # is GPIO44, the very pin the XIAO exposes as D7. A sketch doing
+        # pinMode(D7, ...) then has the peripheral manager tear the UART0
+        # driver down and every print after it is silently dropped (measured
+        # on the Round Display clock example: setup prints out, loop mute).
+        if board_fqbn:
+            normalized['arduinoVariant'] = self._arduino_variant(board_fqbn, idf_target)
 
         return normalized
 
@@ -2584,7 +2596,7 @@ class ESPIDFCompiler:
         logger.info(f'[espidf] Files: {[f["name"] for f in files]}')
 
         try:
-            normalized_opts = self._normalize_options(board_options, idf_target)
+            normalized_opts = self._normalize_options(board_options, idf_target, board_fqbn)
         except ValueError as exc:
             return {
                 'success': False,
