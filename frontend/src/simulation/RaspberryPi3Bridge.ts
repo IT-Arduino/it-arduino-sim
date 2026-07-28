@@ -75,6 +75,15 @@ export class RaspberryPi3Bridge {
   private socket: WebSocket | null = null;
   private _connected = false;
   private _booted = false;
+  /** quietBoot (ProBoardDef): while true, guest serial output is withheld
+   * from onSerialData (boot detection still runs) and a neutral Velxio
+   * progress line + dots show instead. The run path calls setQuiet(false)
+   * to reveal the shell right before the script starts. */
+  quietBootDefault = false;
+  /** Board label for the quiet-boot progress line. */
+  quietBootLabel = '';
+  private _quiet = false;
+  private _quietTimer: ReturnType<typeof setInterval> | null = null;
   /** Rolling, escape-stripped tail of recent guest output, used to detect the
    * boot-complete marker and shell prompts for flow-controlled sends. */
   private _serialTail = '';
@@ -110,6 +119,12 @@ export class RaspberryPi3Bridge {
       this.onConnected?.();
       // Tell the backend which Pi family member to boot.
       this._send({ type: 'start_pi', data: { board: this.boardKind } });
+      if (this.quietBootDefault) {
+        this._quiet = true;
+        const label = this.quietBootLabel || this.boardKind;
+        this._emitLocal(`[Velxio] Booting ${label} (Linux guest)`);
+        this._quietTimer = setInterval(() => this._emitLocal('.', false), 4000);
+      }
     };
 
     socket.onmessage = (event: MessageEvent) => {
@@ -123,7 +138,9 @@ export class RaspberryPi3Bridge {
       switch (msg.type) {
         case 'serial_output': {
           const text = (msg.data.data as string) ?? '';
-          if (this.onSerialData) {
+          // quietBoot: keep observing (boot marker + prompt waiters drive
+          // guestSetup and the upload) but withhold the branded chatter.
+          if (!this._quiet && this.onSerialData) {
             for (const ch of text) this.onSerialData(ch);
           }
           this._observeSerial(text);
@@ -183,9 +200,35 @@ export class RaspberryPi3Bridge {
   private _resetBootState(): void {
     this._booted = false;
     this._serialTail = '';
+    this._quiet = false;
+    if (this._quietTimer) {
+      clearInterval(this._quietTimer);
+      this._quietTimer = null;
+    }
     const waiters = this._promptWaiters;
     this._promptWaiters = [];
     for (const w of waiters) w();
+  }
+
+  /** Feed locally-generated status text to the serial consumers. */
+  private _emitLocal(text: string, newline = true): void {
+    if (!this.onSerialData) return;
+    const chunk = newline ? `\r\n${text}` : text;
+    for (const ch of chunk) this.onSerialData(ch);
+  }
+
+  /** Reveal (or re-hide) the guest's serial stream. Turning quiet off ends
+   * the progress dots and prints a ready line. */
+  setQuiet(on: boolean): void {
+    if (this._quiet === on) return;
+    this._quiet = on;
+    if (!on) {
+      if (this._quietTimer) {
+        clearInterval(this._quietTimer);
+        this._quietTimer = null;
+      }
+      this._emitLocal(' ready.\r\n');
+    }
   }
 
   /** Send a byte to the Pi's ttyAMA0 (user serial) */

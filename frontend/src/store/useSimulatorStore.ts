@@ -777,8 +777,14 @@ export async function piSyncAndRunScript(boardId: string, boardKind: string): Pr
     .getState()
     .getGroupFiles(groupId)
     .map((f) => ({ path: `${home}/${f.name}`, content: f.content }));
-  const { uploadFilesToPi } = await import('../utils/piUpload');
-  await uploadFilesToPi(bridge, files);
+  try {
+    const { uploadFilesToPi } = await import('../utils/piUpload');
+    await uploadFilesToPi(bridge, files);
+  } finally {
+    // Reveal the shell (ends quietBoot) right before the script starts, so
+    // the user's first visible output is their own program.
+    bridge.setQuiet(false);
+  }
   const cmd = proDef?.autoRun ?? `python3 ${home}/script.py`;
   bridge.sendSerialText(cmd.endsWith('\n') ? cmd : cmd + '\n');
 }
@@ -1259,6 +1265,11 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
 
       if (isPiBoardKind(boardKind)) {
         const bridge = new RaspberryPi3Bridge(id, boardKind);
+        const piDef = getProBoard(boardKind);
+        if (piDef?.quietBoot) {
+          bridge.quietBootDefault = true;
+          bridge.quietBootLabel = piDef.label;
+        }
         bridge.onSerialData = (ch: string) => {
           serialCallback(ch);
           // Cross-board routing now handled by Interconnect (see bind below).

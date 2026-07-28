@@ -71,6 +71,12 @@ export interface ProBoardDef {
    *  this line executed, so a single click on Run boots, uploads and
    *  starts the user's script (piFamily boards only). */
   autoRun?: string;
+  /** Suppress the guest's boot chatter in the terminal (piFamily boards
+   *  only): the shared rootfs prints another product's banner/motd during
+   *  boot, before guestSetup can re-brand it. With quietBoot the terminal
+   *  shows a neutral Velxio boot-progress line instead and reveals the
+   *  shell right before the auto-run command executes. */
+  quietBoot?: boolean;
   /** Canvas renderer. Receives the placed board's props; return a React node.
    *  When omitted, the canvas renders `<tag id=... style=absolute@x,y>`. */
   render?: (props: { id: string; x: number; y: number; running: boolean }) => React.ReactNode;
