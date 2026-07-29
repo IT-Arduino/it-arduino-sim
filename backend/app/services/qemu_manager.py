@@ -296,6 +296,9 @@ class PiInstance:
         # (TX->RX wire). The guest drains them with the UARTRX op; nothing
         # here interprets them, they are a pipe between two boards.
         self.uart_rx = bytearray()
+        # Last externally-driven level per BCM pin (canvas buttons, PIR,
+        # a wired board's output). GPIO_IN answers from here.
+        self.pin_levels: dict[int, int] = {}
         # Raw `start_pi` payload — carries whatever the client declared for
         # this session (e.g. the packages an overlay must materialise).
         self.start_payload: dict = {}
@@ -343,7 +346,13 @@ class QemuManager:
     def set_pin_state(self, client_id: str, pin: str | int, state: int) -> None:
         """Drive a GPIO pin from outside (e.g. connected Arduino)."""
         inst = self._instances.get(client_id)
-        if inst and inst._gpio_writer:
+        if not inst:
+            return
+        # Remember the level: GPIO_IN polls answer from this map. Without
+        # it a button on the canvas fired edge callbacks in the guest but
+        # GPIO.input() read an eternal 0 (the old stub).
+        inst.pin_levels[int(pin)] = 1 if state else 0
+        if inst._gpio_writer:
             asyncio.create_task(self._send_gpio(inst, int(pin), bool(state)))
 
     def push_uart_rx(self, client_id: str, data: bytes) -> None:
@@ -806,24 +815,6 @@ class QemuManager:
             await self._reply_gpio(inst, f'SENS {parts[1]} {value:g}')
             return
 
-        if op == 'UARTTX' and len(parts) == 2:
-            # Guest wrote to its header UART: hand the bytes to the canvas,
-            # which routes them down the wire to whatever board is on the
-            # other end. Opaque base64, exactly like DISP.
-            await inst.emit('uart_tx', {'data': parts[1]})
-            return
-
-        if op == 'UARTRX':
-            # Guest polls for bytes received on its header UART.
-            pending = bytes(inst.uart_rx)
-            inst.uart_rx.clear()
-            await self._reply_gpio(
-                inst,
-                'UART_RXQ ' + (base64.b64encode(pending).decode('ascii')
-                               if pending else ''),
-            )
-            return
-
         if op == 'DISP' and len(parts) == 2:
             # Guest display command (opaque base64 payload). Forwarded
             # verbatim to the frontend, which renders it on the board
@@ -832,14 +823,13 @@ class QemuManager:
             return
 
         if op == 'GPIO_IN' and len(parts) == 2:
-            # Reply with the last known state of the pin. For Phase 2
-            # we just echo 0 — the canvas-side input wiring fans in
-            # through SET commands which the shim caches on the guest.
-            # When canvas-driven inputs land in Phase 2.5 this will
-            # query the gpio event bus' last-state map.
+            # Reply with the last externally-driven level of the pin
+            # (canvas buttons / PIR / a wired board's output, delivered
+            # through set_pin_state). Unknown pins read 0.
             try:
                 pin = int(parts[1])
-                await self._reply_gpio(inst, f'VAL {pin} 0')
+                await self._reply_gpio(
+                    inst, f'VAL {pin} {inst.pin_levels.get(pin, 0)}')
             except ValueError:
                 pass
             return
@@ -897,8 +887,28 @@ class QemuManager:
                 await self._reply_gpio(
                     inst, f'SPI_DATA {parts[1]} {parts[2]} {"00" * length}')
                 return
+            # No slave model on this UART: the port is wired to another
+            # BOARD on the canvas. TX goes out to it and RX comes back
+            # from the queue the frontend fills — the guest shim already
+            # speaks this, it just used to talk into the void.
+            if op == 'UART' and len(parts) >= 4 and parts[2] == 'TX':
+                try:
+                    payload = bytes.fromhex(parts[3])
+                except ValueError:
+                    return
+                await inst.emit('uart_tx', {
+                    'port': parts[1],
+                    'data': base64.b64encode(payload).decode('ascii'),
+                })
+                return
             if op == 'UART' and len(parts) >= 3 and parts[2] == 'RX_REQ':
-                await self._reply_gpio(inst, f'UART_RX {parts[1]}')
+                pending = bytes(inst.uart_rx)
+                inst.uart_rx.clear()
+                await self._reply_gpio(
+                    inst,
+                    f'UART_RX {parts[1]} {pending.hex()}' if pending
+                    else f'UART_RX {parts[1]}',
+                )
             return
 
         # Unknown — log at debug level (not a hot path)

@@ -324,11 +324,10 @@ export function boardPinToNumber(boardId: string, pinName: string): number | nul
   // table works.  `pinName` may be either the physical pin number
   // ("1" … "40") OR a BCM-style name ("GPIO14") emitted by the Pi
   // element's pinInfo — power / GND pins return -1.
-  if (
-    boardId === 'raspberry-pi-3' || boardId.startsWith('raspberry-pi-3') ||
-    boardId === 'raspberry-pi-4' || boardId.startsWith('raspberry-pi-4') ||
-    boardId === 'raspberry-pi-5' || boardId.startsWith('raspberry-pi-5')
-  ) {
+  // The whole QEMU-Linux Pi family shares the 40-pin header (the Zero,
+  // 1B+ and 2B render the same element as the 3) — matching only 3/4/5
+  // left the small boards without any pin mapping at all.
+  if (boardId.startsWith('raspberry-pi-') && boardId !== 'raspberry-pi-pico') {
     if (/^(GND|VCC|3V3|5V|ID_S[DC])/.test(pinName)) return -1;
     if (pinName.startsWith('GPIO')) {
       const n = parseInt(pinName.substring(4), 10);

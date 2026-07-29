@@ -7,6 +7,7 @@ import {
   type ProBoardSimulator,
 } from '../lib/proBoardRegistry';
 import { AVRSimulator } from '../simulation/AVRSimulator';
+import { attachSlavesFromCanvas } from '../simulation/piSlaveScanner';
 import { RP2040Simulator } from '../simulation/RP2040Simulator';
 import { RiscVSimulator } from '../simulation/RiscVSimulator';
 import { Esp32C3Simulator } from '../simulation/Esp32C3Simulator';
@@ -1297,6 +1298,21 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         // cannot interleave with it.
         bridge.onBooted = () => {
           const setup = getGuestSetup(boardKind);
+          // Attach the slave models for I2C/SPI/UART components wired to
+          // this Pi. This used to live in RaspberryPiWorkspace, which the
+          // unified terminal replaced — leaving the scan with no caller,
+          // so a BMP280 on the Pi's I2C pins never got its backend model.
+          try {
+            const st = get();
+            attachSlavesFromCanvas(
+              id,
+              bridge,
+              st.components as never,
+              st.wires as never,
+            );
+          } catch (e) {
+            console.warn('[pi] slave scan failed:', e);
+          }
           const flip = () =>
             set((s) => ({
               boards: s.boards.map((b) => (b.id === id ? { ...b, piBooted: true } : b)),
