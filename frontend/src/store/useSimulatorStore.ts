@@ -1930,6 +1930,13 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         // booting a Linux guest (a backend process + ~90 s). The detector
         // lives in the overlay; `enginePinned` lets the user override it.
         const decision = decideEngine(boardId, board.enginePinned);
+        // One line per start: which engine took the run and why. The
+        // toolbar already logs its own [handleRun] trace; without this
+        // one, a board that starts nothing at all (wrong engine, missing
+        // bridge) is indistinguishable from one that started fine.
+        console.info(
+          `[pi] start ${boardId}: engine=${decision.engine} pinned=${board.enginePinned ?? 'auto'} — ${decision.reason}`,
+        );
         // `running` is set here (not only by the toolbar): the Linux-mode
         // button restarts the board directly, and without this the flag
         // kept whatever the previous run left, so the UI showed Stop for
