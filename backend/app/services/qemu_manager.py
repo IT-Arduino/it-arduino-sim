@@ -491,7 +491,22 @@ class QemuManager:
             # exactly the two chardev-backed virtio-serial ports we
             # need.  -nographic auto-binds -serial mon:stdio which
             # collides with our explicit -chardev IDs.
-            '-nic',     'none',
+            # Networking: OFF by default. A profile that wants the guest to
+            # reach anything sets `egress_guestfwd`, and even then the NIC is
+            # `restrict=on` — no route to the internet, no route to the host
+            # LAN — with a single guestfwd tunnel to whatever the overlay
+            # points at (a filtering proxy). User code never gets a raw
+            # socket to the outside.
+            *(
+                ['-nic', 'none']
+                if not cfg.get('egress_guestfwd')
+                else [
+                    '-netdev',
+                    'user,id=egress,restrict=on,guestfwd=tcp:10.0.2.100:8080-cmd:'
+                    + str(cfg['egress_guestfwd']),
+                    '-device', 'virtio-net-pci,netdev=egress',
+                ]
+            ),
             '-display', 'none',
             '-monitor', 'none',
             '-serial',  'none',
