@@ -1825,25 +1825,47 @@ void loop() {
       },
     ],
     code: '',
-    components: [{ type: 'wokwi-rgb-led', id: 'rgb1', x: 470, y: 150, properties: {} }],
+    components: [
+      { type: 'wokwi-resistor', id: 'r-rgb1-r', x: 320, y: 160, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-rgb1-g', x: 320, y: 186, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-rgb1-b', x: 320, y: 212, properties: { value: '220' } },
+      { type: 'wokwi-rgb-led', id: 'rgb1', x: 470, y: 150, properties: {} }],
     wires: [
       {
         id: 'rgb-r',
         start: { componentId: 'stm32-bluepill', pinName: 'PA0' },
-        end: { componentId: 'rgb1', pinName: 'R' },
+        end: { componentId: 'r-rgb1-r', pinName: '1' },
         color: '#ff3333',
+      },
+      {
+        id: 'w-r-rgb1-r',
+        start: { componentId: 'r-rgb1-r', pinName: '2' },
+        end: { componentId: 'rgb1', pinName: 'R' },
+        color: '#e74c3c',
       },
       {
         id: 'rgb-g',
         start: { componentId: 'stm32-bluepill', pinName: 'PA1' },
-        end: { componentId: 'rgb1', pinName: 'G' },
+        end: { componentId: 'r-rgb1-g', pinName: '1' },
         color: '#33cc33',
+      },
+      {
+        id: 'w-r-rgb1-g',
+        start: { componentId: 'r-rgb1-g', pinName: '2' },
+        end: { componentId: 'rgb1', pinName: 'G' },
+        color: '#e74c3c',
       },
       {
         id: 'rgb-b',
         start: { componentId: 'stm32-bluepill', pinName: 'PA2' },
-        end: { componentId: 'rgb1', pinName: 'B' },
+        end: { componentId: 'r-rgb1-b', pinName: '1' },
         color: '#3366ff',
+      },
+      {
+        id: 'w-r-rgb1-b',
+        start: { componentId: 'r-rgb1-b', pinName: '2' },
+        end: { componentId: 'rgb1', pinName: 'B' },
+        color: '#e74c3c',
       },
       {
         id: 'rgb-com',
@@ -2714,6 +2736,9 @@ void loop() {
   delay(1000);
 }`,
     components: [
+      { type: 'wokwi-resistor', id: 'r-rgb-led-1-r', x: 180, y: 260, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-rgb-led-1-g', x: 180, y: 286, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-rgb-led-1-b', x: 180, y: 312, properties: { value: '220' } },
       {
         type: 'wokwi-arduino-uno',
         id: 'arduino-uno',
@@ -2733,20 +2758,38 @@ void loop() {
       {
         id: 'wire-red',
         start: { componentId: 'arduino-uno', pinName: '9' },
-        end: { componentId: 'rgb-led-1', pinName: 'R' },
+        end: { componentId: 'r-rgb-led-1-r', pinName: '1' },
         color: '#ff0000',
+      },
+      {
+        id: 'w-r-rgb-led-1-r',
+        start: { componentId: 'r-rgb-led-1-r', pinName: '2' },
+        end: { componentId: 'rgb-led-1', pinName: 'R' },
+        color: '#e74c3c',
       },
       {
         id: 'wire-green',
         start: { componentId: 'arduino-uno', pinName: '10' },
-        end: { componentId: 'rgb-led-1', pinName: 'G' },
+        end: { componentId: 'r-rgb-led-1-g', pinName: '1' },
         color: '#00ff00',
+      },
+      {
+        id: 'w-r-rgb-led-1-g',
+        start: { componentId: 'r-rgb-led-1-g', pinName: '2' },
+        end: { componentId: 'rgb-led-1', pinName: 'G' },
+        color: '#e74c3c',
       },
       {
         id: 'wire-blue',
         start: { componentId: 'arduino-uno', pinName: '11' },
-        end: { componentId: 'rgb-led-1', pinName: 'B' },
+        end: { componentId: 'r-rgb-led-1-b', pinName: '1' },
         color: '#0000ff',
+      },
+      {
+        id: 'w-r-rgb-led-1-b',
+        start: { componentId: 'r-rgb-led-1-b', pinName: '2' },
+        end: { componentId: 'rgb-led-1', pinName: 'B' },
+        color: '#e74c3c',
       },
       {
         id: 'wire-rgb-gnd',
@@ -3767,6 +3810,7 @@ void loop() {
 }
 `,
     components: [
+      { type: 'wokwi-resistor', id: 'r-led-1-a', x: 280, y: 120, properties: { value: '220' } },
       { type: 'wokwi-arduino-uno', id: 'arduino-uno', x: 100, y: 100, properties: {} },
       { type: 'wokwi-led', id: 'led-1', x: 400, y: 120, properties: { color: 'green' } },
     ],
@@ -3774,8 +3818,14 @@ void loop() {
       {
         id: 'w-led',
         start: { componentId: 'arduino-uno', pinName: '13' },
-        end: { componentId: 'led-1', pinName: 'A' },
+        end: { componentId: 'r-led-1-a', pinName: '1' },
         color: '#00cc00',
+      },
+      {
+        id: 'w-r-led-1-a',
+        start: { componentId: 'r-led-1-a', pinName: '2' },
+        end: { componentId: 'led-1', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'w-led-gnd',
@@ -4419,14 +4469,21 @@ void loop() {
 }
 `,
     components: [
+      { type: 'wokwi-resistor', id: 'r-led-rx-a', x: 280, y: 120, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'led-rx', x: 400, y: 120, properties: { color: 'yellow' } },
     ],
     wires: [
       {
         id: 'w1',
         start: { componentId: 'arduino-uno', pinName: 'TX' },
-        end: { componentId: 'led-rx', pinName: 'A' },
+        end: { componentId: 'r-led-rx-a', pinName: '1' },
         color: '#ff8800',
+      },
+      {
+        id: 'w-r-led-rx-a',
+        start: { componentId: 'r-led-rx-a', pinName: '2' },
+        end: { componentId: 'led-rx', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'w2',
@@ -4563,6 +4620,8 @@ void loop() {
 }
 `,
     components: [
+      { type: 'wokwi-resistor', id: 'r-led-scan-a', x: 280, y: 100, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-led-found-a', x: 280, y: 180, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'led-scan', x: 400, y: 100, properties: { color: 'blue' } },
       { type: 'wokwi-led', id: 'led-found', x: 400, y: 180, properties: { color: 'green' } },
     ],
@@ -4570,14 +4629,26 @@ void loop() {
       {
         id: 'w1',
         start: { componentId: 'arduino-uno', pinName: 'GP12' },
-        end: { componentId: 'led-scan', pinName: 'A' },
+        end: { componentId: 'r-led-scan-a', pinName: '1' },
         color: '#4488ff',
+      },
+      {
+        id: 'w-r-led-scan-a',
+        start: { componentId: 'r-led-scan-a', pinName: '2' },
+        end: { componentId: 'led-scan', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'w2',
         start: { componentId: 'arduino-uno', pinName: 'GP10' },
-        end: { componentId: 'led-found', pinName: 'A' },
+        end: { componentId: 'r-led-found-a', pinName: '1' },
         color: '#00cc00',
+      },
+      {
+        id: 'w-r-led-found-a',
+        start: { componentId: 'r-led-found-a', pinName: '2' },
+        end: { componentId: 'led-found', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'w3',
@@ -4655,6 +4726,8 @@ void loop() {
 }
 `,
     components: [
+      { type: 'wokwi-resistor', id: 'r-led-i2c-a', x: 280, y: 80, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-led-rtc-a', x: 280, y: 180, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'led-i2c', x: 400, y: 100, properties: { color: 'blue' } },
       { type: 'wokwi-led', id: 'led-rtc', x: 400, y: 180, properties: { color: 'yellow' } },
     ],
@@ -4662,14 +4735,26 @@ void loop() {
       {
         id: 'w-sda',
         start: { componentId: 'arduino-uno', pinName: 'GP12' },
-        end: { componentId: 'led-i2c', pinName: 'A' },
+        end: { componentId: 'r-led-i2c-a', pinName: '1' },
         color: '#4488ff',
+      },
+      {
+        id: 'w-r-led-i2c-a',
+        start: { componentId: 'r-led-i2c-a', pinName: '2' },
+        end: { componentId: 'led-i2c', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'w-scl',
         start: { componentId: 'arduino-uno', pinName: 'GP10' },
-        end: { componentId: 'led-rtc', pinName: 'A' },
+        end: { componentId: 'r-led-rtc-a', pinName: '1' },
         color: '#ffaa00',
+      },
+      {
+        id: 'w-r-led-rtc-a',
+        start: { componentId: 'r-led-rtc-a', pinName: '2' },
+        end: { componentId: 'led-rtc', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'w-sda-gnd',
@@ -4765,6 +4850,8 @@ void loop() {
 }
 `,
     components: [
+      { type: 'wokwi-resistor', id: 'r-led-write-a', x: 280, y: 100, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-led-read-a', x: 280, y: 180, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'led-write', x: 400, y: 100, properties: { color: 'red' } },
       { type: 'wokwi-led', id: 'led-read', x: 400, y: 180, properties: { color: 'green' } },
     ],
@@ -4772,14 +4859,26 @@ void loop() {
       {
         id: 'w-sda',
         start: { componentId: 'arduino-uno', pinName: 'GP12' },
-        end: { componentId: 'led-write', pinName: 'A' },
+        end: { componentId: 'r-led-write-a', pinName: '1' },
         color: '#ff4444',
+      },
+      {
+        id: 'w-r-led-write-a',
+        start: { componentId: 'r-led-write-a', pinName: '2' },
+        end: { componentId: 'led-write', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'w-scl',
         start: { componentId: 'arduino-uno', pinName: 'GP10' },
-        end: { componentId: 'led-read', pinName: 'A' },
+        end: { componentId: 'r-led-read-a', pinName: '1' },
         color: '#00cc00',
+      },
+      {
+        id: 'w-r-led-read-a',
+        start: { componentId: 'r-led-read-a', pinName: '2' },
+        end: { componentId: 'led-read', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'w-write-gnd',
@@ -4846,6 +4945,9 @@ void loop() {
 }
 `,
     components: [
+      { type: 'wokwi-resistor', id: 'r-led-mosi-a', x: 280, y: 100, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-led-miso-a', x: 280, y: 180, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-led-sck-a', x: 280, y: 260, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'led-mosi', x: 400, y: 100, properties: { color: 'red' } },
       { type: 'wokwi-led', id: 'led-miso', x: 400, y: 180, properties: { color: 'green' } },
       { type: 'wokwi-led', id: 'led-sck', x: 400, y: 260, properties: { color: 'yellow' } },
@@ -4854,20 +4956,38 @@ void loop() {
       {
         id: 'w-mosi',
         start: { componentId: 'arduino-uno', pinName: 'GP7' },
-        end: { componentId: 'led-mosi', pinName: 'A' },
+        end: { componentId: 'r-led-mosi-a', pinName: '1' },
         color: '#ff4444',
+      },
+      {
+        id: 'w-r-led-mosi-a',
+        start: { componentId: 'r-led-mosi-a', pinName: '2' },
+        end: { componentId: 'led-mosi', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'w-miso',
         start: { componentId: 'arduino-uno', pinName: 'GP4' },
-        end: { componentId: 'led-miso', pinName: 'A' },
+        end: { componentId: 'r-led-miso-a', pinName: '1' },
         color: '#00cc00',
+      },
+      {
+        id: 'w-r-led-miso-a',
+        start: { componentId: 'r-led-miso-a', pinName: '2' },
+        end: { componentId: 'led-miso', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'w-sck',
         start: { componentId: 'arduino-uno', pinName: 'GP6' },
-        end: { componentId: 'led-sck', pinName: 'A' },
+        end: { componentId: 'r-led-sck-a', pinName: '1' },
         color: '#ffaa00',
+      },
+      {
+        id: 'w-r-led-sck-a',
+        start: { componentId: 'r-led-sck-a', pinName: '2' },
+        end: { componentId: 'led-sck', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'w-mosi-gnd',
@@ -4931,6 +5051,7 @@ void loop() {
 }
 `,
     components: [
+      { type: 'wokwi-resistor', id: 'r-led-temp-a', x: 280, y: 320, properties: { value: '220' } },
       { type: 'wokwi-potentiometer', id: 'pot-a0', x: 400, y: 80, properties: {} },
       { type: 'wokwi-potentiometer', id: 'pot-a1', x: 400, y: 200, properties: {} },
       { type: 'wokwi-led', id: 'led-temp', x: 400, y: 320, properties: { color: 'red' } },
@@ -4951,8 +5072,14 @@ void loop() {
       {
         id: 'w-temp',
         start: { componentId: 'arduino-uno', pinName: 'GP2' },
-        end: { componentId: 'led-temp', pinName: 'A' },
+        end: { componentId: 'r-led-temp-a', pinName: '1' },
         color: '#ff4444',
+      },
+      {
+        id: 'w-r-led-temp-a',
+        start: { componentId: 'r-led-temp-a', pinName: '2' },
+        end: { componentId: 'led-temp', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'w-pot-a0-vcc',
@@ -5104,6 +5231,9 @@ void loop() {
 }
 `,
     components: [
+      { type: 'wokwi-resistor', id: 'r-led-i2c-a', x: 280, y: 80, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-led-spi-a', x: 280, y: 160, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-led-gpio-a', x: 280, y: 360, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'led-i2c', x: 400, y: 80, properties: { color: 'blue' } },
       { type: 'wokwi-led', id: 'led-spi', x: 400, y: 160, properties: { color: 'yellow' } },
       { type: 'wokwi-potentiometer', id: 'pot-adc', x: 400, y: 240, properties: {} },
@@ -5113,14 +5243,26 @@ void loop() {
       {
         id: 'w-i2c',
         start: { componentId: 'arduino-uno', pinName: 'GP12' },
-        end: { componentId: 'led-i2c', pinName: 'A' },
+        end: { componentId: 'r-led-i2c-a', pinName: '1' },
         color: '#4488ff',
+      },
+      {
+        id: 'w-r-led-i2c-a',
+        start: { componentId: 'r-led-i2c-a', pinName: '2' },
+        end: { componentId: 'led-i2c', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'w-spi',
         start: { componentId: 'arduino-uno', pinName: 'GP7' },
-        end: { componentId: 'led-spi', pinName: 'A' },
+        end: { componentId: 'r-led-spi-a', pinName: '1' },
         color: '#ffaa00',
+      },
+      {
+        id: 'w-r-led-spi-a',
+        start: { componentId: 'r-led-spi-a', pinName: '2' },
+        end: { componentId: 'led-spi', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'w-adc',
@@ -5131,8 +5273,14 @@ void loop() {
       {
         id: 'w-gpio',
         start: { componentId: 'arduino-uno', pinName: 'GP2' },
-        end: { componentId: 'led-gpio', pinName: 'A' },
+        end: { componentId: 'r-led-gpio-a', pinName: '1' },
         color: '#00cc00',
+      },
+      {
+        id: 'w-r-led-gpio-a',
+        start: { componentId: 'r-led-gpio-a', pinName: '2' },
+        end: { componentId: 'led-gpio', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'w-i2c-gnd',
@@ -6626,25 +6774,47 @@ void loop() {
   setRGB(1,1,1); Serial.println("WHITE"); delay(600);
   setRGB(0,0,0); Serial.println("OFF");   delay(300);
 }`,
-    components: [{ type: 'wokwi-rgb-led', id: 'c3-rgb1', x: 440, y: 160, properties: {} }],
+    components: [
+      { type: 'wokwi-resistor', id: 'r-c3-rgb1-r', x: 320, y: 160, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-c3-rgb1-g', x: 320, y: 186, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-c3-rgb1-b', x: 320, y: 212, properties: { value: '220' } },
+      { type: 'wokwi-rgb-led', id: 'c3-rgb1', x: 440, y: 160, properties: {} }],
     wires: [
       {
         id: 'c3-rw1',
         start: { componentId: 'arduino-uno', pinName: '6' },
-        end: { componentId: 'c3-rgb1', pinName: 'R' },
+        end: { componentId: 'r-c3-rgb1-r', pinName: '1' },
         color: '#ff2222',
+      },
+      {
+        id: 'w-r-c3-rgb1-r',
+        start: { componentId: 'r-c3-rgb1-r', pinName: '2' },
+        end: { componentId: 'c3-rgb1', pinName: 'R' },
+        color: '#e74c3c',
       },
       {
         id: 'c3-rw2',
         start: { componentId: 'arduino-uno', pinName: '7' },
-        end: { componentId: 'c3-rgb1', pinName: 'G' },
+        end: { componentId: 'r-c3-rgb1-g', pinName: '1' },
         color: '#22cc22',
+      },
+      {
+        id: 'w-r-c3-rgb1-g',
+        start: { componentId: 'r-c3-rgb1-g', pinName: '2' },
+        end: { componentId: 'c3-rgb1', pinName: 'G' },
+        color: '#e74c3c',
       },
       {
         id: 'c3-rw3',
         start: { componentId: 'arduino-uno', pinName: '8' },
-        end: { componentId: 'c3-rgb1', pinName: 'B' },
+        end: { componentId: 'r-c3-rgb1-b', pinName: '1' },
         color: '#2244ff',
+      },
+      {
+        id: 'w-r-c3-rgb1-b',
+        start: { componentId: 'r-c3-rgb1-b', pinName: '2' },
+        end: { componentId: 'c3-rgb1', pinName: 'B' },
+        color: '#e74c3c',
       },
       {
         id: 'c3-rw4',
@@ -7167,25 +7337,47 @@ void loop() {
   setColor(255, 255, 255); Serial.println("WHITE");   delay(600);
   setColor(  0,   0,   0); Serial.println("OFF");     delay(300);
 }`,
-    components: [{ type: 'wokwi-rgb-led', id: 'rgb1', x: 440, y: 160, properties: {} }],
+    components: [
+      { type: 'wokwi-resistor', id: 'r-rgb1-r', x: 320, y: 160, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-rgb1-g', x: 320, y: 186, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-rgb1-b', x: 320, y: 212, properties: { value: '220' } },
+      { type: 'wokwi-rgb-led', id: 'rgb1', x: 440, y: 160, properties: {} }],
     wires: [
       {
         id: 'w-r',
         start: { componentId: 'arduino-uno', pinName: '9' },
-        end: { componentId: 'rgb1', pinName: 'R' },
+        end: { componentId: 'r-rgb1-r', pinName: '1' },
         color: '#ff2222',
+      },
+      {
+        id: 'w-r-rgb1-r',
+        start: { componentId: 'r-rgb1-r', pinName: '2' },
+        end: { componentId: 'rgb1', pinName: 'R' },
+        color: '#e74c3c',
       },
       {
         id: 'w-g',
         start: { componentId: 'arduino-uno', pinName: '10' },
-        end: { componentId: 'rgb1', pinName: 'G' },
+        end: { componentId: 'r-rgb1-g', pinName: '1' },
         color: '#22cc22',
+      },
+      {
+        id: 'w-r-rgb1-g',
+        start: { componentId: 'r-rgb1-g', pinName: '2' },
+        end: { componentId: 'rgb1', pinName: 'G' },
+        color: '#e74c3c',
       },
       {
         id: 'w-b',
         start: { componentId: 'arduino-uno', pinName: '11' },
-        end: { componentId: 'rgb1', pinName: 'B' },
+        end: { componentId: 'r-rgb1-b', pinName: '1' },
         color: '#2244ff',
+      },
+      {
+        id: 'w-r-rgb1-b',
+        start: { componentId: 'r-rgb1-b', pinName: '2' },
+        end: { componentId: 'rgb1', pinName: 'B' },
+        color: '#e74c3c',
       },
       {
         id: 'w-rgb-gnd',
@@ -7301,25 +7493,47 @@ void loop() {
   setRGB(1,0,1); Serial.println("MAGENTA");delay(600);
   setRGB(0,0,0); Serial.println("OFF");    delay(300);
 }`,
-    components: [{ type: 'wokwi-rgb-led', id: 'pico-rgb1', x: 440, y: 160, properties: {} }],
+    components: [
+      { type: 'wokwi-resistor', id: 'r-pico-rgb1-r', x: 320, y: 160, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-pico-rgb1-g', x: 320, y: 186, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-pico-rgb1-b', x: 320, y: 212, properties: { value: '220' } },
+      { type: 'wokwi-rgb-led', id: 'pico-rgb1', x: 440, y: 160, properties: {} }],
     wires: [
       {
         id: 'pr-r',
         start: { componentId: 'arduino-uno', pinName: 'GP6' },
-        end: { componentId: 'pico-rgb1', pinName: 'R' },
+        end: { componentId: 'r-pico-rgb1-r', pinName: '1' },
         color: '#ff2222',
+      },
+      {
+        id: 'w-r-pico-rgb1-r',
+        start: { componentId: 'r-pico-rgb1-r', pinName: '2' },
+        end: { componentId: 'pico-rgb1', pinName: 'R' },
+        color: '#e74c3c',
       },
       {
         id: 'pr-g',
         start: { componentId: 'arduino-uno', pinName: 'GP7' },
-        end: { componentId: 'pico-rgb1', pinName: 'G' },
+        end: { componentId: 'r-pico-rgb1-g', pinName: '1' },
         color: '#22cc22',
+      },
+      {
+        id: 'w-r-pico-rgb1-g',
+        start: { componentId: 'r-pico-rgb1-g', pinName: '2' },
+        end: { componentId: 'pico-rgb1', pinName: 'G' },
+        color: '#e74c3c',
       },
       {
         id: 'pr-b',
         start: { componentId: 'arduino-uno', pinName: 'GP8' },
-        end: { componentId: 'pico-rgb1', pinName: 'B' },
+        end: { componentId: 'r-pico-rgb1-b', pinName: '1' },
         color: '#2244ff',
+      },
+      {
+        id: 'w-r-pico-rgb1-b',
+        start: { componentId: 'r-pico-rgb1-b', pinName: '2' },
+        end: { componentId: 'pico-rgb1', pinName: 'B' },
+        color: '#e74c3c',
       },
       {
         id: 'pr-gnd',
@@ -10884,25 +11098,47 @@ except KeyboardInterrupt:
         },
       },
     ],
-    components: [{ type: 'wokwi-rgb-led', id: 'pi4-rgb', x: 560, y: 160, properties: {} }],
+    components: [
+      { type: 'wokwi-resistor', id: 'r-pi4-rgb-r', x: 440, y: 160, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-pi4-rgb-g', x: 440, y: 186, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-pi4-rgb-b', x: 440, y: 212, properties: { value: '220' } },
+      { type: 'wokwi-rgb-led', id: 'pi4-rgb', x: 560, y: 160, properties: {} }],
     wires: [
       {
         id: 'w-r',
         start: { componentId: 'raspberry-pi-4', pinName: 'GPIO17' },
+        end: { componentId: 'r-pi4-rgb-r', pinName: '1' },
+        color: '#e74c3c',
+      },
+      {
+        id: 'w-r-pi4-rgb-r',
+        start: { componentId: 'r-pi4-rgb-r', pinName: '2' },
         end: { componentId: 'pi4-rgb', pinName: 'R' },
         color: '#e74c3c',
       },
       {
         id: 'w-g',
         start: { componentId: 'raspberry-pi-4', pinName: 'GPIO27' },
-        end: { componentId: 'pi4-rgb', pinName: 'G' },
+        end: { componentId: 'r-pi4-rgb-g', pinName: '1' },
         color: '#2ecc71',
+      },
+      {
+        id: 'w-r-pi4-rgb-g',
+        start: { componentId: 'r-pi4-rgb-g', pinName: '2' },
+        end: { componentId: 'pi4-rgb', pinName: 'G' },
+        color: '#e74c3c',
       },
       {
         id: 'w-b',
         start: { componentId: 'raspberry-pi-4', pinName: 'GPIO22' },
-        end: { componentId: 'pi4-rgb', pinName: 'B' },
+        end: { componentId: 'r-pi4-rgb-b', pinName: '1' },
         color: '#3498db',
+      },
+      {
+        id: 'w-r-pi4-rgb-b',
+        start: { componentId: 'r-pi4-rgb-b', pinName: '2' },
+        end: { componentId: 'pi4-rgb', pinName: 'B' },
+        color: '#e74c3c',
       },
       {
         id: 'w-com',
@@ -11038,6 +11274,9 @@ except KeyboardInterrupt:
       },
     ],
     components: [
+      { type: 'wokwi-resistor', id: 'r-pi5-red-a', x: 420, y: 80, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-pi5-yellow-a', x: 420, y: 200, properties: { value: '220' } },
+      { type: 'wokwi-resistor', id: 'r-pi5-green-a', x: 420, y: 320, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'pi5-red', x: 540, y: 80, properties: { color: 'red' } },
       { type: 'wokwi-led', id: 'pi5-yellow', x: 540, y: 200, properties: { color: 'yellow' } },
       { type: 'wokwi-led', id: 'pi5-green', x: 540, y: 320, properties: { color: 'green' } },
@@ -11046,20 +11285,38 @@ except KeyboardInterrupt:
       {
         id: 'w-r',
         start: { componentId: 'raspberry-pi-5', pinName: 'GPIO17' },
+        end: { componentId: 'r-pi5-red-a', pinName: '1' },
+        color: '#e74c3c',
+      },
+      {
+        id: 'w-r-pi5-red-a',
+        start: { componentId: 'r-pi5-red-a', pinName: '2' },
         end: { componentId: 'pi5-red', pinName: 'A' },
         color: '#e74c3c',
       },
       {
         id: 'w-y',
         start: { componentId: 'raspberry-pi-5', pinName: 'GPIO27' },
-        end: { componentId: 'pi5-yellow', pinName: 'A' },
+        end: { componentId: 'r-pi5-yellow-a', pinName: '1' },
         color: '#f1c40f',
+      },
+      {
+        id: 'w-r-pi5-yellow-a',
+        start: { componentId: 'r-pi5-yellow-a', pinName: '2' },
+        end: { componentId: 'pi5-yellow', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'w-g',
         start: { componentId: 'raspberry-pi-5', pinName: 'GPIO22' },
-        end: { componentId: 'pi5-green', pinName: 'A' },
+        end: { componentId: 'r-pi5-green-a', pinName: '1' },
         color: '#2ecc71',
+      },
+      {
+        id: 'w-r-pi5-green-a',
+        start: { componentId: 'r-pi5-green-a', pinName: '2' },
+        end: { componentId: 'pi5-green', pinName: 'A' },
+        color: '#e74c3c',
       },
       {
         id: 'g-r',
