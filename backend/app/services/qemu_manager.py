@@ -155,6 +155,15 @@ DEFAULT_PI_BOARD = 'raspberry-pi-3'
 # client is told plainly when it trips. Override with VELXIO_PI_MAX_SESSION_S.
 MAX_SESSION_SECONDS = int(os.environ.get('VELXIO_PI_MAX_SESSION_S', '7200'))
 
+# Capacity. Every guest is a real QEMU process holding its own RAM (1-2 GB
+# per board profile) and vCPU threads, so the machine — not the code — is
+# the limit. Without a ceiling the Nth user simply pushes the box into
+# swap and everyone's session gets slow, which is worse than telling the
+# Nth user to wait a minute. Per-owner keeps one person's tabs from
+# eating the pool: opening the same project in six tabs is six guests.
+MAX_INSTANCES = int(os.environ.get('VELXIO_PI_MAX_INSTANCES', '6'))
+MAX_INSTANCES_PER_OWNER = int(os.environ.get('VELXIO_PI_MAX_PER_OWNER', '2'))
+
 # Every key a profile must carry — the boot path reads exactly these.
 _PI_PROFILE_KEYS = frozenset(
     {'qemu', 'cpu', 'smp', 'memory', 'image_set', 'kernel', 'initramfs',
@@ -302,6 +311,9 @@ class PiInstance:
         # Raw `start_pi` payload — carries whatever the client declared for
         # this session (e.g. the packages an overlay must materialise).
         self.start_payload: dict = {}
+        # Who this guest belongs to (opaque key from the route), for the
+        # per-owner capacity check. None when the caller has no identity.
+        self.owner: str | None = None
 
     async def emit(self, event_type: str, data: dict) -> None:
         try:
@@ -321,9 +333,29 @@ class QemuManager:
 
     # ── Public API ────────────────────────────────────────────────────────────
 
+    def capacity_error(self, owner: str | None) -> str | None:
+        """Why this start must be refused, or None when there is room.
+
+        Returned as a message the user reads, so it says what to do next
+        instead of just failing."""
+        if len(self._instances) >= MAX_INSTANCES:
+            return (
+                'All the Linux machines are busy right now. '
+                'Try again in a minute — sessions free up as people stop them.'
+            )
+        if owner:
+            mine = sum(1 for i in self._instances.values() if i.owner == owner)
+            if mine >= MAX_INSTANCES_PER_OWNER:
+                return (
+                    f'You already have {mine} Linux sessions running. '
+                    'Stop one before starting another.'
+                )
+        return None
+
     def start_instance(self, client_id: str, board_type: str,
                        callback: EventCallback,
-                       payload: dict | None = None) -> None:
+                       payload: dict | None = None,
+                       owner: str | None = None) -> None:
         if client_id in self._instances:
             logger.warning('start_instance: %s already running', client_id)
             return
@@ -335,7 +367,12 @@ class QemuManager:
             board_type = DEFAULT_PI_BOARD
         inst = PiInstance(client_id, callback, board_type=board_type)
         inst.start_payload = dict(payload or {})
+        inst.owner = owner
         self._instances[client_id] = inst
+        logger.info(
+            'pi capacity: %d/%d guests running (starting %s)',
+            len(self._instances), MAX_INSTANCES, client_id,
+        )
         asyncio.create_task(self._boot(inst))
 
     def stop_instance(self, client_id: str) -> None:
