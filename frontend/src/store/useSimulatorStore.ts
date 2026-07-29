@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { decideEngine, getInstantEngine } from '../lib/instantEngine';
 import { getProBoard, isProBoardSimulator, type ProBoardSimulator } from '../lib/proBoardRegistry';
 import { AVRSimulator } from '../simulation/AVRSimulator';
 import { RP2040Simulator } from '../simulation/RP2040Simulator';
@@ -1898,11 +1899,31 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
       }
 
       if (isPiBoardKind(board.boardKind)) {
-        getBoardBridge(boardId)?.connect();
-        // Pop the terminal open so the user watches the guest boot and gets
-        // the interactive shell — without it a Linux board looks frozen for
-        // the ~45 s boot.
-        set({ serialMonitorOpen: true });
+        // Engine routing: most projects are a Python script driving GPIO and
+        // a screen, and those run in the browser in seconds instead of
+        // booting a Linux guest (a backend process + ~90 s). The detector
+        // lives in the overlay; `enginePinned` lets the user override it.
+        const decision = decideEngine(boardId, board.enginePinned);
+        set((s) => ({
+          boards: s.boards.map((b) =>
+            b.id === boardId ? { ...b, engineMode: decision.engine } : b,
+          ),
+          serialMonitorOpen: true,
+        }));
+        if (decision.engine === 'instant') {
+          const instant = getInstantEngine();
+          void instant?.run(boardId).finally(() => {
+            set((s) => {
+              const boards = s.boards.map((b) =>
+                b.id === boardId ? { ...b, running: false } : b,
+              );
+              const isActive = s.activeBoardId === boardId;
+              return { boards, ...(isActive ? { running: false } : {}) };
+            });
+          });
+        } else {
+          getBoardBridge(boardId)?.connect();
+        }
       } else if (isEsp32Kind(board.boardKind)) {
         // Pre-register sensors connected to this board so the QEMU worker
         // has them ready before the firmware starts executing.
@@ -2142,7 +2163,8 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
       if (!board) return;
 
       if (isPiBoardKind(board.boardKind)) {
-        getBoardBridge(boardId)?.disconnect();
+        if (board.engineMode === 'instant') getInstantEngine()?.stop(boardId);
+        else getBoardBridge(boardId)?.disconnect();
       } else if (isEsp32Kind(board.boardKind)) {
         getEsp32Bridge(boardId)?.disconnect();
       } else if (isStm32BoardKind(board.boardKind)) {

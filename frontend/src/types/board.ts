@@ -122,6 +122,15 @@ export interface BoardInstance {
   // the bridge sees the boot-complete marker, and drives the "Booting…" overlay
   // and gates file uploads. Undefined/false for non-Pi boards and pre-boot.
   piBooted?: boolean;
+  /** QEMU-Linux boards only. Which engine this board is running on (or ran
+   *  last): 'instant' = in-browser Python, 'linux' = the QEMU guest. Drives
+   *  the mode chip and the terminal panel (interactive shell only exists in
+   *  Linux mode). Undefined until the first run. */
+  engineMode?: 'instant' | 'linux';
+  /** User override for the engine, persisted with the project. Set by the
+   *  mode chip or by turning on the Linux terminal; wins over the detector
+   *  so a project doesn't silently change behaviour between runs. */
+  enginePinned?: 'instant' | 'linux';
   compiledProgram: string | null; // hex for AVR/RP2040, null for Pi (runs Python)
   serialOutput: string;
   serialBaudRate: number;

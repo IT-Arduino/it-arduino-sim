@@ -256,7 +256,9 @@ export const SerialMonitor: React.FC = () => {
       {/* Output area. QEMU-Linux boards get the interactive xterm (shell
           input, line editing, ANSI) instead of the read-only mirror — this
           replaced the separate RaspberryPiWorkspace as the one terminal. */}
-      {isPiBoardKind(activeBoard?.boardKind ?? '') && activeBoard?.running ? (
+      {isPiBoardKind(activeBoard?.boardKind ?? '') &&
+      activeBoard?.running &&
+      activeBoard?.engineMode !== 'instant' ? (
         <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <PiTerminal key={activeBoard.id} boardId={activeBoard.id} />
         </div>
@@ -343,7 +345,11 @@ export const SerialMonitor: React.FC = () => {
       )}
 
       {/* Input row — the xterm handles Pi input itself */}
-      {!(isPiBoardKind(activeBoard?.boardKind ?? '') && activeBoard?.running) && (
+      {!(
+        isPiBoardKind(activeBoard?.boardKind ?? '') &&
+        activeBoard?.running &&
+        activeBoard?.engineMode !== 'instant'
+      ) && (
       <div style={styles.inputRow}>
         <input
           type="text"
