@@ -105,8 +105,14 @@ export class RaspberryPi3Bridge {
   }
 
   connect(): void {
-    const state = this.socket?.readyState;
-    if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) return;
+    // Numeric readyState, and only when a socket actually exists: reading
+    // WebSocket.OPEN off the global made `undefined === undefined` true
+    // whenever the constants were missing (any stand-in socket), so connect()
+    // returned without opening anything and the bridge sat there dead.
+    if (this.socket) {
+      const state = this.socket.readyState;
+      if (state === 0 /* CONNECTING */ || state === 1 /* OPEN */) return;
+    }
     // A socket in CLOSING is on its way out, not usable: the old guard
     // treated it as live and returned, so "restart in Linux mode" right
     // after a run silently did nothing — no boot, and the toolbar still

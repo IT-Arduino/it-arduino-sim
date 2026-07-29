@@ -4,7 +4,7 @@ import {
   getBoardBridge,
   getBoardSimulator,
 } from '../../store/useSimulatorStore';
-import { getProBoard } from '../../lib/proBoardRegistry';
+import { getBoardBuiltins } from '../../lib/proBoardRegistry';
 import { useElectricalStore } from '../../store/useElectricalStore';
 import { openDeviceGateway } from '../../lib/openDeviceGateway';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
@@ -253,14 +253,14 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
     useSimulatorStore
       .getState()
       .boards.forEach((board) => {
-        const proDef = getProBoard(board.boardKind);
-        if (!proDef?.attachBuiltins || !board.running) return;
+        const attachBuiltins = getBoardBuiltins(board.boardKind);
+        if (!attachBuiltins || !board.running) return;
         const timeout = setTimeout(() => {
           const el = document.getElementById(board.id);
           if (!el) return;
           try {
             cleanups.push(
-              proDef.attachBuiltins!({
+              attachBuiltins({
                 el,
                 sim: getBoardSimulator(board.id),
                 // ESP32-family boards get their QEMU/JS bridge; QEMU-Linux

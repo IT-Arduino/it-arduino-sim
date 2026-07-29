@@ -175,6 +175,31 @@ export function getGuestSetup(kind: string): string | undefined {
   return registry.get(kind)?.guestSetup ?? guestSetups.get(kind);
 }
 
+// ── Built-in peripheral attachment for boards the OSS tree already owns ──
+//
+// Same reasoning as the guest setups above: an overlay may need to wire
+// something to a run of an OSS-rendered board — the Pi family has no
+// built-in screen, but an overlay can route the guest's display frames to
+// a panel wired on the canvas. Carrying that through a stub ProBoardDef
+// would take over the board's artwork, so it gets its own registry.
+type BuiltinsAttach = (ctx: {
+  el: HTMLElement;
+  sim: unknown;
+  bridge: unknown;
+}) => () => void;
+
+const boardBuiltins = new Map<string, BuiltinsAttach>();
+
+export function registerBoardBuiltins(kind: string, attach: BuiltinsAttach): void {
+  boardBuiltins.set(kind, attach);
+}
+
+/** How to attach built-in peripherals for a board kind: an overlay board's
+ *  own `attachBuiltins` first, then anything registered for an OSS kind. */
+export function getBoardBuiltins(kind: string): BuiltinsAttach | undefined {
+  return registry.get(kind)?.attachBuiltins ?? boardBuiltins.get(kind);
+}
+
 export function listProBoards(): ProBoardDef[] {
   return Array.from(registry.values());
 }
