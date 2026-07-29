@@ -182,11 +182,43 @@ function pushPinState(boardId: string, pin: number, state: boolean): void {
   }
 }
 
+// ── Serial seam for boards driven from outside the sim/bridge pair ───────
+//
+// A QEMU-Linux board can also run its Python in the tab (no WebSocket, no
+// bridge object). Such a board still has UART wires on the canvas, so it
+// needs both directions of the routing: a sink to receive bytes, and a way
+// to announce the ones it sends. Both are plain callbacks — nothing here
+// knows what is on the other end.
+const serialSinks = new Map<string, (ch: string, uart: number) => void>();
+
+/** Receive UART bytes addressed to this board. Returns an unregister fn. */
+export function registerSerialSink(
+  boardId: string,
+  sink: (ch: string, uart: number) => void,
+): () => void {
+  serialSinks.set(boardId, sink);
+  return () => {
+    if (serialSinks.get(boardId) === sink) serialSinks.delete(boardId);
+  };
+}
+
+/** Announce a UART byte this board just transmitted, so the wires route it. */
+export function feedBoardSerialOut(boardId: string, ch: string, uart = 0): void {
+  const subs = boards.get(boardId)?.serialFanout.get(uart);
+  if (subs) for (const cb of subs) cb(ch);
+}
+
 /** Push a UART byte into the receiving board's UART RX. */
 function pushSerialByte(boardId: string, ch: string, uart: number): void {
   if (!runtime) return;
   const entry = boards.get(boardId);
   if (!entry) return;
+
+  const sink = serialSinks.get(boardId);
+  if (sink) {
+    sink(ch, uart);
+    return;
+  }
 
   if (isBrowserSim(entry.kind)) {
     const sim = runtime.getBoardSimulator(boardId);
