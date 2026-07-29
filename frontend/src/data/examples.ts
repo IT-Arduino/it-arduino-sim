@@ -10591,12 +10591,19 @@ except KeyboardInterrupt:
       },
     ],
     components: [
+      { type: 'wokwi-resistor', id: 'r-pi3b-led', x: 410, y: 180, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'pi3b-led', x: 540, y: 160, properties: { color: 'red' } },
     ],
     wires: [
       {
         id: 'w-sig',
         start: { componentId: 'raspberry-pi-3', pinName: 'GPIO17' },
+        end: { componentId: 'r-pi3b-led', pinName: '1' },
+        color: '#e74c3c',
+      },
+      {
+        id: 'w-sig-r',
+        start: { componentId: 'r-pi3b-led', pinName: '2' },
         end: { componentId: 'pi3b-led', pinName: 'A' },
         color: '#e74c3c',
       },
@@ -10651,40 +10658,75 @@ except KeyboardInterrupt:
       },
     ],
     components: [
+      { type: 'wokwi-resistor', id: 'r-pi3r-led1', x: 410, y: 80, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'pi3r-led1', x: 540, y: 60, properties: { color: 'red' } },
+      { type: 'wokwi-resistor', id: 'r-pi3r-led2', x: 410, y: 160, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'pi3r-led2', x: 540, y: 140, properties: { color: 'orange' } },
+      { type: 'wokwi-resistor', id: 'r-pi3r-led3', x: 410, y: 240, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'pi3r-led3', x: 540, y: 220, properties: { color: 'yellow' } },
+      { type: 'wokwi-resistor', id: 'r-pi3r-led4', x: 410, y: 320, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'pi3r-led4', x: 540, y: 300, properties: { color: 'green' } },
+      { type: 'wokwi-resistor', id: 'r-pi3r-led5', x: 410, y: 400, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'pi3r-led5', x: 540, y: 380, properties: { color: 'blue' } },
     ],
     wires: [
       {
         id: 'w1',
         start: { componentId: 'raspberry-pi-3', pinName: 'GPIO17' },
+        end: { componentId: 'r-pi3r-led1', pinName: '1' },
+        color: '#e74c3c',
+      },
+      {
+        id: 'w1-r',
+        start: { componentId: 'r-pi3r-led1', pinName: '2' },
         end: { componentId: 'pi3r-led1', pinName: 'A' },
         color: '#e74c3c',
       },
       {
         id: 'w2',
         start: { componentId: 'raspberry-pi-3', pinName: 'GPIO27' },
+        end: { componentId: 'r-pi3r-led2', pinName: '1' },
+        color: '#e67e22',
+      },
+      {
+        id: 'w2-r',
+        start: { componentId: 'r-pi3r-led2', pinName: '2' },
         end: { componentId: 'pi3r-led2', pinName: 'A' },
         color: '#e67e22',
       },
       {
         id: 'w3',
         start: { componentId: 'raspberry-pi-3', pinName: 'GPIO22' },
+        end: { componentId: 'r-pi3r-led3', pinName: '1' },
+        color: '#f1c40f',
+      },
+      {
+        id: 'w3-r',
+        start: { componentId: 'r-pi3r-led3', pinName: '2' },
         end: { componentId: 'pi3r-led3', pinName: 'A' },
         color: '#f1c40f',
       },
       {
         id: 'w4',
         start: { componentId: 'raspberry-pi-3', pinName: 'GPIO5' },
+        end: { componentId: 'r-pi3r-led4', pinName: '1' },
+        color: '#2ecc71',
+      },
+      {
+        id: 'w4-r',
+        start: { componentId: 'r-pi3r-led4', pinName: '2' },
         end: { componentId: 'pi3r-led4', pinName: 'A' },
         color: '#2ecc71',
       },
       {
         id: 'w5',
         start: { componentId: 'raspberry-pi-3', pinName: 'GPIO6' },
+        end: { componentId: 'r-pi3r-led5', pinName: '1' },
+        color: '#3498db',
+      },
+      {
+        id: 'w5-r',
+        start: { componentId: 'r-pi3r-led5', pinName: '2' },
         end: { componentId: 'pi3r-led5', pinName: 'A' },
         color: '#3498db',
       },
@@ -10761,6 +10803,7 @@ except KeyboardInterrupt:
     ],
     components: [
       { type: 'wokwi-pushbutton', id: 'pi4-btn', x: 540, y: 120, properties: { color: 'green' } },
+      { type: 'wokwi-resistor', id: 'r-pi4-led', x: 410, y: 320, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'pi4-led', x: 540, y: 300, properties: { color: 'blue' } },
     ],
     wires: [
@@ -10779,6 +10822,12 @@ except KeyboardInterrupt:
       {
         id: 'w-led',
         start: { componentId: 'raspberry-pi-4', pinName: 'GPIO17' },
+        end: { componentId: 'r-pi4-led', pinName: '1' },
+        color: '#3498db',
+      },
+      {
+        id: 'w-led-r',
+        start: { componentId: 'r-pi4-led', pinName: '2' },
         end: { componentId: 'pi4-led', pinName: 'A' },
         color: '#3498db',
       },
@@ -10903,6 +10952,7 @@ except KeyboardInterrupt:
     ],
     components: [
       { type: 'wokwi-pir-motion-sensor', id: 'pi5-pir', x: 540, y: 120, properties: {} },
+      { type: 'wokwi-resistor', id: 'r-pi5-led', x: 430, y: 340, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'pi5-led', x: 560, y: 320, properties: { color: 'red' } },
     ],
     wires: [
@@ -10927,6 +10977,12 @@ except KeyboardInterrupt:
       {
         id: 'w-led',
         start: { componentId: 'raspberry-pi-5', pinName: 'GPIO17' },
+        end: { componentId: 'r-pi5-led', pinName: '1' },
+        color: '#e74c3c',
+      },
+      {
+        id: 'w-led-r',
+        start: { componentId: 'r-pi5-led', pinName: '2' },
         end: { componentId: 'pi5-led', pinName: 'A' },
         color: '#e74c3c',
       },
