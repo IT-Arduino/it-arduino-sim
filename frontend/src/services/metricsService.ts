@@ -12,6 +12,9 @@ api.interceptors.request.use((config) => {
 export interface RunEventPayload {
   project_id?: string | null;
   board_fqbn?: string | null;
+  /** Which engine took this run — 'instant' (browser) or 'linux' (guest).
+   *  Absent for boards where the question doesn't apply. */
+  engine?: 'instant' | 'linux' | null;
 }
 
 export async function reportRunEvent(payload: RunEventPayload): Promise<void> {

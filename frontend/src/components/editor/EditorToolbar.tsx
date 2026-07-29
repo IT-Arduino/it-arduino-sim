@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore, chipFileGroupId } from '../../store/useEditorStore';
 import { useSimulatorStore, piRerunScript } from '../../store/useSimulatorStore';
+import { decideEngine } from '../../lib/instantEngine';
 import { useElectricalStore } from '../../store/useElectricalStore';
 import { type VerificationResult } from '../../simulation/verify/circuitVerifier';
 import { verifyCircuitFromStore } from '../../simulation/verify/verifyFromStore';
@@ -227,11 +228,12 @@ export const EditorToolbar = ({
   // Helper: report a Run event to the backend for analytics. Resolves the
   // FQBN from the board kind so the backend can group by family/fqbn.
   const reportRun = useCallback(
-    (boardKind: BoardKind | undefined) => {
+    (boardKind: BoardKind | undefined, engine?: 'instant' | 'linux') => {
       const fqbn = boardKind ? BOARD_KIND_FQBN[boardKind] : null;
       void reportRunEvent({
         project_id: currentProject?.id ?? null,
         board_fqbn: fqbn ?? null,
+        engine: engine ?? null,
       });
     },
     [currentProject],
@@ -824,7 +826,10 @@ export const EditorToolbar = ({
         // generic stop-then-boot restart below.
         if (isPiBoardKind(board?.boardKind ?? '')) {
           trackRunSimulation(board?.boardKind);
-          reportRun(board?.boardKind);
+          reportRun(
+            board?.boardKind,
+            decideEngine(activeBoardId, board?.enginePinned).engine,
+          );
           if (board?.running) {
             // Zombie/edge case (Run is normally disabled while running):
             // power-cycle for a clean boot.
