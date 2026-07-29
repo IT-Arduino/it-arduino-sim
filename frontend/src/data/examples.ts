@@ -4407,7 +4407,7 @@ void loop() {
 `,
     components: [
       { type: 'wokwi-led', id: 'led-blink', x: 400, y: 120, properties: { color: 'green' } },
-      { type: 'wokwi-resistor', id: 'r1', x: 400, y: 200, properties: { resistance: '220' } },
+      { type: 'wokwi-resistor', id: 'r1', x: 400, y: 200, properties: { value: '220' } },
     ],
     wires: [
       {
@@ -4540,7 +4540,7 @@ void loop() {
 `,
     components: [
       { type: 'wokwi-led', id: 'led-status', x: 400, y: 120, properties: { color: 'green' } },
-      { type: 'wokwi-resistor', id: 'r1', x: 400, y: 200, properties: { resistance: '220' } },
+      { type: 'wokwi-resistor', id: 'r1', x: 400, y: 200, properties: { value: '220' } },
     ],
     wires: [
       {
@@ -5537,10 +5537,10 @@ void processCommand(const String& cmd) {
     components: [
       // Red LED + 220Ω resistor for LED1 (Arduino pin 8)
       { type: 'wokwi-led', id: 'led1', x: 840, y: 100, properties: { color: 'red' } },
-      { type: 'wokwi-resistor', id: 'res1', x: 840, y: 200, properties: { resistance: '220' } },
+      { type: 'wokwi-resistor', id: 'res1', x: 840, y: 200, properties: { value: '220' } },
       // Green LED + 220Ω resistor for LED2 (Arduino pin 9)
       { type: 'wokwi-led', id: 'led2', x: 840, y: 320, properties: { color: 'green' } },
-      { type: 'wokwi-resistor', id: 'res2', x: 840, y: 420, properties: { resistance: '220' } },
+      { type: 'wokwi-resistor', id: 'res2', x: 840, y: 420, properties: { value: '220' } },
     ],
     wires: [
       // ── Serial UART cross-connection ──────────────────────────────────────
@@ -6144,7 +6144,7 @@ void loop() {
 }`,
     components: [
       { type: 'wokwi-led', id: 'led-fade', x: 420, y: 160, properties: { color: 'blue' } },
-      { type: 'wokwi-resistor', id: 'r-fade', x: 420, y: 240, properties: { resistance: '220' } },
+      { type: 'wokwi-resistor', id: 'r-fade', x: 420, y: 240, properties: { value: '220' } },
     ],
     wires: [
       {
@@ -6677,7 +6677,7 @@ void loop() {
 }`,
     components: [
       { type: 'wokwi-led', id: 'c3-led1', x: 440, y: 160, properties: { color: 'green' } },
-      { type: 'wokwi-resistor', id: 'c3-r1', x: 440, y: 240, properties: { resistance: '220' } },
+      { type: 'wokwi-resistor', id: 'c3-r1', x: 440, y: 240, properties: { value: '220' } },
     ],
     wires: [
       {
@@ -7855,7 +7855,7 @@ void loop() {
         id: 'uno-photo-r',
         x: 430,
         y: 340,
-        properties: { resistance: '220' },
+        properties: { value: '220' },
       },
     ],
     wires: [
@@ -9759,7 +9759,7 @@ void loop() {
     code: '',
     components: [
       { type: 'wokwi-led', id: 'tiny-led1', x: 360, y: 140, properties: { color: 'green' } },
-      { type: 'wokwi-resistor', id: 'tiny-r1', x: 360, y: 220, properties: { resistance: '220' } },
+      { type: 'wokwi-resistor', id: 'tiny-r1', x: 360, y: 220, properties: { value: '220' } },
     ],
     wires: [
       {
@@ -9820,7 +9820,7 @@ void loop() {
         id: 'tiny-btn-r1',
         x: 380,
         y: 320,
-        properties: { resistance: '220' },
+        properties: { value: '220' },
       },
     ],
     wires: [
@@ -9900,7 +9900,7 @@ void loop() {
         id: 'tiny-fade-r1',
         x: 380,
         y: 300,
-        properties: { resistance: '220' },
+        properties: { value: '220' },
       },
     ],
     wires: [
@@ -9992,7 +9992,7 @@ void loop() {
         id: 'tiny-ntc-r1',
         x: 380,
         y: 380,
-        properties: { resistance: '220' },
+        properties: { value: '220' },
       },
     ],
     wires: [
