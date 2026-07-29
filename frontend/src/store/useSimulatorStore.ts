@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { decideEngine, getInstantEngine } from '../lib/instantEngine';
-import { getProBoard, isProBoardSimulator, type ProBoardSimulator } from '../lib/proBoardRegistry';
+import {
+  getProBoard,
+  getGuestSetup,
+  isProBoardSimulator,
+  type ProBoardSimulator,
+} from '../lib/proBoardRegistry';
 import { AVRSimulator } from '../simulation/AVRSimulator';
 import { RP2040Simulator } from '../simulation/RP2040Simulator';
 import { RiscVSimulator } from '../simulation/RiscVSimulator';
@@ -1291,8 +1296,7 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         // it runs before piBooted flips so the VFS upload (gated on piBooted)
         // cannot interleave with it.
         bridge.onBooted = () => {
-          const proDef = getProBoard(boardKind);
-          const setup = proDef?.guestSetup;
+          const setup = getGuestSetup(boardKind);
           const flip = () =>
             set((s) => ({
               boards: s.boards.map((b) => (b.id === id ? { ...b, piBooted: true } : b)),

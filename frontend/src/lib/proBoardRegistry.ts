@@ -153,6 +153,28 @@ export function getProBoard(kind: string): ProBoardDef | undefined {
   return registry.get(kind);
 }
 
+// ── Guest setup lines for boards the OSS tree already owns ───────────────
+//
+// A QEMU-Linux board that is NOT overlay-registered (the Raspberry Pi
+// family) may still need a line run at the boot prompt — an overlay can
+// mount something on the guest for it. Registering a whole ProBoardDef
+// just to carry that string is the wrong tool: `getProBoard` is what
+// BoardOnCanvas checks to decide whether to render the overlay's custom
+// element instead of the OSS board art, so a stub def silently replaced
+// the Pi's illustration with a bare schematic box and left the wires
+// hanging at the corner. This registry carries the line and nothing else.
+const guestSetups = new Map<string, string>();
+
+export function registerGuestSetup(kind: string, line: string): void {
+  guestSetups.set(kind, line);
+}
+
+/** The line to run at the guest's boot prompt: an overlay board's own
+ *  `guestSetup` first, then anything registered for an OSS board kind. */
+export function getGuestSetup(kind: string): string | undefined {
+  return registry.get(kind)?.guestSetup ?? guestSetups.get(kind);
+}
+
 export function listProBoards(): ProBoardDef[] {
   return Array.from(registry.values());
 }

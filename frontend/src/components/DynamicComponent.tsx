@@ -13,12 +13,17 @@
 
 import React, { useRef, useEffect, useCallback } from 'react';
 import type { ComponentMetadata } from '../types/component-metadata';
-import { useSimulatorStore } from '../store/useSimulatorStore';
+import {
+  useSimulatorStore,
+  getBoardBridge,
+  getBoardPinManager,
+} from '../store/useSimulatorStore';
 import { useElectricalStore } from '../store/useElectricalStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { buildProjectSdImage, decodeSdFiles } from '../utils/sdCardFiles';
 import { PartSimulationRegistry } from '../simulation/parts';
 import { isBoardComponent, boardPinToNumber } from '../utils/boardPinMapping';
+import { isPiBoardKind } from '../types/board';
 import { isKeyBindable, formatKeyLabel } from '../utils/keyButtonBindings';
 import {
   createDefaultPinResolver,
@@ -128,7 +133,7 @@ export function traceDetailed(
   fromPin: string,
   depth: number,
   activeSeen = false,
-): { arduinoPin: number | null; crossedActiveDevice: boolean } {
+): { arduinoPin: number | null; crossedActiveDevice: boolean; boardId?: string } {
   if (depth > 6) return { arduinoPin: null, crossedActiveDevice: activeSeen };
 
   const wires = state.wires.filter(
@@ -157,7 +162,15 @@ export function traceDetailed(
     if (boardEp || isBoardComponent(otherEp.componentId)) {
       const boardKind = boardEp?.boardKind ?? otherEp.componentId;
       const pin = boardPinToNumber(boardKind, otherEp.pinName);
-      if (pin !== null) return { arduinoPin: pin, crossedActiveDevice: activeSeen };
+      // The board id travels with the pin: a QEMU-Linux board has no MCU
+      // simulator, so an input part needs to know WHICH board's bridge to
+      // push the level into (see the pi-aware simulator below).
+      if (pin !== null)
+        return {
+          arduinoPin: pin,
+          crossedActiveDevice: activeSeen,
+          boardId: boardEp?.id ?? otherEp.componentId,
+        };
     } else {
       const comp = state.components.find((c) => c.id === otherEp.componentId);
       if (!chipNeighbour && comp?.metadataId === 'custom-chip') {
@@ -577,7 +590,44 @@ export const DynamicComponent: React.FC<DynamicComponentProps> = ({
       // null pin lookup (`getArduinoPin` returns null when there's no board),
       // so the stub below is enough — it satisfies the type signature without
       // doing anything when called.
+      // A QEMU-Linux board (Raspberry Pi family, UNIHIKER) has no MCU
+      // simulator: the guest IS the CPU. An input part still calls
+      // `simulator.setPinState(pin, level)` to report a button press or a
+      // PIR trip, and that call used to land on the legacy AVR instance and
+      // vanish — clicking the sensor did nothing at all. Route it to the
+      // bridge of the board this component is actually wired to: `gpio_in`
+      // for the guest, the canvas-fed `pin<N>` value the browser engine's
+      // shims read, and the PinManager so wires and SPICE see the edge.
+      const piBoardId = (() => {
+        const st = useSimulatorStore.getState();
+        const ownPins = new Set<string>();
+        for (const w of st.wires) {
+          if (w.start.componentId === id) ownPins.add(w.start.pinName);
+          if (w.end.componentId === id) ownPins.add(w.end.pinName);
+        }
+        for (const pinName of ownPins) {
+          const { boardId } = traceDetailed(st, id, pinName, 0);
+          const board = boardId ? st.boards.find((b) => b.id === boardId) : undefined;
+          if (board && isPiBoardKind(board.boardKind)) return board.id;
+        }
+        return null;
+      })();
+      const piSimulator = piBoardId
+        ? ({
+            setPinState: (pin: number, state: boolean) => {
+              getBoardBridge(piBoardId)?.sendPinEvent(pin, state);
+              getBoardBridge(piBoardId)?.setSensorState({ [`pin${pin}`]: state ? 1 : 0 });
+              getBoardPinManager(piBoardId)?.triggerPinChange(pin, state, 'external');
+            },
+            isRunning: () =>
+              !!useSimulatorStore.getState().boards.find((b) => b.id === piBoardId)?.running,
+            pinManager: getBoardPinManager(piBoardId),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } as any)
+        : null;
+
       const stubSimulator =
+        piSimulator ??
         simulator ??
         ({
           setPinState: () => {},
