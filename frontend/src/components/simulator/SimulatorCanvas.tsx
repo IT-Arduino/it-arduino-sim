@@ -2492,6 +2492,10 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                   </span>
                 )}
 
+                {/* Overlay slot for board status next to the selector (e.g.
+                    which engine a run will use). Empty in the OSS build. */}
+                <span data-velxio-slot="board-status" />
+
                 {/* Undo / Redo — canvas-scoped, mirrors the Ctrl+Z / Ctrl+Y
                 handler in EditorPage. Tooltip surfaces the description of
                 the command that would be applied. Disabled when the stack
