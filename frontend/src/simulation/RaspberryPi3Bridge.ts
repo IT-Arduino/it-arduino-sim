@@ -61,6 +61,9 @@ export class RaspberryPi3Bridge {
   /** Guest display command (opaque base64 payload from the DISP protocol
    * op). Overlay boards with built-in screens render it on their element. */
   onDisplay: ((data: string) => void) | null = null;
+  /** Bytes the guest wrote to its HEADER UART (not the console): another
+   * board wired to those pads is the destination. Decoded text. */
+  onUartTx: ((text: string) => void) | null = null;
   /** Guest PWM activity (PWM_START / PWM_CHANGE / PWM_STOP). Overlay boards
    * use it for built-in buzzers/speakers. */
   onGpioPwm:
@@ -164,6 +167,21 @@ export class RaspberryPi3Bridge {
         case 'display':
           this.onDisplay?.((msg.data.data as string) ?? '');
           break;
+        case 'uart_tx': {
+          const b64 = (msg.data.data as string) ?? '';
+          if (b64) {
+            try {
+              this.onUartTx?.(
+                new TextDecoder().decode(
+                  Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0)),
+                ),
+              );
+            } catch {
+              /* malformed payload — never kill the session over it */
+            }
+          }
+          break;
+        }
         case 'gpio_pwm':
           this.onGpioPwm?.(
             (msg.data.pin as number) ?? 0,
@@ -308,6 +326,13 @@ export class RaspberryPi3Bridge {
   /** Drive a GPIO pin from an external source (e.g. connected Arduino) */
   sendPinEvent(gpioPin: number, state: boolean): void {
     this._send({ type: 'gpio_in', data: { pin: gpioPin, state: state ? 1 : 0 } });
+  }
+
+  /** Bytes for the guest's HEADER UART RX (a wired board's TX). Distinct
+   * from sendSerialBytes, which types into the console/shell. */
+  sendUartBytes(bytes: number[]): void {
+    if (!bytes.length) return;
+    this._send({ type: 'pi_uart_rx', data: { bytes } });
   }
 
   /** Push canvas-fed named values (built-in sensors/buttons of overlay

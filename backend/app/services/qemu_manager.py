@@ -30,6 +30,7 @@ Protocol channel (chardev 1) — wired by Phase 2's pi_protocol_mux
 """
 
 import asyncio
+import base64
 import logging
 import os
 import socket
@@ -291,6 +292,10 @@ class PiInstance:
         # Canvas-fed named values served to the guest via the SENS
         # protocol op (overlay boards' built-in sensors/buttons).
         self.sensor_state: dict[str, float] = {}
+        # Bytes another board on the canvas sent to this one's header UART
+        # (TX->RX wire). The guest drains them with the UARTRX op; nothing
+        # here interprets them, they are a pipe between two boards.
+        self.uart_rx = bytearray()
         # Raw `start_pi` payload — carries whatever the client declared for
         # this session (e.g. the packages an overlay must materialise).
         self.start_payload: dict = {}
@@ -340,6 +345,17 @@ class QemuManager:
         inst = self._instances.get(client_id)
         if inst and inst._gpio_writer:
             asyncio.create_task(self._send_gpio(inst, int(pin), bool(state)))
+
+    def push_uart_rx(self, client_id: str, data: bytes) -> None:
+        """Queue bytes for the guest's header UART (a wired board's TX)."""
+        inst = self._instances.get(client_id)
+        if not inst or not data:
+            return
+        # Bound the queue: a script that never reads must not grow it
+        # without limit (the peer keeps transmitting either way).
+        if len(inst.uart_rx) > 64 * 1024:
+            del inst.uart_rx[: len(inst.uart_rx) - 64 * 1024]
+        inst.uart_rx.extend(data)
 
     def set_sensor_state(self, client_id: str, values: dict) -> None:
         """Merge canvas-fed named values (served to the guest via SENS).
@@ -788,6 +804,24 @@ class QemuManager:
             # gracefully when nothing on the canvas feeds them.
             value = inst.sensor_state.get(parts[1], 0.0)
             await self._reply_gpio(inst, f'SENS {parts[1]} {value:g}')
+            return
+
+        if op == 'UARTTX' and len(parts) == 2:
+            # Guest wrote to its header UART: hand the bytes to the canvas,
+            # which routes them down the wire to whatever board is on the
+            # other end. Opaque base64, exactly like DISP.
+            await inst.emit('uart_tx', {'data': parts[1]})
+            return
+
+        if op == 'UARTRX':
+            # Guest polls for bytes received on its header UART.
+            pending = bytes(inst.uart_rx)
+            inst.uart_rx.clear()
+            await self._reply_gpio(
+                inst,
+                'UART_RXQ ' + (base64.b64encode(pending).decode('ascii')
+                               if pending else ''),
+            )
             return
 
         if op == 'DISP' and len(parts) == 2:

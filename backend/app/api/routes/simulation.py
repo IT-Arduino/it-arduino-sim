@@ -100,6 +100,13 @@ async def simulation_websocket(websocket: WebSocket, client_id: str):
                 if isinstance(values, dict):
                     qemu_manager.set_sensor_state(client_id, values)
 
+            elif msg_type == 'pi_uart_rx':
+                # Bytes another board on the canvas sent down a TX->RX wire.
+                # Queued for the guest, which drains them with UARTRX.
+                rx: list[int] = msg_data.get('bytes', [])
+                if rx:
+                    qemu_manager.push_uart_rx(client_id, bytes(rx))
+
             elif msg_type in ('pi_attach_slave', 'pi_detach_slave'):
                 # Pluggable hook — pro overlay registers the actual handler
                 # via qemu_manager.set_pi_slave_handler(). In the OSS image
