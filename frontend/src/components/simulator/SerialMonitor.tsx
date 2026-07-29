@@ -250,6 +250,8 @@ export const SerialMonitor: React.FC = () => {
           >
             {t('editor.serial.clear')}
           </button>
+          {/* Overlay slot for per-board terminal actions (empty in OSS). */}
+          <span data-velxio-slot="serial-actions" />
         </div>
       </div>
 
