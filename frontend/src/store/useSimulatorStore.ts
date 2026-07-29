@@ -1912,6 +1912,7 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
     },
 
     startBoard: (boardId: string) => {
+      const boardKindOfBoard = (b: { boardKind: string }): string => b.boardKind;
       const board = get().boards.find((b) => b.id === boardId);
       if (!board) return;
 
@@ -1954,7 +1955,22 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
             });
           });
         } else {
-          getBoardBridge(boardId)?.connect();
+          const bridge = getBoardBridge(boardId);
+          if (bridge) {
+            bridge.connect();
+          } else {
+            // A Pi with no bridge cannot boot, and the optional-chain
+            // version of this call failed in silence: no guest, no error,
+            // and a toolbar still showing Stop. Say so.
+            console.warn(
+              `[${boardKindOfBoard(board)}] no bridge for ${boardId}: the guest cannot start`,
+            );
+            set((s) => ({
+              boards: s.boards.map((b) =>
+                b.id === boardId ? { ...b, running: false } : b,
+              ),
+            }));
+          }
         }
       } else if (isEsp32Kind(board.boardKind)) {
         // Pre-register sensors connected to this board so the QEMU worker
