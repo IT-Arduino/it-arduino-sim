@@ -76,7 +76,9 @@ async def simulation_websocket(websocket: WebSocket, client_id: str):
                 if not await board_allowed(websocket, board):
                     await qemu_callback('error', {'message': PRO_BOARD_MESSAGE})
                 else:
-                    qemu_manager.start_instance(client_id, board, qemu_callback)
+                    # msg_data carries whatever the client declared for this
+                    # session (an overlay may materialise extra drives from it).
+                    qemu_manager.start_instance(client_id, board, qemu_callback, msg_data)
 
             elif msg_type == 'stop_pi':
                 qemu_manager.stop_instance(client_id)

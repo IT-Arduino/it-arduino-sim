@@ -75,6 +75,9 @@ export class RaspberryPi3Bridge {
   private socket: WebSocket | null = null;
   private _connected = false;
   private _booted = false;
+  /** Extra fields merged into the `start_pi` payload (an overlay uses it
+   * to declare what this session needs materialised, e.g. packages). */
+  startPayload: Record<string, unknown> = {};
   /** quietBoot (ProBoardDef): while true, guest serial output is withheld
    * from onSerialData (boot detection still runs) and a neutral Velxio
    * progress line + dots show instead. The run path calls setQuiet(false)
@@ -118,7 +121,10 @@ export class RaspberryPi3Bridge {
       this._connected = true;
       this.onConnected?.();
       // Tell the backend which Pi family member to boot.
-      this._send({ type: 'start_pi', data: { board: this.boardKind } });
+      this._send({
+        type: 'start_pi',
+        data: { board: this.boardKind, ...this.startPayload },
+      });
       if (this.quietBootDefault) {
         this._quiet = true;
         const label = this.quietBootLabel || this.boardKind;

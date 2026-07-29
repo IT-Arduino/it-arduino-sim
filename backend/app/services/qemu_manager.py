@@ -155,6 +155,34 @@ _PI_PROFILE_KEYS = frozenset(
 )
 
 
+# ── Per-instance extra drives (overlay seam) ─────────────────────────────
+#
+# A profile's `extra_drive` is static (the same tar for every session). An
+# overlay may need a drive built PER SESSION — e.g. the packages a given
+# project declared. It registers a resolver here; the boot path calls it
+# with the client id and the start payload and appends whatever raw images
+# it returns, read-only, after the profile's own.
+#
+# Signature: def(client_id: str, board_type: str, payload: dict) -> list[str]
+_EXTRA_DRIVE_RESOLVER: Callable[[str, str, dict], list] | None = None
+
+
+def set_pi_extra_drive_resolver(fn) -> None:
+    """Install (or clear) the overlay's per-instance extra-drive resolver."""
+    global _EXTRA_DRIVE_RESOLVER
+    _EXTRA_DRIVE_RESOLVER = fn
+
+
+def _resolve_extra_drives(client_id: str, board_type: str, payload: dict) -> list:
+    if _EXTRA_DRIVE_RESOLVER is None:
+        return []
+    try:
+        return list(_EXTRA_DRIVE_RESOLVER(client_id, board_type, payload) or [])
+    except Exception:
+        logger.exception('extra-drive resolver failed (continuing without it)')
+        return []
+
+
 def register_pi_board_profile(board_type: str, cfg: dict) -> None:
     """Register (or override) a QEMU-Linux board profile at runtime.
 
@@ -257,6 +285,9 @@ class PiInstance:
         # Canvas-fed named values served to the guest via the SENS
         # protocol op (overlay boards' built-in sensors/buttons).
         self.sensor_state: dict[str, float] = {}
+        # Raw `start_pi` payload — carries whatever the client declared for
+        # this session (e.g. the packages an overlay must materialise).
+        self.start_payload: dict = {}
 
     async def emit(self, event_type: str, data: dict) -> None:
         try:
@@ -277,7 +308,8 @@ class QemuManager:
     # ── Public API ────────────────────────────────────────────────────────────
 
     def start_instance(self, client_id: str, board_type: str,
-                       callback: EventCallback) -> None:
+                       callback: EventCallback,
+                       payload: dict | None = None) -> None:
         if client_id in self._instances:
             logger.warning('start_instance: %s already running', client_id)
             return
@@ -288,6 +320,7 @@ class QemuManager:
             )
             board_type = DEFAULT_PI_BOARD
         inst = PiInstance(client_id, callback, board_type=board_type)
+        inst.start_payload = dict(payload or {})
         self._instances[client_id] = inst
         asyncio.create_task(self._boot(inst))
 
@@ -487,12 +520,15 @@ class QemuManager:
         # Optional read-only auxiliary disk (overlay-registered board
         # profiles use it to ship guest-side shim libraries). Shows up as
         # the second virtio-blk — /dev/vdb on the pci transport.
-        extra_drive = cfg.get('extra_drive')
-        if extra_drive and os.path.exists(extra_drive):
+        extra_drives = [cfg.get('extra_drive')] + _resolve_extra_drives(
+            inst.client_id, inst.board_type, inst.start_payload,
+        )
+        for idx, drive in enumerate(d for d in extra_drives if d and os.path.exists(d)):
+            drive_id = f'aux{idx}'
             cmd += [
-                '-drive', f'if=none,file={extra_drive},format=raw,readonly=on,id=aux',
-                '-device', ('virtio-blk-pci,drive=aux' if cfg['bus'] == 'pci'
-                            else 'virtio-blk-device,drive=aux'),
+                '-drive', f'if=none,file={drive},format=raw,readonly=on,id={drive_id}',
+                '-device', (f'virtio-blk-pci,drive={drive_id}' if cfg['bus'] == 'pci'
+                            else f'virtio-blk-device,drive={drive_id}'),
             ]
 
         logger.info('Launching QEMU for %s: %s',
