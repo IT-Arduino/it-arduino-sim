@@ -105,7 +105,13 @@ export class RaspberryPi3Bridge {
   }
 
   connect(): void {
-    if (this.socket && this.socket.readyState !== WebSocket.CLOSED) return;
+    const state = this.socket?.readyState;
+    if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) return;
+    // A socket in CLOSING is on its way out, not usable: the old guard
+    // treated it as live and returned, so "restart in Linux mode" right
+    // after a run silently did nothing — no boot, and the toolbar still
+    // showing Stop. Drop it and open a fresh one.
+    this.socket = null;
 
     const base = API_BASE();
     const wsProtocol = base.startsWith('https') ? 'wss:' : 'ws:';

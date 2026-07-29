@@ -1929,11 +1929,18 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         // booting a Linux guest (a backend process + ~90 s). The detector
         // lives in the overlay; `enginePinned` lets the user override it.
         const decision = decideEngine(boardId, board.enginePinned);
+        // `running` is set here (not only by the toolbar): the Linux-mode
+        // button restarts the board directly, and without this the flag
+        // kept whatever the previous run left, so the UI showed Stop for
+        // a board that was not running.
         set((s) => ({
           boards: s.boards.map((b) =>
-            b.id === boardId ? { ...b, engineMode: decision.engine } : b,
+            b.id === boardId
+              ? { ...b, engineMode: decision.engine, running: true }
+              : b,
           ),
           serialMonitorOpen: true,
+          ...(s.activeBoardId === boardId ? { running: true } : {}),
         }));
         if (decision.engine === 'instant') {
           const instant = getInstantEngine();
