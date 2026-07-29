@@ -148,6 +148,12 @@ PI_CONFIGS: dict[str, dict] = {
 # that still send the legacy "start_pi" message without a board field.
 DEFAULT_PI_BOARD = 'raspberry-pi-3'
 
+# Hard ceiling for one guest session, in seconds. A QEMU instance costs a
+# process and its RAM for as long as it lives, and a tab left open all day
+# used to keep one pinned. 2 h is far past any interactive session; the
+# client is told plainly when it trips. Override with VELXIO_PI_MAX_SESSION_S.
+MAX_SESSION_SECONDS = int(os.environ.get('VELXIO_PI_MAX_SESSION_S', '7200'))
+
 # Every key a profile must carry — the boot path reads exactly these.
 _PI_PROFILE_KEYS = frozenset(
     {'qemu', 'cpu', 'smp', 'memory', 'image_set', 'kernel', 'initramfs',
@@ -557,6 +563,11 @@ class QemuManager:
         inst.running = True
         await inst.emit('system', {'event': 'booting'})
 
+        # Session ceiling: a forgotten tab used to hold a QEMU process (and
+        # its RAM) for as long as the browser stayed open. After this many
+        # seconds the instance shuts itself down and tells the client why.
+        inst._tasks.append(asyncio.create_task(self._expire(inst)))
+
         # Give QEMU a moment to open its TCP sockets
         await asyncio.sleep(1.0)
 
@@ -564,6 +575,22 @@ class QemuManager:
         inst._tasks.append(asyncio.create_task(self._connect_serial(inst)))
         inst._tasks.append(asyncio.create_task(self._connect_gpio(inst)))
         inst._tasks.append(asyncio.create_task(self._watch_stderr(inst)))
+
+    async def _expire(self, inst: PiInstance) -> None:
+        """Stop an instance that has outlived MAX_SESSION_SECONDS."""
+        try:
+            await asyncio.sleep(MAX_SESSION_SECONDS)
+        except asyncio.CancelledError:
+            return
+        if not inst.running:
+            return
+        logger.info('[%s] session ceiling reached (%ds) — shutting down',
+                    inst.client_id, MAX_SESSION_SECONDS)
+        await inst.emit('serial_output', {
+            'data': ('\r\n[Velxio] This Linux session reached its time limit '
+                     'and was stopped. Press Run to start a fresh one.\r\n'),
+        })
+        self.stop_instance(inst.client_id)
 
     # ── Console (virtio-console / /dev/hvc0) ──────────────────────────────────
 
