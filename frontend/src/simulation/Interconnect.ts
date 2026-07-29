@@ -756,7 +756,11 @@ export function notifyBoardReady(_boardId: string, wires: readonly Wire[]): void
  */
 export function reensureSerialHooks(boardId: string): void {
   const entry = boards.get(boardId);
-  if (entry && entry.serialFanout.size > 0) ensureSerialHook(entry);
+  if (!entry || entry.serialFanout.size === 0) return;
+  // The hook lives on the sim/bridge INSTANCE and marks it with a flag.
+  // A fresh instance carries no flag, so ensureSerialHook installs on it;
+  // this call is what makes that happen after a compile or a reconnect.
+  ensureSerialHook(entry);
 }
 
 /** For tests: reset all internal state. */

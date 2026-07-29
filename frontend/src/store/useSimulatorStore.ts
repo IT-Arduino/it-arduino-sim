@@ -1215,6 +1215,11 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
       try { existingShim.clearAllProxies(); } catch { /* ignore */ }
     }
     simulatorMap.set(id, shim);
+    // The Interconnect's serial fan-out wraps the INSTANCE's
+    // onSerialData; a fresh simulator (compile, reset, engine
+    // swap) drops that wrapper, so a wired peer stopped
+    // hearing this board mid-session. Re-ensure it here.
+    icReensureSerialHooks(id);
   }
 
   const initialSim = createSimulator(
@@ -1382,6 +1387,11 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         // Shim so PartSimulationRegistry parts (I2C displays, sensors, SPI
         // panels) attach to this STM32 the same way they do on ESP32.
         simulatorMap.set(id, new Stm32BridgeShim(bridge, pm));
+        // The Interconnect's serial fan-out wraps the INSTANCE's
+        // onSerialData; a fresh simulator (compile, reset, engine
+        // swap) drops that wrapper, so a wired peer stopped
+        // hearing this board mid-session. Re-ensure it here.
+        icReensureSerialHooks(id);
       } else {
         const sim = createSimulator(
           boardKind,
@@ -1400,6 +1410,11 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         );
         // Cross-board routing now handled by Interconnect (see bind below).
         simulatorMap.set(id, sim);
+        // The Interconnect's serial fan-out wraps the INSTANCE's
+        // onSerialData; a fresh simulator (compile, reset, engine
+        // swap) drops that wrapper, so a wired peer stopped
+        // hearing this board mid-session. Re-ensure it here.
+        icReensureSerialHooks(id);
 
         // ── Attach a PIO bus peripheral if a factory supports this board.
         // The pro overlay registers a CYW43 WiFi peripheral for 'pi-pico-w'
@@ -2400,6 +2415,11 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         const shim = new Esp32BridgeShim(bridge, pm);
         shim.onSerialData = serialCallback;
         simulatorMap.set(boardId, shim);
+        // The Interconnect's serial fan-out wraps the INSTANCE's
+        // onSerialData; a fresh simulator (compile, reset, engine
+        // swap) drops that wrapper, so a wired peer stopped
+        // hearing this board mid-session. Re-ensure it here.
+        icReensureSerialHooks(boardId);
 
         set((s) => ({
           boardType: type,
@@ -2434,6 +2454,11 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
           getOscilloscopeCallback(boardId),
         );
         simulatorMap.set(boardId, sim);
+        // The Interconnect's serial fan-out wraps the INSTANCE's
+        // onSerialData; a fresh simulator (compile, reset, engine
+        // swap) drops that wrapper, so a wired peer stopped
+        // hearing this board mid-session. Re-ensure it here.
+        icReensureSerialHooks(boardId);
 
         set((s) => ({
           boardType: type,
@@ -2513,6 +2538,11 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         const shim = new Esp32BridgeShim(bridge, pm);
         shim.onSerialData = serialCallback;
         simulatorMap.set(boardId, shim);
+        // The Interconnect's serial fan-out wraps the INSTANCE's
+        // onSerialData; a fresh simulator (compile, reset, engine
+        // swap) drops that wrapper, so a wired peer stopped
+        // hearing this board mid-session. Re-ensure it here.
+        icReensureSerialHooks(boardId);
         set({ simulator: shim as any, serialOutput: '', serialBaudRate: 0 });
       } else {
         const sim = createSimulator(
@@ -2529,6 +2559,11 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
           getOscilloscopeCallback(boardId),
         );
         simulatorMap.set(boardId, sim);
+        // The Interconnect's serial fan-out wraps the INSTANCE's
+        // onSerialData; a fresh simulator (compile, reset, engine
+        // swap) drops that wrapper, so a wired peer stopped
+        // hearing this board mid-session. Re-ensure it here.
+        icReensureSerialHooks(boardId);
         set({ simulator: sim, serialOutput: '', serialBaudRate: 0 });
       }
       console.log(`Simulator initialized: ${boardType}`);
