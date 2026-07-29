@@ -55,6 +55,7 @@ import { isBreadboard } from '../utils/breadboardNets';
 import { computeSeating } from '../utils/breadboardSnap';
 import { createSerialBatcher } from './serialBatcher';
 import {
+  reensureSerialHooks as icReensureSerialHooks,
   bindBoard as icBindBoard,
   unbindBoard as icUnbindBoard,
   updateWires as icUpdateWires,
@@ -1344,6 +1345,10 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
           });
         };
         bridgeMap.set(id, bridge);
+        // The UART routes were built at page load, when this bridge did
+        // not exist — re-attempt the TX hook now that it does, or the
+        // guest's header-UART bytes never reach the canvas wire.
+        icReensureSerialHooks(id);
       } else if (isEsp32Kind(boardKind)) {
         wireEsp32Board(id, boardKind, pm);
       } else if (isStm32BoardKind(boardKind)) {

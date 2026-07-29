@@ -747,6 +747,18 @@ export function notifyBoardReady(_boardId: string, wires: readonly Wire[]): void
   updateI2CBridges(wires);
 }
 
+/**
+ * Re-attempt the serial hook for a board whose sim/bridge did not exist
+ * when the routes were built. Routes are installed at page load; a Pi's
+ * bridge is created at Run — so the TX hook silently no-opped and the
+ * guest's UART bytes never reached the wire. The store calls this when
+ * the bridge connects; ensureSerialHook is idempotent via its flag.
+ */
+export function reensureSerialHooks(boardId: string): void {
+  const entry = boards.get(boardId);
+  if (entry && entry.serialFanout.size > 0) ensureSerialHook(entry);
+}
+
 /** For tests: reset all internal state. */
 export function resetInterconnect(): void {
   for (const r of routes.values()) r.teardown();
