@@ -265,6 +265,8 @@ interface DynamicComponentProps {
   isSelected?: boolean;
   isHovered?: boolean;
   onMouseDown?: (e: React.MouseEvent) => void;
+  /** Right click: the canvas opens the properties + pins dialog here. */
+  onContextMenu?: (e: React.MouseEvent) => void;
   onDoubleClick?: (e: React.MouseEvent) => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
@@ -280,6 +282,7 @@ export const DynamicComponent: React.FC<DynamicComponentProps> = ({
   isSelected = false,
   isHovered = false,
   onMouseDown,
+  onContextMenu,
   onDoubleClick,
   onMouseEnter,
   onMouseLeave,
@@ -785,13 +788,18 @@ export const DynamicComponent: React.FC<DynamicComponentProps> = ({
   // while simulation is live.
   return (
     <div
-      className={`dynamic-component-wrapper${isBurnt ? ' velxio-burnt' : ''}`}
+      className={`dynamic-component-wrapper${isBurnt ? ' velxio-burnt' : ''}${
+        isSelected ? ' velxio-ants' : ''
+      }`}
       style={{
         position: 'absolute',
         left: `${x}px`,
         top: `${y}px`,
         cursor: interactionRunning && isInteractive ? 'pointer' : 'move',
-        border: isSelected ? '2px dashed #007acc' : '2px solid transparent',
+        // The selection outline itself is the .velxio-ants pseudo-element
+        // (a static dashed border cannot be animated). The transparent
+        // border stays so selecting does not shift the body by 2px.
+        border: '2px solid transparent',
         borderRadius: '4px',
         padding: '4px',
         userSelect: 'none',
@@ -801,6 +809,10 @@ export const DynamicComponent: React.FC<DynamicComponentProps> = ({
         transformOrigin: 'center center',
       }}
       onMouseDownCapture={handleMouseDown}
+      // Capture phase: interactive parts (pushbutton, switch, pot) stop
+      // propagation in their own handlers, which would otherwise swallow the
+      // right click before the canvas ever saw it.
+      onContextMenuCapture={onContextMenu}
       onTouchStartCapture={(e) => {
         // Mobile mirror of the ownsPointer guard: while the sim runs, a
         // finger on a declared touch screen is INPUT for the screen (its

@@ -35,6 +35,7 @@ import { SeatedPinMarkers } from './SeatedPinMarkers';
 import { calculatePinPosition } from '../../utils/pinPositionCalculator';
 import { isBoardComponent, boardPinToNumber } from '../../utils/boardPinMapping';
 import { isBreadboard } from '../../utils/breadboardNets';
+import { pickDropSlot } from '../../utils/dropSlot';
 import {
   autoWireColor,
   railWireColor,
@@ -1433,19 +1434,21 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
       ? toWorld(rect.left + screenMargin, rect.top + screenMargin)
       : { x: 100, y: 100 };
 
-    // Tile additional drops so they don't stack exactly on top of each other,
-    // while still landing inside the viewport.
-    const tileStep = 40 / z; // 40 screen-px between successive drops
-    const cols = 4;
-    const idx = components.length;
-    const x = worldOrigin.x + (idx % cols) * tileStep;
-    const y = worldOrigin.y + Math.floor(idx / cols) * tileStep;
+    // Cascade down-right from that corner, taking the first FREE slot — see
+    // utils/dropSlot for why it is keyed on what is parked there rather than
+    // on how many components the project has.
+    const { x, y } = pickDropSlot(worldOrigin, components, { step: 36 / z });
 
     const component = createComponentFromMetadata(metadata, x, y);
     trackAddComponent(metadata.id);
     // Recorded — user can Ctrl+Z to remove the just-added component.
     recordAddComponent(component as Parameters<typeof recordAddComponent>[0]);
     setShowComponentPicker(false);
+    // Select it: the marching ants are the answer to "where did it go?".
+    // Landing in the corner of the viewport is only half the fix — on a busy
+    // canvas a new part still disappears among the others unless something
+    // moves to mark it.
+    setSelectedComponentId(component.id);
 
     // Custom Chips need a compile step before they can do anything — open the
     // designer dialog immediately so the user lands in the editor.
@@ -1817,14 +1820,16 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                 return false;
               })()
             ) {
-              // handled — wire selected instead of opening the dialog
+              // handled — wire selected instead of selecting the component
             } else {
-              setPropertyDialogComponentId(draggedComponentId);
-              setPropertyDialogPosition({
-                x: component.x * zoomRef.current + panRef.current.x,
-                y: component.y * zoomRef.current + panRef.current.y,
-              });
-              setShowPropertyDialog(true);
+              // A plain left click SELECTS (marching ants) and nothing more.
+              // It used to open the property dialog, which meant you could
+              // not point at a part — every glance cost a popup you then had
+              // to dismiss, and after adding a component you could not tell
+              // which one was yours. Properties and pins now live on the
+              // right-click menu, where a destructive-ish, deliberate action
+              // belongs. (Touch keeps tap → dialog: there is no right button.)
+              setSelectedComponentId(draggedComponentId);
             }
           }
         }
@@ -2380,6 +2385,17 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
             isHovered={isHovered}
             onMouseDown={(e) => {
               handleComponentMouseDown(component.id, e);
+            }}
+            onContextMenu={(e) => {
+              // Right click is where properties and pins live now. Selecting
+              // first means the ants mark what the dialog is about to edit.
+              e.preventDefault();
+              e.stopPropagation();
+              if (interactionRunning) return;
+              setSelectedComponentId(component.id);
+              setPropertyDialogComponentId(component.id);
+              setPropertyDialogPosition({ x: e.clientX, y: e.clientY });
+              setShowPropertyDialog(true);
             }}
           />
 
