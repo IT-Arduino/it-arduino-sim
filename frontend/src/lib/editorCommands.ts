@@ -29,6 +29,12 @@ export type EditorCommandId =
   | 'project.githubSync'
   | 'firmware.upload'
   | 'sim.record'
+  | 'sim.compile'
+  | 'sim.run'
+  | 'sim.stop'
+  | 'sim.resetBoard'
+  | 'view.toggleExplorer'
+  | 'view.toggleConsole'
   | 'view.reset'
   | 'view.zoomIn'
   | 'view.zoomOut';

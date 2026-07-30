@@ -1395,6 +1395,11 @@ export const EditorToolbar = ({
       window.dispatchEvent(new CustomEvent('velxio-pro-replay-record-toggle', {
         detail: { projectId: currentProject?.id ?? null },
       })),
+    compile: () => void handleCompile(),
+    run: () => void handleRun(),
+    stop: () => handleStop(),
+    resetBoard: () => handleReset(),
+    toggleConsole: () => setConsoleOpen((v) => !v),
   });
   const menuCommandsRef = useRef(makeMenuCommands());
   menuCommandsRef.current = makeMenuCommands();
@@ -1408,6 +1413,11 @@ export const EditorToolbar = ({
       registerEditorCommand('project.share', () => menuCommandsRef.current.share()),
       registerEditorCommand('project.githubSync', () => menuCommandsRef.current.githubSync()),
       registerEditorCommand('sim.record', () => menuCommandsRef.current.record()),
+      registerEditorCommand('sim.compile', () => menuCommandsRef.current.compile()),
+      registerEditorCommand('sim.run', () => menuCommandsRef.current.run()),
+      registerEditorCommand('sim.stop', () => menuCommandsRef.current.stop()),
+      registerEditorCommand('sim.resetBoard', () => menuCommandsRef.current.resetBoard()),
+      registerEditorCommand('view.toggleConsole', () => menuCommandsRef.current.toggleConsole()),
     ];
     return () => offs.forEach((off) => off());
   }, []);

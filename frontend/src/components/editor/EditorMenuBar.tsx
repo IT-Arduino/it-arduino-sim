@@ -20,7 +20,11 @@
  */
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useSimulatorStore } from '../../store/useSimulatorStore';
+import { useOscilloscopeStore } from '../../store/useOscilloscopeStore';
+import { LOCALES, LOCALE_META, type Locale } from '../../i18n/config';
+import { getLocaleFromPath, switchLocale } from '../../i18n/path';
 import {
   hasEditorCommand,
   runEditorCommand,
@@ -48,12 +52,19 @@ const SITE = import.meta.env.VITE_PRO_BUILD ? '' : 'https://velxio.dev';
 
 export const EditorMenuBar: React.FC = () => {
   const { t } = useTranslation();
-  const [open, setOpen] = useState<'file' | 'edit' | 'help' | null>(null);
+  const [open, setOpen] = useState<'file' | 'edit' | 'view' | 'lang' | 'help' | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Re-render when owners (un)register their commands.
   useSyncExternalStore(subscribeEditorCommands, getEditorCommandsVersion);
 
+  const location = useLocation();
+  const navigate = useNavigate();
+  const currentLocale = getLocaleFromPath(location.pathname);
+  const serialOpen = useSimulatorStore((s) => s.serialMonitorOpen);
+  const toggleSerialMonitor = useSimulatorStore((s) => s.toggleSerialMonitor);
+  const scopeOpen = useOscilloscopeStore((s) => s.open);
+  const toggleOscilloscope = useOscilloscopeStore((s) => s.toggleOscilloscope);
   const undo = useSimulatorStore((s) => s.undo);
   const redo = useSimulatorStore((s) => s.redo);
   const history = useSimulatorStore((s) => s.history);
@@ -118,8 +129,19 @@ export const EditorMenuBar: React.FC = () => {
     { kind: 'link', href: GITHUB_URL, label: t('editor.menu.github', 'GitHub Repository') },
   ];
 
-  const editItems: Item[] = [
-    { kind: 'separator' }, // placeholder: undo/redo render specially above
+  // Edit is undo/redo only (they render specially, with live history state);
+  // everything view-shaped lives in the View menu, like the desktop app.
+  const editItems: Item[] = [];
+
+  const viewItems: Item[] = [
+    { kind: 'command', id: 'sim.compile', label: t('editor.toolbar.compile', 'Compile'), shortcut: 'Ctrl+B' },
+    { kind: 'command', id: 'sim.run', label: t('editor.toolbar.run', 'Run') },
+    { kind: 'command', id: 'sim.stop', label: t('editor.toolbar.stop', 'Stop') },
+    { kind: 'command', id: 'sim.resetBoard', label: t('editor.toolbar.reset', 'Reset') },
+    { kind: 'separator' },
+    { kind: 'command', id: 'view.toggleExplorer', label: t('editor.menu.toggleExplorer', 'File Explorer') },
+    { kind: 'command', id: 'view.toggleConsole', label: t('editor.menu.toggleConsole', 'Output Console') },
+    { kind: 'separator' },
     { kind: 'command', id: 'view.reset', label: t('editor.menu.centerView', 'Center canvas view') },
     { kind: 'command', id: 'view.zoomIn', label: t('editor.canvas.zoomIn', 'Zoom in') },
     { kind: 'command', id: 'view.zoomOut', label: t('editor.canvas.zoomOut', 'Zoom out') },
@@ -158,7 +180,7 @@ export const EditorMenuBar: React.FC = () => {
     </button>
   );
 
-  const menu = (which: 'file' | 'edit' | 'help', label: string, items: Item[]): React.ReactNode => (
+  const menu = (which: 'file' | 'edit' | 'view' | 'lang' | 'help', label: string, items: Item[]): React.ReactNode => (
     <div className="emb-root" key={which}>
       <button
         className={`emb-trigger${open === which ? ' emb-trigger-open' : ''}`}
@@ -171,6 +193,59 @@ export const EditorMenuBar: React.FC = () => {
       </button>
       {open === which && (
         <div className="emb-menu" role="menu">
+          {which === 'view' && (
+            <>
+              <button
+                role="menuitemcheckbox"
+                aria-checked={serialOpen}
+                className="emb-item"
+                onClick={() => {
+                  setOpen(null);
+                  toggleSerialMonitor();
+                }}
+              >
+                <span>{t('editor.canvas.toggleSerialMonitor', 'Serial Monitor')}</span>
+                <span className="emb-shortcut">{serialOpen ? '✓' : ''}</span>
+              </button>
+              <button
+                role="menuitemcheckbox"
+                aria-checked={scopeOpen}
+                className="emb-item"
+                onClick={() => {
+                  setOpen(null);
+                  toggleOscilloscope();
+                }}
+              >
+                <span>{t('editor.menu.toggleScope', 'Oscilloscope / Logic Analyzer')}</span>
+                <span className="emb-shortcut">{scopeOpen ? '✓' : ''}</span>
+              </button>
+              <div className="emb-separator" />
+            </>
+          )}
+          {which === 'lang' && (
+            <>
+              {LOCALES.map((loc) => (
+                <button
+                  key={loc}
+                  role="menuitemradio"
+                  aria-checked={currentLocale === loc}
+                  className="emb-item"
+                  onClick={() => {
+                    setOpen(null);
+                    if (loc === currentLocale) return;
+                    navigate(
+                      switchLocale(location.pathname, loc as Locale) +
+                        location.search +
+                        location.hash,
+                    );
+                  }}
+                >
+                  <span>{LOCALE_META[loc].nativeName}</span>
+                  <span className="emb-shortcut">{currentLocale === loc ? '✓' : ''}</span>
+                </button>
+              ))}
+            </>
+          )}
           {which === 'edit' && (
             <>
               <button
@@ -217,6 +292,8 @@ export const EditorMenuBar: React.FC = () => {
     <div className="editor-menubar" ref={rootRef}>
       {menu('file', t('editor.menu.file', 'File'), fileItems)}
       {menu('edit', t('editor.menu.edit', 'Edit'), editItems)}
+      {menu('view', t('editor.menu.view', 'View'), viewItems)}
+      {menu('lang', t('editor.menu.language', 'Language'), [])}
       {menu('help', t('editor.menu.help', 'Help'), helpItems)}
     </div>
   );

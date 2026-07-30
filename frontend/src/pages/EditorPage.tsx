@@ -255,9 +255,13 @@ export const EditorPage: React.FC = () => {
     const offNew = registerEditorCommand('project.new', () => {
       void handleNewClick();
     });
+    const offExplorer = registerEditorCommand('view.toggleExplorer', () =>
+      setExplorerOpen((v) => !v),
+    );
     return () => {
       offSave();
       offNew();
+      offExplorer();
     };
   }, [handleSaveClick, handleNewClick]);
 
