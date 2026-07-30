@@ -29,7 +29,6 @@ import { showConfirmDialog } from '../store/useMessageDialogStore';
 import { useAutoSaveProject } from '../hooks/useAutoSaveProject';
 import { registerEditorCommand } from '../lib/editorCommands';
 import { EditorMenuBar } from '../components/editor/EditorMenuBar';
-import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
 import type { CompilationLog } from '../utils/compilationLogger';
 import '../App.css';
 
@@ -390,20 +389,15 @@ export const EditorPage: React.FC = () => {
      there used to be 44+38. On narrow widths the strip wraps internally
      and the header grows; the docked AI chat is avoided by the same
      padding-right the strip always had. */
-  /* Account + language block. Fused as the explorer panel's footer so a
-     long file tree scrolls ABOVE it instead of disappearing underneath a
-     floating box; when the explorer is collapsed it falls back to the
-     small fixed corner box. The standalone language switcher only shows
-     while logged OUT — signed-in users change language inside the account
-     menu (see pro HeaderAuth), and a CSS :has() rule hides the globe when
-     the auth slot renders a logged-in marker. */
+  /* Account block. Fused as the explorer panel's footer so a long file
+     tree scrolls ABOVE it instead of disappearing underneath a floating
+     box; when the explorer is collapsed it falls back to the small fixed
+     corner box (avatar only there — no room for a name). */
   const accountBlock = !isMobile ? (
-    <>
-      <span className="corner-lang">
-        <LanguageSwitcher />
-      </span>
-      <div data-velxio-slot="header-auth" style={{ display: 'contents' }} />
-    </>
+    // Just the account button. Language lives in the menubar's Language
+    // menu (for everyone) and inside the account menu (for signed-in
+    // users) — the standalone globe crowded the footer for no gain.
+    <div data-velxio-slot="header-auth" style={{ display: 'contents' }} />
   ) : undefined;
 
   const unifiedToolbar = !isMobile ? (
