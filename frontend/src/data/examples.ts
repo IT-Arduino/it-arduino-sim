@@ -11395,6 +11395,30 @@ export function subscribeProExamples(cb: () => void): () => void {
   return () => proExamplesListeners.delete(cb);
 }
 
+/**
+ * Has the pro overlay had its chance to register examples?
+ *
+ * A direct link to a PRO example (/example/pi5-opencv-vision) races the
+ * overlay's dynamic import: the page resolves the gallery before
+ * registerProExamples has run, concluded "not found", and flashed a 404 —
+ * full marketing header included — before re-rendering into the editor.
+ * The page needs to distinguish "not in the gallery" from "not in the
+ * gallery YET". main.tsx flips this: immediately when no overlay is
+ * configured, otherwise when the overlay's import settles (either way).
+ */
+let proExamplesSettled = false;
+
+export function markProExamplesSettled(): void {
+  if (proExamplesSettled) return;
+  proExamplesSettled = true;
+  proExamplesVersion++;
+  for (const l of proExamplesListeners) l();
+}
+
+export function areProExamplesSettled(): boolean {
+  return proExamplesSettled;
+}
+
 export function getProExamplesVersion(): number {
   return proExamplesVersion;
 }

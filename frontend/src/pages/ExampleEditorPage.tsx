@@ -23,7 +23,8 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useParams } from 'react-router-dom';
-import { exampleProjects, subscribeProExamples, getProExamplesVersion } from '../data/examples';
+import { exampleProjects, subscribeProExamples,
+  areProExamplesSettled, getProExamplesVersion } from '../data/examples';
 import { loadExample, type LibraryInstallProgress } from '../utils/loadExample';
 import { EditorPage } from './EditorPage';
 import { AppHeader } from '../components/layout/AppHeader';
@@ -59,13 +60,25 @@ export const ExampleEditorPage: React.FC = () => {
       : `${DOMAIN}/examples`,
   });
 
+  const settled = useSyncExternalStore(
+    subscribeProExamples,
+    areProExamplesSettled,
+    areProExamplesSettled,
+  );
+
   useEffect(() => {
     if (!exampleId) {
       setError(true);
       return;
     }
     if (!example) {
-      setError(true);
+      // "Not in the gallery" and "not in the gallery YET" are different
+      // answers while the pro overlay's dynamic import is still in flight:
+      // a direct link to a pro example used to flash a 404 (marketing
+      // header and all) before the overlay registered it and the editor
+      // took over. Stay on the loading screen until the registry settles;
+      // only then is a missing id really a 404.
+      if (settled) setError(true);
       return;
     }
     if (loadedIdRef.current === exampleId) return;
@@ -91,7 +104,7 @@ export const ExampleEditorPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [exampleId, example]);
+  }, [exampleId, example, settled]);
 
   if (error) {
     return (
