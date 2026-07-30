@@ -32,11 +32,19 @@ import './EditorMenuBar.css';
 
 type Item =
   | { kind: 'command'; id: EditorCommandId; label: string; shortcut?: string }
+  | { kind: 'link'; href: string; label: string }
   | { kind: 'separator' };
+
+// Same links the desktop app's Help menu opens (pro/desktop menu.rs) — the
+// web editor mirrors that structure so both feel like one product. They
+// replace the marketing nav this header no longer shows, opening in a new
+// tab so the editor (and any unsaved work) stays put.
+const GITHUB_URL = 'https://github.com/davidmonterocrespo24/velxio';
+const DISCORD_URL = 'https://discord.gg/3mARjJrh4E';
 
 export const EditorMenuBar: React.FC = () => {
   const { t } = useTranslation();
-  const [open, setOpen] = useState<'file' | 'edit' | null>(null);
+  const [open, setOpen] = useState<'file' | 'edit' | 'help' | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Re-render when owners (un)register their commands.
@@ -85,12 +93,39 @@ export const EditorMenuBar: React.FC = () => {
     },
   ];
 
+  const helpItems: Item[] = [
+    { kind: 'link', href: '/docs', label: t('header.nav.documentation', 'Documentation') },
+    { kind: 'link', href: '/examples', label: t('header.nav.examples', 'Examples') },
+    { kind: 'link', href: '/pricing', label: t('header.nav.pricing', 'Pricing') },
+    { kind: 'separator' },
+    { kind: 'link', href: '/', label: t('editor.menu.home', 'Velxio Home') },
+    { kind: 'link', href: '/blog/', label: t('header.nav.blog', 'Blog') },
+    { kind: 'link', href: '/about', label: t('editor.menu.about', 'About Velxio') },
+    { kind: 'separator' },
+    { kind: 'link', href: DISCORD_URL, label: t('editor.menu.discord', 'Discord Community') },
+    { kind: 'link', href: GITHUB_URL, label: t('editor.menu.github', 'GitHub Repository') },
+  ];
+
   const editItems: Item[] = [
     { kind: 'separator' }, // placeholder: undo/redo render specially above
     { kind: 'command', id: 'view.reset', label: t('editor.menu.centerView', 'Center canvas view') },
     { kind: 'command', id: 'view.zoomIn', label: t('editor.canvas.zoomIn', 'Zoom in') },
     { kind: 'command', id: 'view.zoomOut', label: t('editor.canvas.zoomOut', 'Zoom out') },
   ];
+
+  const renderLink = (item: Extract<Item, { kind: 'link' }>): React.ReactNode => (
+    <a
+      key={item.href}
+      role="menuitem"
+      className="emb-item"
+      href={item.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={() => setOpen(null)}
+    >
+      <span>{item.label}</span>
+    </a>
+  );
 
   const renderCommand = (item: Extract<Item, { kind: 'command' }>): React.ReactNode => (
     <button
@@ -108,7 +143,7 @@ export const EditorMenuBar: React.FC = () => {
     </button>
   );
 
-  const menu = (which: 'file' | 'edit', label: string, items: Item[]): React.ReactNode => (
+  const menu = (which: 'file' | 'edit' | 'help', label: string, items: Item[]): React.ReactNode => (
     <div className="emb-root" key={which}>
       <button
         className={`emb-trigger${open === which ? ' emb-trigger-open' : ''}`}
@@ -152,6 +187,8 @@ export const EditorMenuBar: React.FC = () => {
           {items.map((item, i) =>
             item.kind === 'separator' ? (
               <div key={`sep-${i}`} className="emb-separator" />
+            ) : item.kind === 'link' ? (
+              renderLink(item)
             ) : (
               renderCommand(item)
             ),
@@ -165,6 +202,7 @@ export const EditorMenuBar: React.FC = () => {
     <div className="editor-menubar" ref={rootRef}>
       {menu('file', t('editor.menu.file', 'File'), fileItems)}
       {menu('edit', t('editor.menu.edit', 'Edit'), editItems)}
+      {menu('help', t('editor.menu.help', 'Help'), helpItems)}
     </div>
   );
 };
