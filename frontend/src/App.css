@@ -194,17 +194,15 @@ body {
   }
 }
 
-.unified-toolbar-explorer-toggle {
-  border-bottom: none;
-}
-
 .unified-toolbar-editor {
   flex: 1 1 auto;
-  /* Floor the editor zone at its fully-collapsed content width so it can never
-     shrink *under* its own buttons and paint them over the adjacent canvas
-     controls. Below this floor the (lower-priority) canvas controls get pushed
-     toward the right edge instead of overlapping — never the other way. */
-  min-width: 280px;
+  /* Floor the editor zone at its own content width so it can never shrink
+     *under* its buttons and paint them over the adjacent canvas controls
+     (a hardcoded 280px floor sat below the real content width, letting the
+     console button overlap the board selector with the chat docked). When
+     the row genuinely cannot fit, the bar's flex-wrap moves the canvas
+     controls to a second line instead — never an overlap. */
+  min-width: max-content;
   display: flex;
 }
 
@@ -516,6 +514,12 @@ body {
   min-height: 44px;
   display: flex;
   align-items: center;
+}
+
+/* Logo and the File menu read as one menubar — the marketing-header 16px
+   gap left a hole between them in the editor. */
+.app-header--with-toolbar .header-left {
+  gap: 6px;
 }
 
 .app-header--with-toolbar .header-content {

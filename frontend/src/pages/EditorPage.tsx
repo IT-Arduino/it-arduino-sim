@@ -402,26 +402,8 @@ export const EditorPage: React.FC = () => {
 
   const unifiedToolbar = !isMobile ? (
         <div className="unified-toolbar">
-          <button
-            className="explorer-toggle-btn unified-toolbar-explorer-toggle"
-            onClick={() => setExplorerOpen((v) => !v)}
-            title={explorerOpen ? t('editor.menu.hideExplorer', 'Hide file explorer') : t('editor.menu.showExplorer', 'Show file explorer')}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-            </svg>
-          </button>
-          {/* View-mode toggle: Code / Both / Circuit. Lets users hide a
-              pane to give the right-docked AI chat more breathing room.
+          {/* View-mode toggle: explorer | Code / Both / Circuit — one
+              segmented group so the four pane switches read as one control.
               Hidden on mobile — there's already a code/circuit toggle in
               the mobile bottom-nav. */}
           <div
@@ -430,7 +412,7 @@ export const EditorPage: React.FC = () => {
             className="view-mode-toggle"
             style={{
               display: 'flex',
-              // Never squeezed below its three buttons: flexbox used to crush
+              // Never squeezed below its buttons: flexbox used to crush
               // this block to a third of its width and clip two of them.
               flexShrink: 0,
               gap: 1,
@@ -442,6 +424,35 @@ export const EditorPage: React.FC = () => {
               margin: '0 6px',
             }}
           >
+            <button
+              onClick={() => setExplorerOpen((v) => !v)}
+              aria-pressed={explorerOpen}
+              title={explorerOpen ? t('editor.menu.hideExplorer', 'Hide file explorer') : t('editor.menu.showExplorer', 'Show file explorer')}
+              style={{
+                background: explorerOpen ? 'var(--color-action-primary)' : 'transparent',
+                color: explorerOpen ? 'white' : '#aaa',
+                border: 'none',
+                height: 28,
+                padding: '0 10px',
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+            </button>
+            <div style={{ width: 1, background: '#3c3c3c', alignSelf: 'stretch' }} />
             {(
               [
                 { key: 'code', label: t('editor.shell.code'), path: 'M16 18l6-6-6-6M8 6l-6 6 6 6' },
@@ -454,7 +465,7 @@ export const EditorPage: React.FC = () => {
                 onClick={() => setViewMode(m.key)}
                 aria-pressed={viewMode === m.key}
                 style={{
-                  background: viewMode === m.key ? '#0e639c' : 'transparent',
+                  background: viewMode === m.key ? 'var(--color-action-primary)' : 'transparent',
                   color: viewMode === m.key ? 'white' : '#aaa',
                   border: 'none',
                   height: 28,
