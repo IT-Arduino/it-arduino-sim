@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useProjectStore } from '../../store/useProjectStore';
@@ -310,13 +311,18 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ autoSave, editorMenu, edit
 
       {/* Editor corner box — bottom-left, IDE style: the account button
           (pro injects it into the auth slot) and the language switcher.
-          Fixed, so it floats over the explorer's quiet bottom corner. */}
-      {editorToolbar && (
-        <div className="editor-corner-box">
-          <LanguageSwitcher />
-          <div data-velxio-slot="header-auth" style={{ display: 'contents' }} />
-        </div>
-      )}
+          Portaled to <body>: the header's backdrop-filter makes it a
+          containing block, so a fixed child positioned inside it lands at
+          the header's bottom (the top of the page) instead of the
+          viewport's — measured at y=-4, on top of the logo. */}
+      {editorToolbar &&
+        createPortal(
+          <div className="editor-corner-box">
+            <LanguageSwitcher />
+            <div data-velxio-slot="header-auth" style={{ display: 'contents' }} />
+          </div>,
+          document.body,
+        )}
 
       {showShareModal && <ShareModal onClose={() => setShowShareModal(false)} />}
     </header>
