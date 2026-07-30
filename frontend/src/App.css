@@ -542,7 +542,7 @@ body {
    reads as intentional instead of broken. Three blocks because a media
    query cannot test a body class in its condition. */
 
-@media (max-width: 1199.9px) {
+@media (max-width: 1039.9px) {
   .app-header--with-toolbar .header-content {
     flex-wrap: wrap;
   }
@@ -558,7 +558,7 @@ body {
   }
 }
 
-@media (max-width: 1239.9px) {
+@media (max-width: 1059.9px) {
   body.velxio-agent-collapsed .app-header--with-toolbar .header-content {
     flex-wrap: wrap;
   }
@@ -574,7 +574,7 @@ body {
   }
 }
 
-@media (max-width: 1579.9px) {
+@media (max-width: 1399.9px) {
   body.velxio-agent-open .app-header--with-toolbar .header-content {
     flex-wrap: wrap;
   }
@@ -588,4 +588,30 @@ body {
     border-top: 1px solid #333;
     min-height: 38px;
   }
+}
+
+/* ── Editor corner box (bottom-left) ─────────────────────────────────────
+   Language switcher + account button, IDE style. Moving them out of the
+   header is what buys the toolbar the last ~150px it needed to keep the
+   single-row layout on 1440px screens with the chat docked. */
+.editor-corner-box {
+  position: fixed;
+  left: 8px;
+  bottom: 8px;
+  z-index: 7000; /* above the canvas, below the chat (8000) and modals */
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(23, 26, 33, 0.95);
+  border: 1px solid #2f3542;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+/* With the chat rising to the very top (agent CSS sets the header's
+   padding-right), the strip must NOT also pad itself — that would double
+   the reservation and squeeze the toolbar by another panel-width. */
+.app-header--with-toolbar .header-editor-toolbar .unified-toolbar {
+  padding-right: 6px !important;
 }

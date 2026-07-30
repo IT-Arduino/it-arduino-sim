@@ -222,9 +222,21 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ autoSave, editorMenu, edit
         </div>
 
         {/* Editor toolbar strip — fills the middle the nav vacated. */}
-        {editorToolbar && <div className="header-editor-toolbar">{editorToolbar}</div>}
+        {editorToolbar && (
+          <>
+            {autoSave && currentProject && <AutoSaveIndicator state={autoSave} />}
+            <div className="header-editor-toolbar">{editorToolbar}</div>
+          </>
+        )}
 
-        {/* Right: language + share + auth + mobile hamburger */}
+        {/* Right: language + share + auth + mobile hamburger. In the
+            desktop-editor variant this block does not render at all: the
+            language switcher and the account button move to the corner box
+            below (bottom-left), Share lives in File > Share/Embed, and the
+            autosave dot rides next to the menus — every pixel of the row
+            goes to the toolbar, which is what lets 1440px-with-chat keep
+            the single-row layout. */}
+        {!editorToolbar && (
         <div className="header-right">
           <LanguageSwitcher />
 
@@ -293,7 +305,18 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ autoSave, editorMenu, edit
             </button>
           )}
         </div>
+        )}
       </div>
+
+      {/* Editor corner box — bottom-left, IDE style: the account button
+          (pro injects it into the auth slot) and the language switcher.
+          Fixed, so it floats over the explorer's quiet bottom corner. */}
+      {editorToolbar && (
+        <div className="editor-corner-box">
+          <LanguageSwitcher />
+          <div data-velxio-slot="header-auth" style={{ display: 'contents' }} />
+        </div>
+      )}
 
       {showShareModal && <ShareModal onClose={() => setShowShareModal(false)} />}
     </header>
