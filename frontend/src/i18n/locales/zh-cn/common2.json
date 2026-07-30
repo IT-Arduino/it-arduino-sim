@@ -383,7 +383,9 @@
       "discord": "Discord 社区",
       "github": "GitHub 仓库",
       "compile": "编译",
-      "run": "运行"
+      "run": "运行",
+      "hideExplorer": "隐藏文件资源管理器",
+      "showExplorer": "显示文件资源管理器"
     }
   },
   "about": {
@@ -461,5 +463,8 @@
       "subtitle": "无需注册。100% 在浏览器中运行。免费且开源。",
       "openEditor": "打开编辑器"
     }
+  },
+  "header": {
+    "shareProject": "分享项目"
   }
 }

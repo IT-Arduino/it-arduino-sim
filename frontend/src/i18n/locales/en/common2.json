@@ -385,7 +385,9 @@
       "discord": "Discord Community",
       "github": "GitHub Repository",
       "compile": "Compile",
-      "run": "Run"
+      "run": "Run",
+      "hideExplorer": "Hide file explorer",
+      "showExplorer": "Show file explorer"
     }
   },
   "about": {
@@ -463,5 +465,8 @@
       "subtitle": "No signup required. Runs 100% in your browser. Free and open source.",
       "openEditor": "Open Editor"
     }
+  },
+  "header": {
+    "shareProject": "Share project"
   }
 }

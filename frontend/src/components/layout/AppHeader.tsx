@@ -260,7 +260,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ autoSave, editorMenu, edit
                 color: '#ccc',
                 fontSize: 13,
               }}
-              title="Share project"
+              title={t('header.shareProject', 'Share project')}
             >
               <svg
                 width="14"

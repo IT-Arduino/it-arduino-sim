@@ -383,7 +383,9 @@
       "discord": "Comunidade no Discord",
       "github": "Repositório no GitHub",
       "compile": "Compilar",
-      "run": "Executar"
+      "run": "Executar",
+      "hideExplorer": "Ocultar explorador de arquivos",
+      "showExplorer": "Mostrar explorador de arquivos"
     }
   },
   "about": {
@@ -461,5 +463,8 @@
       "subtitle": "Sem necessidade de cadastro. Roda 100% no seu navegador. Gratuito e de código aberto.",
       "openEditor": "Abrir Editor"
     }
+  },
+  "header": {
+    "shareProject": "Compartilhar projeto"
   }
 }

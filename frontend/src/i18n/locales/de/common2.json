@@ -383,7 +383,9 @@
       "discord": "Discord-Community",
       "github": "GitHub-Repository",
       "compile": "Kompilieren",
-      "run": "Ausführen"
+      "run": "Ausführen",
+      "hideExplorer": "Datei-Explorer ausblenden",
+      "showExplorer": "Datei-Explorer einblenden"
     }
   },
   "about": {
@@ -461,5 +463,8 @@
       "subtitle": "Keine Anmeldung erforderlich. Läuft zu 100 % in Ihrem Browser. Kostenlos und Open Source.",
       "openEditor": "Editor öffnen"
     }
+  },
+  "header": {
+    "shareProject": "Projekt teilen"
   }
 }

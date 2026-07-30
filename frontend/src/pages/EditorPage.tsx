@@ -411,7 +411,7 @@ export const EditorPage: React.FC = () => {
           <button
             className="explorer-toggle-btn unified-toolbar-explorer-toggle"
             onClick={() => setExplorerOpen((v) => !v)}
-            title={explorerOpen ? 'Hide file explorer' : 'Show file explorer'}
+            title={explorerOpen ? t('editor.menu.hideExplorer', 'Hide file explorer') : t('editor.menu.showExplorer', 'Show file explorer')}
           >
             <svg
               width="16"
@@ -624,7 +624,7 @@ export const EditorPage: React.FC = () => {
                 <button
                   className="explorer-toggle-btn"
                   onClick={() => setExplorerOpen((v) => !v)}
-                  title={explorerOpen ? 'Hide file explorer' : 'Show file explorer'}
+                  title={explorerOpen ? t('editor.menu.hideExplorer', 'Hide file explorer') : t('editor.menu.showExplorer', 'Show file explorer')}
                 >
                   <svg
                     width="16"

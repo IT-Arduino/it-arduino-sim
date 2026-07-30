@@ -383,7 +383,9 @@
       "discord": "Discord コミュニティ",
       "github": "GitHub リポジトリ",
       "compile": "コンパイル",
-      "run": "実行"
+      "run": "実行",
+      "hideExplorer": "ファイルエクスプローラーを隠す",
+      "showExplorer": "ファイルエクスプローラーを表示"
     }
   },
   "about": {
@@ -461,5 +463,8 @@
       "subtitle": "サインアップ不要。100% ブラウザで動作。無料でオープンソース。",
       "openEditor": "エディタを開く"
     }
+  },
+  "header": {
+    "shareProject": "プロジェクトを共有"
   }
 }
