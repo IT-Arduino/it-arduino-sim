@@ -477,3 +477,56 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .velxio-ants { animation: none; }
 }
+
+/* ── Editor: toolbar riding inside the header ─────────────────────────────
+   With the marketing nav gone from the editor header, its middle was dead
+   space while the toolbar occupied a whole second bar. The strip now fills
+   that middle: one 44px row instead of 44+38 — a full row returned to the
+   code/canvas. The strip keeps its own class names (container queries, the
+   docked-chat padding-right) and wraps internally when it truly cannot
+   fit; the header then grows instead of clipping or overlapping. */
+.app-header--with-toolbar {
+  height: auto;
+  min-height: 44px;
+}
+
+.header-editor-toolbar {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-self: stretch;
+  margin: 0 10px;
+}
+
+.header-editor-toolbar .unified-toolbar {
+  flex: 1 1 auto;
+  min-width: 0;
+  /* Skin: it is part of the header now, not a bar of its own. */
+  background: transparent;
+  border-bottom: none;
+  min-height: 44px;
+  align-items: center;
+}
+
+/* Keep the brand block and the right-side controls pinned to the first
+   line when the strip wraps the header taller. */
+.app-header--with-toolbar .header-left,
+.app-header--with-toolbar .header-right {
+  align-self: flex-start;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.app-header--with-toolbar .header-content {
+  align-items: stretch;
+}
+
+/* The editor zone / toolbar inside the strip: no own chrome, blend into
+   the header instead of painting a nested dark box with its own border. */
+.header-editor-toolbar .editor-toolbar,
+.header-editor-toolbar .unified-toolbar-editor .editor-toolbar {
+  background: transparent;
+  border-bottom: none;
+  height: 44px;
+}

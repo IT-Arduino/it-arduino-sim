@@ -22,6 +22,11 @@ interface AppHeaderProps {
    *  toolbar is starved of on small screens; the logo still links home.
    *  Same mechanism the Tauri desktop build uses (VITE_DESKTOP). */
   editorMenu?: React.ReactNode;
+  /** Editor variant: the unified toolbar strip rendered in the header's
+   *  middle — the space the marketing nav used to occupy. One row instead
+   *  of header + toolbar stacked; the strip wraps internally when narrow
+   *  and the header grows to fit (height: auto on the modifier class). */
+  editorToolbar?: React.ReactNode;
 }
 
 const SAVE_STATUS_COPY: Record<AutoSaveState['status'], { label: string; color: string }> = {
@@ -68,7 +73,7 @@ const AutoSaveIndicator: React.FC<{ state: AutoSaveState }> = ({ state }) => {
   );
 };
 
-export const AppHeader: React.FC<AppHeaderProps> = ({ autoSave, editorMenu }) => {
+export const AppHeader: React.FC<AppHeaderProps> = ({ autoSave, editorMenu, editorToolbar }) => {
   const location = useLocation();
   const currentProject = useProjectStore((s) => s.currentProject);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -98,7 +103,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ autoSave, editorMenu }) =>
     location.pathname === localize(path) ? ' header-nav-link-active' : '';
 
   return (
-    <header className="app-header">
+    <header className={"app-header" + (editorToolbar ? ' app-header--with-toolbar' : '')}>
       <div className="header-content">
         <div className="header-left">
           {/* Brand */}
@@ -215,6 +220,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ autoSave, editorMenu }) =>
           </nav>
           )}
         </div>
+
+        {/* Editor toolbar strip — fills the middle the nav vacated. */}
+        {editorToolbar && <div className="header-editor-toolbar">{editorToolbar}</div>}
 
         {/* Right: language + share + auth + mobile hamburger */}
         <div className="header-right">

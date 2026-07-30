@@ -376,62 +376,16 @@ export const EditorPage: React.FC = () => {
     [explorerWidth],
   );
 
-  return (
-    <div className="app">
-      <AppHeader autoSave={autoSave} editorMenu={!isMobile ? <EditorMenuBar /> : undefined} />
-
-      {/* ── Mobile tab bar (top, above panels) ── */}
-      {isMobile && (
-        <nav className="mobile-tab-bar">
-          <button
-            className={`mobile-tab-btn${mobileView === 'code' ? ' mobile-tab-btn--active' : ''}`}
-            onClick={() => setMobileView('code')}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="16 18 22 12 16 6" />
-              <polyline points="8 6 2 12 8 18" />
-            </svg>
-            <span>&lt;/&gt; {t('editor.shell.code')}</span>
-          </button>
-          <button
-            className={`mobile-tab-btn${mobileView === 'circuit' ? ' mobile-tab-btn--active' : ''}`}
-            onClick={() => setMobileView('circuit')}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="2" y="7" width="20" height="14" rx="2" />
-              <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
-              <line x1="12" y1="12" x2="12" y2="16" />
-              <line x1="10" y1="14" x2="14" y2="14" />
-            </svg>
-            <span>{t('editor.shell.circuit')}</span>
-          </button>
-        </nav>
-      )}
-
-      {/* ── Unified top toolbar (desktop only) ──
-          Editor controls + canvas controls share a single full-width row so
-          the bar doesn't reflow when the editor/canvas splitter is dragged.
-          The canvas controls (board selector, Serial, Scope, zoom, Add) are
-          portaled into `canvasHeaderSlot` from inside SimulatorCanvas. */}
-      {!isMobile && (
+  /* ── Unified toolbar (desktop) ──
+     Editor controls + canvas controls in one strip; the canvas side is
+     portaled into `canvasHeaderSlot` from SimulatorCanvas. Since the
+     marketing nav left the editor header, the header's middle is empty
+     space — so this strip now rides INSIDE the AppHeader row (via the
+     editorToolbar prop) instead of being a second bar: one 44px row where
+     there used to be 44+38. On narrow widths the strip wraps internally
+     and the header grows; the docked AI chat is avoided by the same
+     padding-right the strip always had. */
+  const unifiedToolbar = !isMobile ? (
         <div className="unified-toolbar">
           <button
             className="explorer-toggle-btn unified-toolbar-explorer-toggle"
@@ -524,7 +478,62 @@ export const EditorPage: React.FC = () => {
           </div>
           <div className="unified-toolbar-canvas" ref={setCanvasHeaderSlot} />
         </div>
+  ) : undefined;
+
+  return (
+    <div className="app">
+      <AppHeader
+        autoSave={autoSave}
+        editorMenu={!isMobile ? <EditorMenuBar /> : undefined}
+        editorToolbar={unifiedToolbar}
+      />
+
+      {/* ── Mobile tab bar (top, above panels) ── */}
+      {isMobile && (
+        <nav className="mobile-tab-bar">
+          <button
+            className={`mobile-tab-btn${mobileView === 'code' ? ' mobile-tab-btn--active' : ''}`}
+            onClick={() => setMobileView('code')}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="16 18 22 12 16 6" />
+              <polyline points="8 6 2 12 8 18" />
+            </svg>
+            <span>&lt;/&gt; {t('editor.shell.code')}</span>
+          </button>
+          <button
+            className={`mobile-tab-btn${mobileView === 'circuit' ? ' mobile-tab-btn--active' : ''}`}
+            onClick={() => setMobileView('circuit')}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="2" y="7" width="20" height="14" rx="2" />
+              <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+              <line x1="12" y1="12" x2="12" y2="16" />
+              <line x1="10" y1="14" x2="14" y2="14" />
+            </svg>
+            <span>{t('editor.shell.circuit')}</span>
+          </button>
+        </nav>
       )}
+
 
       <div className="app-container" ref={containerRef}>
         {/* ── Editor side ── */}
