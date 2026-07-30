@@ -31,7 +31,15 @@
         "dismiss": "Schließen"
       },
       "exportBom": "Stückliste exportieren (CSV — Pro)",
-      "exportScreenshot": "Schaltplan als Bild exportieren (PNG — Pro)"
+      "exportScreenshot": "Schaltplan als Bild exportieren (PNG — Pro)",
+      "importLabel": "Projekt importieren",
+      "exportLabel": "Projekt exportieren (.zip)",
+      "exportBomLabel": "Stückliste (CSV)",
+      "exportScreenshotLabel": "Schaltplanbild (PNG)",
+      "shareLabel": "Teilen / Einbetten",
+      "githubSyncLabel": "Mit GitHub synchronisieren",
+      "uploadFirmwareLabel": "Firmware hochladen",
+      "recordLabel": "Simulation aufzeichnen"
     },
     "fileExplorer": {
       "workspace": "ARBEITSBEREICH",
@@ -353,6 +361,29 @@
         "cr": "Wagenrücklauf",
         "both": "Beides NL & CR"
       }
+    },
+    "menu": {
+      "file": "Datei",
+      "edit": "Bearbeiten",
+      "view": "Ansicht",
+      "language": "Sprache",
+      "help": "Hilfe",
+      "newProject": "Neuer Arbeitsbereich",
+      "newFile": "Neue Datei",
+      "open": "Projekt öffnen…",
+      "save": "Projekt speichern",
+      "undo": "Rückgängig",
+      "redo": "Wiederholen",
+      "centerView": "Canvas-Ansicht zentrieren",
+      "toggleExplorer": "Datei-Explorer",
+      "toggleConsole": "Ausgabekonsole",
+      "toggleScope": "Oszilloskop / Logikanalysator",
+      "home": "Velxio-Startseite",
+      "about": "Über Velxio",
+      "discord": "Discord-Community",
+      "github": "GitHub-Repository",
+      "compile": "Kompilieren",
+      "run": "Ausführen"
     }
   },
   "about": {

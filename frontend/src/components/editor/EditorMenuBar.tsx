@@ -134,8 +134,8 @@ export const EditorMenuBar: React.FC = () => {
   const editItems: Item[] = [];
 
   const viewItems: Item[] = [
-    { kind: 'command', id: 'sim.compile', label: t('editor.toolbar.compile', 'Compile'), shortcut: 'Ctrl+B' },
-    { kind: 'command', id: 'sim.run', label: t('editor.toolbar.run', 'Run') },
+    { kind: 'command', id: 'sim.compile', label: t('editor.menu.compile', 'Compile'), shortcut: 'Ctrl+B' },
+    { kind: 'command', id: 'sim.run', label: t('editor.menu.run', 'Run') },
     { kind: 'command', id: 'sim.stop', label: t('editor.toolbar.stop', 'Stop') },
     { kind: 'command', id: 'sim.resetBoard', label: t('editor.toolbar.reset', 'Reset') },
     { kind: 'separator' },

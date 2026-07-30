@@ -31,7 +31,15 @@
         "dismiss": "Ignora"
       },
       "exportBom": "Esporta distinta base (CSV — Pro)",
-      "exportScreenshot": "Esporta schema come immagine (PNG — Pro)"
+      "exportScreenshot": "Esporta schema come immagine (PNG — Pro)",
+      "importLabel": "Importa progetto",
+      "exportLabel": "Esporta progetto (.zip)",
+      "exportBomLabel": "Distinta base (CSV)",
+      "exportScreenshotLabel": "Immagine dello schema (PNG)",
+      "shareLabel": "Condividi / Incorpora",
+      "githubSyncLabel": "Sincronizza con GitHub",
+      "uploadFirmwareLabel": "Carica firmware",
+      "recordLabel": "Registra simulazione"
     },
     "fileExplorer": {
       "workspace": "WORKSPACE",
@@ -353,6 +361,29 @@
         "cr": "Carriage return",
         "both": "Entrambi NL e CR"
       }
+    },
+    "menu": {
+      "file": "File",
+      "edit": "Modifica",
+      "view": "Visualizza",
+      "language": "Lingua",
+      "help": "Aiuto",
+      "newProject": "Nuovo spazio di lavoro",
+      "newFile": "Nuovo file",
+      "open": "Apri progetto…",
+      "save": "Salva progetto",
+      "undo": "Annulla",
+      "redo": "Ripeti",
+      "centerView": "Centra la vista del canvas",
+      "toggleExplorer": "Esplora file",
+      "toggleConsole": "Console di output",
+      "toggleScope": "Oscilloscopio / Analizzatore logico",
+      "home": "Home di Velxio",
+      "about": "Informazioni su Velxio",
+      "discord": "Community Discord",
+      "github": "Repository GitHub",
+      "compile": "Compila",
+      "run": "Esegui"
     }
   },
   "about": {

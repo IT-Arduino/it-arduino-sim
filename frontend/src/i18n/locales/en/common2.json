@@ -33,7 +33,15 @@
         "dismiss": "Dismiss"
       },
       "exportBom": "Export Bill of Materials (CSV — Pro)",
-      "exportScreenshot": "Export schematic as image (PNG — Pro)"
+      "exportScreenshot": "Export schematic as image (PNG — Pro)",
+      "importLabel": "Import project",
+      "exportLabel": "Export project (.zip)",
+      "exportBomLabel": "Bill of Materials (CSV)",
+      "exportScreenshotLabel": "Schematic image (PNG)",
+      "shareLabel": "Share / Embed",
+      "githubSyncLabel": "Sync to GitHub",
+      "uploadFirmwareLabel": "Upload firmware",
+      "recordLabel": "Record simulation"
     },
     "fileExplorer": {
       "workspace": "WORKSPACE",
@@ -355,6 +363,29 @@
         "cr": "Carriage return",
         "both": "Both NL & CR"
       }
+    },
+    "menu": {
+      "file": "File",
+      "edit": "Edit",
+      "view": "View",
+      "language": "Language",
+      "help": "Help",
+      "newProject": "New workspace",
+      "newFile": "New file",
+      "open": "Open project…",
+      "save": "Save project",
+      "undo": "Undo",
+      "redo": "Redo",
+      "centerView": "Center canvas view",
+      "toggleExplorer": "File Explorer",
+      "toggleConsole": "Output Console",
+      "toggleScope": "Oscilloscope / Logic Analyzer",
+      "home": "Velxio Home",
+      "about": "About Velxio",
+      "discord": "Discord Community",
+      "github": "GitHub Repository",
+      "compile": "Compile",
+      "run": "Run"
     }
   },
   "about": {
