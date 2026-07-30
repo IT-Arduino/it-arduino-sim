@@ -530,3 +530,62 @@ body {
   border-bottom: none;
   height: 44px;
 }
+
+/* ── Tight fallback for the in-header strip ──────────────────────────────
+   Between "fits in one row" and "phone" there is an awkward middle (e.g.
+   1440px with the chat docked) where flex-wrap produced an orphan group of
+   canvas controls floating inside a tall transparent header, next to a
+   dead hole before the right-side controls. Below the width where one row
+   GENUINELY fits — thresholds account for the docked chat's reserved
+   380px / 36px — the strip drops back to being its own full-width second
+   bar with its old skin: exactly the familiar pre-merge layout, which
+   reads as intentional instead of broken. Three blocks because a media
+   query cannot test a body class in its condition. */
+
+@media (max-width: 1199.9px) {
+  .app-header--with-toolbar .header-content {
+    flex-wrap: wrap;
+  }
+  .app-header--with-toolbar .header-editor-toolbar {
+    flex-basis: 100%;
+    order: 10;
+    margin: 0 -16px;
+  }
+  .app-header--with-toolbar .header-editor-toolbar .unified-toolbar {
+    background: #252526;
+    border-top: 1px solid #333;
+    min-height: 38px;
+  }
+}
+
+@media (max-width: 1239.9px) {
+  body.velxio-agent-collapsed .app-header--with-toolbar .header-content {
+    flex-wrap: wrap;
+  }
+  body.velxio-agent-collapsed .app-header--with-toolbar .header-editor-toolbar {
+    flex-basis: 100%;
+    order: 10;
+    margin: 0 -16px;
+  }
+  body.velxio-agent-collapsed .app-header--with-toolbar .header-editor-toolbar .unified-toolbar {
+    background: #252526;
+    border-top: 1px solid #333;
+    min-height: 38px;
+  }
+}
+
+@media (max-width: 1579.9px) {
+  body.velxio-agent-open .app-header--with-toolbar .header-content {
+    flex-wrap: wrap;
+  }
+  body.velxio-agent-open .app-header--with-toolbar .header-editor-toolbar {
+    flex-basis: 100%;
+    order: 10;
+    margin: 0 -16px;
+  }
+  body.velxio-agent-open .app-header--with-toolbar .header-editor-toolbar .unified-toolbar {
+    background: #252526;
+    border-top: 1px solid #333;
+    min-height: 38px;
+  }
+}
