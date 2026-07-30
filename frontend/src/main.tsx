@@ -6,6 +6,13 @@ import './index.css';
 // before App.
 import './i18n';
 import { markProExamplesSettled } from './data/examples';
+import { markProRoutesSettled } from './lib/proRoutes';
+
+/** The overlay import has settled (either way): registries are final. */
+const markProOverlaySettled = (): void => {
+  markProExamplesSettled();
+  markProRoutesSettled();
+};
 import './components/velxio-components/IC74HC595';
 import './components/velxio-components/LogicGateElements';
 import './components/velxio-components/TransistorElements';
@@ -61,16 +68,16 @@ if (import.meta.env.VITE_PRO_BUILD) {
     import('@pro/desktop_index')
       .then((m) => m.mountProDesktop?.())
       .catch((err) => console.warn('[pro-desktop] failed to load slim overlay:', err))
-      .finally(markProExamplesSettled);
+      .finally(markProOverlaySettled);
   } else {
     import('@pro/index')
       .then((m) => m.mountPro?.())
       .catch((err) => console.warn('[pro] failed to load overlay:', err))
-      .finally(markProExamplesSettled);
+      .finally(markProOverlaySettled);
   }
 } else {
-  // No overlay is coming: what the gallery has now is all there will be.
-  markProExamplesSettled();
+  // No overlay is coming: what the registries have now is all there will be.
+  markProOverlaySettled();
 }
 
 // Desktop-only hooks (ESP32 QEMU prompt now, welcome screen in Phase 3).

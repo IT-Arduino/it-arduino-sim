@@ -41,6 +41,10 @@ type Item =
 // tab so the editor (and any unsaved work) stays put.
 const GITHUB_URL = 'https://github.com/davidmonterocrespo24/velxio';
 const DISCORD_URL = 'https://discord.gg/3mARjJrh4E';
+// In the OSS build the marketing pages live on velxio.dev, not in this app
+// (the overlay registers them only in pro builds) — link absolute, exactly
+// like the desktop app's Help menu does.
+const SITE = import.meta.env.VITE_PRO_BUILD ? '' : 'https://velxio.dev';
 
 export const EditorMenuBar: React.FC = () => {
   const { t } = useTranslation();
@@ -94,13 +98,13 @@ export const EditorMenuBar: React.FC = () => {
   ];
 
   const helpItems: Item[] = [
-    { kind: 'link', href: '/docs', label: t('header.nav.documentation', 'Documentation') },
+    { kind: 'link', href: `${SITE}/docs`, label: t('header.nav.documentation', 'Documentation') },
     { kind: 'link', href: '/examples', label: t('header.nav.examples', 'Examples') },
-    { kind: 'link', href: '/pricing', label: t('header.nav.pricing', 'Pricing') },
+    { kind: 'link', href: `${SITE}/pricing`, label: t('header.nav.pricing', 'Pricing') },
     { kind: 'separator' },
-    { kind: 'link', href: '/', label: t('editor.menu.home', 'Velxio Home') },
-    { kind: 'link', href: '/blog/', label: t('header.nav.blog', 'Blog') },
-    { kind: 'link', href: '/about', label: t('editor.menu.about', 'About Velxio') },
+    { kind: 'link', href: SITE || '/', label: t('editor.menu.home', 'Velxio Home') },
+    { kind: 'link', href: `${SITE}/blog/`, label: t('header.nav.blog', 'Blog') },
+    { kind: 'link', href: `${SITE}/about`, label: t('editor.menu.about', 'About Velxio') },
     { kind: 'separator' },
     { kind: 'link', href: DISCORD_URL, label: t('editor.menu.discord', 'Discord Community') },
     { kind: 'link', href: GITHUB_URL, label: t('editor.menu.github', 'GitHub Repository') },

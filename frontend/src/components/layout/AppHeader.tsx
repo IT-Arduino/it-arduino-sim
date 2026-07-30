@@ -131,40 +131,51 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ autoSave, editorMenu }) =>
           {editorMenu}
           {!import.meta.env.VITE_DESKTOP && !editorMenu && (
           <nav className={'header-nav-links' + (menuOpen ? ' header-nav-open' : '')}>
-            <Link to={localize('/')} className={'header-nav-link' + isActive('/')}>
-              {t('header.nav.home')}
-            </Link>
-            <Link to={localize('/docs')} className={'header-nav-link' + isActive('/docs')}>
-              {t('header.nav.documentation')}
-            </Link>
+            {/* Marketing routes live in the pro overlay; the OSS build has
+                no /docs, /about, /pricing… to link to. Editor + Examples
+                (the app's own pages) and GitHub/Discord stay everywhere. */}
+            {import.meta.env.VITE_PRO_BUILD && (
+              <>
+                <Link to={localize('/')} className={'header-nav-link' + isActive('/')}>
+                  {t('header.nav.home')}
+                </Link>
+                <Link to={localize('/docs')} className={'header-nav-link' + isActive('/docs')}>
+                  {t('header.nav.documentation')}
+                </Link>
+              </>
+            )}
             <Link to={localize('/examples')} className={'header-nav-link' + isActive('/examples')}>
               {t('header.nav.examples')}
             </Link>
             <Link to={localize('/editor')} className={'header-nav-link' + isActive('/editor')}>
               {t('header.nav.editor')}
             </Link>
-            <Link to={localize('/about')} className={'header-nav-link' + isActive('/about')}>
-              {t('header.nav.about')}
-            </Link>
-            <Link to={localize('/pricing')} className={'header-nav-link' + isActive('/pricing')}>
-              {t('header.nav.pricing')}
-            </Link>
-            <Link to={localize('/classroom')} className={'header-nav-link' + isActive('/classroom')}>
-              {t('header.nav.classroom', 'For schools')}
-            </Link>
-            <Link
-              to={localize('/account/desktop-install')}
-              className={'header-nav-link' + isActive('/account/desktop-install')}
-            >
-              {t('header.nav.download')}
-            </Link>
-            <a
-              href={blogUrlFor(currentLocale)}
-              className="header-nav-link"
-              rel="noopener"
-            >
-              {t('header.nav.blog')}
-            </a>
+            {import.meta.env.VITE_PRO_BUILD && (
+              <>
+                <Link to={localize('/about')} className={'header-nav-link' + isActive('/about')}>
+                  {t('header.nav.about')}
+                </Link>
+                <Link to={localize('/pricing')} className={'header-nav-link' + isActive('/pricing')}>
+                  {t('header.nav.pricing')}
+                </Link>
+                <Link to={localize('/classroom')} className={'header-nav-link' + isActive('/classroom')}>
+                  {t('header.nav.classroom', 'For schools')}
+                </Link>
+                <Link
+                  to={localize('/account/desktop-install')}
+                  className={'header-nav-link' + isActive('/account/desktop-install')}
+                >
+                  {t('header.nav.download')}
+                </Link>
+                <a
+                  href={blogUrlFor(currentLocale)}
+                  className="header-nav-link"
+                  rel="noopener"
+                >
+                  {t('header.nav.blog')}
+                </a>
+              </>
+            )}
             <a
               href={GITHUB_URL}
               target="_blank"
