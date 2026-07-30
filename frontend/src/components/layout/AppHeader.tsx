@@ -16,6 +16,12 @@ const DISCORD_URL = 'https://discord.gg/3mARjJrh4E';
 interface AppHeaderProps {
   /** Optional auto-save state — when set, renders a save status indicator. */
   autoSave?: AutoSaveState;
+  /** Editor variant: a File/Edit menu bar rendered next to the logo. When
+   *  set, the marketing nav links (Home / Docs / Pricing / …) are hidden —
+   *  inside the editor they are noise that costs exactly the width the
+   *  toolbar is starved of on small screens; the logo still links home.
+   *  Same mechanism the Tauri desktop build uses (VITE_DESKTOP). */
+  editorMenu?: React.ReactNode;
 }
 
 const SAVE_STATUS_COPY: Record<AutoSaveState['status'], { label: string; color: string }> = {
@@ -62,7 +68,7 @@ const AutoSaveIndicator: React.FC<{ state: AutoSaveState }> = ({ state }) => {
   );
 };
 
-export const AppHeader: React.FC<AppHeaderProps> = ({ autoSave }) => {
+export const AppHeader: React.FC<AppHeaderProps> = ({ autoSave, editorMenu }) => {
   const location = useLocation();
   const currentProject = useProjectStore((s) => s.currentProject);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -122,7 +128,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ autoSave }) => {
               velxio-prod). VITE_DESKTOP is the env flag the Tauri
               build sets — main.tsx already uses it to gate the @pro
               overlay, same pattern here. */}
-          {!import.meta.env.VITE_DESKTOP && (
+          {editorMenu}
+          {!import.meta.env.VITE_DESKTOP && !editorMenu && (
           <nav className={'header-nav-links' + (menuOpen ? ' header-nav-open' : '')}>
             <Link to={localize('/')} className={'header-nav-link' + isActive('/')}>
               {t('header.nav.home')}
@@ -253,8 +260,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ autoSave }) => {
           <div data-velxio-slot="header-auth" style={{ display: 'contents' }} />
 
           {/* Mobile hamburger — useless in desktop where the nav it
-              would expand is itself hidden. */}
-          {!import.meta.env.VITE_DESKTOP && (
+              would expand is itself hidden, and in the editor variant,
+              where there is no nav to expand at all. */}
+          {!import.meta.env.VITE_DESKTOP && !editorMenu && (
             <button
               className="header-hamburger"
               onClick={() => setMenuOpen((v) => !v)}

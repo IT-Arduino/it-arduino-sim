@@ -27,6 +27,8 @@ import { useOscilloscopeStore } from '../store/useOscilloscopeStore';
 import { useProjectStore } from '../store/useProjectStore';
 import { showConfirmDialog } from '../store/useMessageDialogStore';
 import { useAutoSaveProject } from '../hooks/useAutoSaveProject';
+import { registerEditorCommand } from '../lib/editorCommands';
+import { EditorMenuBar } from '../components/editor/EditorMenuBar';
 import type { CompilationLog } from '../utils/compilationLogger';
 import '../App.css';
 
@@ -245,6 +247,19 @@ export const EditorPage: React.FC = () => {
     return () => window.removeEventListener('keydown', handler);
   }, [handleSaveClick]);
 
+  // File-menu commands owned by this page. Registered here (not in the
+  // menu) so the menu never duplicates the confirm-dialog / autosave logic.
+  useEffect(() => {
+    const offSave = registerEditorCommand('project.save', handleSaveClick);
+    const offNew = registerEditorCommand('project.new', () => {
+      void handleNewClick();
+    });
+    return () => {
+      offSave();
+      offNew();
+    };
+  }, [handleSaveClick, handleNewClick]);
+
   // Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z — canvas undo/redo. Skipped when the
   // user is typing in any input/textarea/contenteditable so the Monaco
   // editor's per-file history (and the AI chat composer, etc.) keep
@@ -363,7 +378,7 @@ export const EditorPage: React.FC = () => {
 
   return (
     <div className="app">
-      <AppHeader autoSave={autoSave} />
+      <AppHeader autoSave={autoSave} editorMenu={!isMobile ? <EditorMenuBar /> : undefined} />
 
       {/* ── Mobile tab bar (top, above panels) ── */}
       {isMobile && (

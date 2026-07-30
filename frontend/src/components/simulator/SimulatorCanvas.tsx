@@ -9,7 +9,6 @@ import { useElectricalStore } from '../../store/useElectricalStore';
 import { openDeviceGateway } from '../../lib/openDeviceGateway';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Undo2, Redo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { adcPinMapFor } from '../velxio-components/Esp32Element';
 import { ComponentPickerModal } from '../ComponentPickerModal';
@@ -36,6 +35,7 @@ import { calculatePinPosition } from '../../utils/pinPositionCalculator';
 import { isBoardComponent, boardPinToNumber } from '../../utils/boardPinMapping';
 import { isBreadboard } from '../../utils/breadboardNets';
 import { pickDropSlot } from '../../utils/dropSlot';
+import { registerEditorCommand } from '../../lib/editorCommands';
 import {
   autoWireColor,
   railWireColor,
@@ -209,10 +209,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
   const recordUpdateWire = useSimulatorStore((s) => s.recordUpdateWire);
   // Subscribe to history shape so the undo/redo buttons reactively
   // enable/disable and their tooltips reflect the next command.
-  const history = useSimulatorStore((s) => s.history);
-  const historyIndex = useSimulatorStore((s) => s.historyIndex);
-  const undo = useSimulatorStore((s) => s.undo);
-  const redo = useSimulatorStore((s) => s.redo);
+  // Undo/redo now live in the Edit menu (EditorMenuBar) — no buttons here.
 
   // Oscilloscope
   const oscilloscopeOpen = useOscilloscopeStore((s) => s.open);
@@ -2001,6 +1998,28 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
     setPan({ x: 0, y: 0 });
   };
 
+  // Edit-menu view commands. handleResetView only touches refs/setters, so
+  // a one-time registration is safe; zoom goes through the same synthetic
+  // wheel call the +/- buttons use, via a latest-ref (handleWheel closes
+  // over zoom state).
+  const viewCommandsRef = useRef<{ zoom: (dy: number) => void }>({ zoom: () => {} });
+  viewCommandsRef.current.zoom = (dy: number) =>
+    handleWheel({
+      deltaY: dy,
+      clientX: 0,
+      clientY: 0,
+      preventDefault: () => {},
+    } as unknown as React.WheelEvent);
+  useEffect(() => {
+    const offs = [
+      registerEditorCommand('view.reset', handleResetView),
+      registerEditorCommand('view.zoomIn', () => viewCommandsRef.current.zoom(-100)),
+      registerEditorCommand('view.zoomOut', () => viewCommandsRef.current.zoom(100)),
+    ];
+    return () => offs.forEach((off) => off());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Wire creation via pin clicks
   const handlePinClick = (componentId: string, pinName: string, x: number, y: number) => {
     // No making connections while the simulation runs — interact-only.
@@ -2512,40 +2531,9 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                     which engine a run will use). Empty in the OSS build. */}
                 <span data-velxio-slot="board-status" />
 
-                {/* Undo / Redo — canvas-scoped, mirrors the Ctrl+Z / Ctrl+Y
-                handler in EditorPage. Tooltip surfaces the description of
-                the command that would be applied. Disabled when the stack
-                is exhausted in that direction. */}
-                <button
-                  onClick={() => undo()}
-                  disabled={historyIndex < 0}
-                  className="canvas-icon-btn"
-                  title={
-                    historyIndex >= 0
-                      ? t('editor.canvas.undo.title', {
-                          description: history[historyIndex].description,
-                        })
-                      : t('editor.canvas.undo.empty')
-                  }
-                  aria-label={t('editor.canvas.undo.label')}
-                >
-                  <Undo2 size={16} strokeWidth={2} aria-hidden="true" />
-                </button>
-                <button
-                  onClick={() => redo()}
-                  disabled={historyIndex >= history.length - 1}
-                  className="canvas-icon-btn"
-                  title={
-                    historyIndex < history.length - 1
-                      ? t('editor.canvas.redo.title', {
-                          description: history[historyIndex + 1].description,
-                        })
-                      : t('editor.canvas.redo.empty')
-                  }
-                  aria-label={t('editor.canvas.redo.label')}
-                >
-                  <Redo2 size={16} strokeWidth={2} aria-hidden="true" />
-                </button>
+                {/* Undo / Redo moved to the Edit menu in the header
+                    (Ctrl+Z / Ctrl+Y still work) — two fewer buttons in a
+                    row that measurably overlapped at laptop widths. */}
 
                 {/* Serial Monitor toggle */}
                 <button

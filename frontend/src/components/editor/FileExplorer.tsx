@@ -12,6 +12,7 @@ import type { BoardKind } from '../../types/board';
 import { boardDisplayName, isPiBoardKind } from '../../types/board';
 import { importProjectFile, PROJECT_FILE_ACCEPT } from '../../utils/importProject';
 import { showMessageDialog, showConfirmDialog } from '../../store/useMessageDialogStore';
+import { registerEditorCommand } from '../../lib/editorCommands';
 import './FileExplorer.css';
 
 /** Neutral chip glyph for overlay-registered boards without a bespoke icon. */
@@ -529,6 +530,25 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
     if (!confirmed) return;
     deleteFile(fileId);
   };
+
+  // File-menu commands owned by the explorer: Open project… and New file
+  // (which targets the ACTIVE board's file group, same as its + button).
+  useEffect(() => {
+    const offOpen = registerEditorCommand('project.open', handleOpenProjectClick);
+    const offNewFile = registerEditorCommand('file.new', () => {
+      const st = useSimulatorStore.getState();
+      const board = st.boards.find((b) => b.id === st.activeBoardId) ?? st.boards[0];
+      if (!board) return;
+      switchToBoard(board.id, board.activeFileGroupId);
+      setCreatingInGroup(board.activeFileGroupId);
+      setNewFileName('');
+    });
+    return () => {
+      offOpen();
+      offNewFile();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handleOpenProjectClick]);
 
   const startCreateFile = (boardId: string, groupId: string) => {
     // Switch to this board first so createFile targets the right group

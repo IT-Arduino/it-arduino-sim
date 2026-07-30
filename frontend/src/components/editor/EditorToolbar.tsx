@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { registerEditorCommand } from '../../lib/editorCommands';
 import { useEditorStore, chipFileGroupId } from '../../store/useEditorStore';
 import { useSimulatorStore, piRerunScript } from '../../store/useSimulatorStore';
 import { decideEngine } from '../../lib/instantEngine';
@@ -1389,6 +1390,31 @@ export const EditorToolbar = ({
     }
   };
 
+    // File-menu commands owned by this toolbar (the handlers close over its
+  // state). Registered through a latest-ref so the one-time registration
+  // always invokes the current render's closure, never a stale one.
+  const menuCommandsRef = useRef({
+    import: () => importInputRef.current?.click(),
+    export: () => void handleExport(),
+    bom: () => void handleExportBom(),
+    screenshot: () => void handleExportScreenshot(),
+  });
+  menuCommandsRef.current = {
+    import: () => importInputRef.current?.click(),
+    export: () => void handleExport(),
+    bom: () => void handleExportBom(),
+    screenshot: () => void handleExportScreenshot(),
+  };
+  useEffect(() => {
+    const offs = [
+      registerEditorCommand('project.import', () => menuCommandsRef.current.import()),
+      registerEditorCommand('project.export', () => menuCommandsRef.current.export()),
+      registerEditorCommand('project.exportBom', () => menuCommandsRef.current.bom()),
+      registerEditorCommand('project.exportScreenshot', () => menuCommandsRef.current.screenshot()),
+    ];
+    return () => offs.forEach((off) => off());
+  }, []);
+
   return (
     <>
       <div className="editor-toolbar-wrapper" style={{ position: 'relative' }}>
@@ -1722,30 +1748,9 @@ export const EditorToolbar = ({
               <span className="tb-libraries-label">{t('editor.toolbar.libraries.label')}</span>
             </button>
 
-            {/* Import zip — inline by default; container query at narrow
-                widths swaps this for the corresponding overflow-menu item. */}
-            <button
-              onClick={() => importInputRef.current?.click()}
-              className="tb-btn tb-btn-import-inline"
-              title={t('editor.toolbar.import')}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-            </button>
-            <button
-              onClick={() => handleExport()}
-              className="tb-btn tb-btn-export-inline"
-              title={t('editor.toolbar.export')}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-            </button>
+            {/* Import / Export moved to the File menu in the header — the
+                hidden input above stays because the File-menu command
+                clicks it through the editorCommands registry. */}
             {/* Overflow "More" menu — collects the secondary actions
                 (BOM, Schematic image, Upload firmware) so the toolbar no
                 longer overflows on narrow widths.  The two Pro items show
@@ -1768,71 +1773,6 @@ export const EditorToolbar = ({
               </button>
               {moreMenuOpen && (
                 <div className="tb-overflow-menu" role="menu">
-                  {/* Responsive items — hidden by default, shown via
-                      container query when the toolbar is too narrow to
-                      keep their inline twins.  Keeps mobile users from
-                      losing access to Import / Export entirely. */}
-                  <button
-                    className="tb-overflow-item tb-overflow-import"
-                    role="menuitem"
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      importInputRef.current?.click();
-                    }}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="7 10 12 15 17 10" />
-                      <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                    <span className="tb-overflow-label">{t('editor.toolbar.importLabel', 'Import project')}</span>
-                  </button>
-                  <button
-                    className="tb-overflow-item tb-overflow-export"
-                    role="menuitem"
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      handleExport();
-                    }}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="17 8 12 3 7 8" />
-                      <line x1="12" y1="3" x2="12" y2="15" />
-                    </svg>
-                    <span className="tb-overflow-label">{t('editor.toolbar.exportLabel', 'Export project (.zip)')}</span>
-                  </button>
-                  <button
-                    className="tb-overflow-item"
-                    role="menuitem"
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      handleExportBom();
-                    }}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="4" width="18" height="16" rx="2" />
-                      <line x1="3" y1="10" x2="21" y2="10" />
-                      <line x1="9" y1="4" x2="9" y2="20" />
-                    </svg>
-                    <span className="tb-overflow-label">{t('editor.toolbar.exportBomLabel', 'Bill of Materials (CSV)')}</span>
-                    <span className="tb-overflow-pro">PRO</span>
-                  </button>
-                  <button
-                    className="tb-overflow-item"
-                    role="menuitem"
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      handleExportScreenshot();
-                    }}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                      <circle cx="12" cy="13" r="4" />
-                    </svg>
-                    <span className="tb-overflow-label">{t('editor.toolbar.exportScreenshotLabel', 'Schematic image (PNG)')}</span>
-                    <span className="tb-overflow-pro">PRO</span>
-                  </button>
                   <button
                     className="tb-overflow-item"
                     role="menuitem"
