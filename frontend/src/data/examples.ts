@@ -6074,9 +6074,9 @@ void loop() {
     components: [
       { type: 'wokwi-pushbutton', id: 'btn1', x: 420, y: 120, properties: {} },
       { type: 'wokwi-led', id: 'led1', x: 420, y: 260, properties: { color: 'red' } },
-      // 220 ohm entre cada GPIO y su LED — (5V - ~2V) / 220R ~= 14 mA, por debajo
-      // de los 20 mA del LED. La resistencia en serie que le faltaba: sin ella el verificador de
-      // circuito calcula un cortocircuito y se niega a ejecutar el ejemplo.
+      // 220 ohm between each GPIO and its LED — (5V - ~2V) / 220R ~= 14 mA,
+      // under the LED's 20 mA. This is the series resistor it was missing:
+      // without it the circuit checker computes a short and refuses to run.
       { type: 'wokwi-resistor', id: 'r-led1', x: 420, y: 200, properties: { value: '220' } },
     ],
     wires: [
@@ -6275,9 +6275,9 @@ void loop() {
       { type: 'wokwi-led', id: 'led7', x: 620, y: 80, properties: { color: 'purple' } },
       { type: 'wokwi-led', id: 'led8', x: 660, y: 80, properties: { color: 'white' } },
       { type: 'wokwi-led', id: 'led9', x: 700, y: 80, properties: { color: 'red' } },
-      // 220 ohm entre cada GPIO y su LED — (5V - ~2V) / 220R ~= 14 mA, por debajo
-      // de los 20 mA del LED. Una resistencia en serie por LED. Sin ellas el verificador de circuito
-      // ve un cortocircuito y bloquea el Run del ejemplo entero.
+      // 220 ohm between each GPIO and its LED — (5V - ~2V) / 220R ~= 14 mA,
+      // under the LED's 20 mA. One series resistor per LED: without them the
+      // circuit checker sees a short and blocks Run for the whole example.
       { type: 'wokwi-resistor', id: 'mr-led2', x: 420, y: 20, properties: { value: '220' } },
       { type: 'wokwi-resistor', id: 'mr-led3', x: 460, y: 20, properties: { value: '220' } },
       { type: 'wokwi-resistor', id: 'mr-led4', x: 500, y: 20, properties: { value: '220' } },
@@ -6487,8 +6487,8 @@ void loop() {
       { type: 'wokwi-led', id: 'mled7', x: 620, y: 80, properties: { color: 'purple' } },
       { type: 'wokwi-led', id: 'mled8', x: 660, y: 80, properties: { color: 'white' } },
       { type: 'wokwi-led', id: 'mled9', x: 700, y: 80, properties: { color: 'red' } },
-      // 220 ohm entre cada GPIO y su LED — (5V - ~2V) / 220R ~= 14 mA, por debajo
-      // de los 20 mA del LED. Una resistencia en serie por LED, como en el resto de la galeria.
+      // 220 ohm between each GPIO and its LED — (5V - ~2V) / 220R ~= 14 mA,
+      // under the LED's 20 mA. One series resistor per LED, as everywhere else.
       { type: 'wokwi-resistor', id: 'msr-mled2', x: 420, y: 20, properties: { value: '220' } },
       { type: 'wokwi-resistor', id: 'msr-mled3', x: 460, y: 20, properties: { value: '220' } },
       { type: 'wokwi-resistor', id: 'msr-mled4', x: 500, y: 20, properties: { value: '220' } },
@@ -6855,10 +6855,11 @@ void loop() {
 }`,
     components: [
       { type: 'wokwi-pushbutton', id: 'c3-btn1', x: 440, y: 120, properties: {} },
-      // 220 ohm en serie con el LED — nunca cuelgues un LED directo de un GPIO.
-      // (3.3V - ~2.8V del azul) / 220R ~= 2 mA, holgadamente por debajo de los 20 mA
-      // que aguanta. Sin ella el verificador de circuito calcula 506 mA y, con razon,
-      // se niega a ejecutar: en una placa de verdad ese LED dura un suspiro.
+      // 220 ohm in series with the LED — never hang an LED straight off a
+      // GPIO. (3.3V - ~2.8V for the blue one) / 220R ~= 2 mA, comfortably
+      // under the 20 mA it takes. Without it the circuit checker computes
+      // 506 mA and rightly refuses to run: on real hardware that LED would
+      // not last long.
       { type: 'wokwi-resistor', id: 'c3-r-led', x: 440, y: 200, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'c3-led-btn', x: 440, y: 260, properties: { color: 'blue' } },
     ],
@@ -7416,9 +7417,9 @@ void loop() {
 }`,
     components: [
       { type: 'wokwi-pushbutton', id: 'pico-btn1', x: 440, y: 120, properties: {} },
-      // 220 ohm en serie con el LED — igual que en el resto de ejemplos. Un LED
-      // colgado directo de un GPIO se pasa del limite de corriente y el verificador
-      // de circuito lo bloquea, con razon.
+      // 220 ohm in series with the LED — as in every other example. An LED
+      // hung straight off a GPIO goes over the current limit and the circuit
+      // checker blocks it, rightly.
       { type: 'wokwi-resistor', id: 'pico-r-led', x: 440, y: 200, properties: { value: '220' } },
       { type: 'wokwi-led', id: 'pico-led-btn', x: 440, y: 260, properties: { color: 'yellow' } },
     ],
