@@ -615,3 +615,25 @@ body {
 .app-header--with-toolbar .header-editor-toolbar .unified-toolbar {
   padding-right: 6px !important;
 }
+
+/* ── Explorer account footer ─────────────────────────────────────────────
+   The account + language block fused to the bottom of the file explorer:
+   a long tree scrolls above it instead of hiding under a floating box.
+   (.editor-corner-box remains as the fallback when the explorer is
+   collapsed.) The standalone globe is a logged-out affordance only — once
+   the pro auth slot renders its signed-in marker, language moves inside
+   the account menu and the globe hides. */
+.explorer-account-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-top: 1px solid #2f3542;
+  background: #171a21;
+}
+
+.explorer-account-footer:has([data-auth-user]) .corner-lang,
+.editor-corner-box:has([data-auth-user]) .corner-lang {
+  display: none;
+}

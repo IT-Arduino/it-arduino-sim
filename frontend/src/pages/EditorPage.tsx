@@ -29,6 +29,7 @@ import { showConfirmDialog } from '../store/useMessageDialogStore';
 import { useAutoSaveProject } from '../hooks/useAutoSaveProject';
 import { registerEditorCommand } from '../lib/editorCommands';
 import { EditorMenuBar } from '../components/editor/EditorMenuBar';
+import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
 import type { CompilationLog } from '../utils/compilationLogger';
 import '../App.css';
 
@@ -385,6 +386,22 @@ export const EditorPage: React.FC = () => {
      there used to be 44+38. On narrow widths the strip wraps internally
      and the header grows; the docked AI chat is avoided by the same
      padding-right the strip always had. */
+  /* Account + language block. Fused as the explorer panel's footer so a
+     long file tree scrolls ABOVE it instead of disappearing underneath a
+     floating box; when the explorer is collapsed it falls back to the
+     small fixed corner box. The standalone language switcher only shows
+     while logged OUT — signed-in users change language inside the account
+     menu (see pro HeaderAuth), and a CSS :has() rule hides the globe when
+     the auth slot renders a logged-in marker. */
+  const accountBlock = !isMobile ? (
+    <>
+      <span className="corner-lang">
+        <LanguageSwitcher />
+      </span>
+      <div data-velxio-slot="header-auth" style={{ display: 'contents' }} />
+    </>
+  ) : undefined;
+
   const unifiedToolbar = !isMobile ? (
         <div className="unified-toolbar">
           <button
@@ -558,9 +575,20 @@ export const EditorPage: React.FC = () => {
           {explorerOpen && (
             <>
               <div
-                style={{ width: explorerWidth, flexShrink: 0, display: 'flex', overflow: 'hidden' }}
+                style={{
+                  width: explorerWidth,
+                  flexShrink: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                }}
               >
-                <FileExplorer onSaveClick={handleSaveClick} onNewClick={handleNewClick} />
+                <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
+                  <FileExplorer onSaveClick={handleSaveClick} onNewClick={handleNewClick} />
+                </div>
+                {accountBlock && (
+                  <div className="explorer-account-footer">{accountBlock}</div>
+                )}
               </div>
               {!isMobile && (
                 <div
@@ -569,6 +597,10 @@ export const EditorPage: React.FC = () => {
                 />
               )}
             </>
+          )}
+
+          {!explorerOpen && accountBlock && (
+            <div className="editor-corner-box">{accountBlock}</div>
           )}
 
           {/* Editor main area */}

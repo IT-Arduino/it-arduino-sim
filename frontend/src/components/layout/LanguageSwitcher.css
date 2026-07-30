@@ -84,3 +84,10 @@
   bottom: 110%;
   margin: 0 0 6px;
 }
+
+/* Same drop-up need at the explorer footer. */
+.explorer-account-footer .velxio-language-menu {
+  top: auto;
+  bottom: 110%;
+  margin: 0 0 6px;
+}
