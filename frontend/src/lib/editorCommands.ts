@@ -25,6 +25,10 @@ export type EditorCommandId =
   | 'project.exportBom'
   | 'project.exportScreenshot'
   | 'file.new'
+  | 'project.share'
+  | 'project.githubSync'
+  | 'firmware.upload'
+  | 'sim.record'
   | 'view.reset'
   | 'view.zoomIn'
   | 'view.zoomOut';

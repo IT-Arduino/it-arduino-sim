@@ -31,7 +31,7 @@ import {
 import './EditorMenuBar.css';
 
 type Item =
-  | { kind: 'command'; id: EditorCommandId; label: string; shortcut?: string }
+  | { kind: 'command'; id: EditorCommandId; label: string; shortcut?: string; pro?: boolean }
   | { kind: 'link'; href: string; label: string }
   | { kind: 'separator' };
 
@@ -89,12 +89,20 @@ export const EditorMenuBar: React.FC = () => {
     { kind: 'separator' },
     { kind: 'command', id: 'project.import', label: t('editor.toolbar.importLabel', 'Import project') },
     { kind: 'command', id: 'project.export', label: t('editor.toolbar.exportLabel', 'Export project (.zip)') },
-    { kind: 'command', id: 'project.exportBom', label: t('editor.toolbar.exportBomLabel', 'Bill of Materials (CSV)') },
+    { kind: 'command', id: 'project.exportBom', label: t('editor.toolbar.exportBomLabel', 'Bill of Materials (CSV)'), pro: true },
     {
       kind: 'command',
       id: 'project.exportScreenshot',
       label: t('editor.toolbar.exportScreenshotLabel', 'Schematic image (PNG)'),
+      pro: true,
     },
+    { kind: 'separator' },
+    // The toolbar's "..." menu folded in here — same actions, same PRO
+    // pills, one button fewer in the strip.
+    { kind: 'command', id: 'project.share', label: t('editor.toolbar.shareLabel', 'Share / Embed') },
+    { kind: 'command', id: 'project.githubSync', label: t('editor.toolbar.githubSyncLabel', 'Sync to GitHub'), pro: true },
+    { kind: 'command', id: 'firmware.upload', label: t('editor.toolbar.uploadFirmwareLabel', 'Upload firmware') },
+    { kind: 'command', id: 'sim.record', label: t('editor.toolbar.recordLabel', 'Record simulation'), pro: true },
   ];
 
   const helpItems: Item[] = [
@@ -142,7 +150,10 @@ export const EditorMenuBar: React.FC = () => {
         runEditorCommand(item.id);
       }}
     >
-      <span>{item.label}</span>
+      <span>
+        {item.label}
+        {item.pro && <span className="emb-pro">PRO</span>}
+      </span>
       {item.shortcut && <span className="emb-shortcut">{item.shortcut}</span>}
     </button>
   );

@@ -255,8 +255,6 @@ export const EditorToolbar = ({
   const firmwareInputRef = useRef<HTMLInputElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const [missingLibHint, setMissingLibHint] = useState(false);
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
   // Split-button menu for the multi-board Run control ("Run all" / "Run active only").
   const [runMenuOpen, setRunMenuOpen] = useState(false);
   const runMenuRef = useRef<HTMLDivElement>(null);
@@ -291,23 +289,6 @@ export const EditorToolbar = ({
     return () => window.removeEventListener('velxio-circuit-fault', onFault);
   }, [setCompileLogs]);
 
-  useEffect(() => {
-    if (!moreMenuOpen) return;
-    const onClickOutside = (e: MouseEvent) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
-        setMoreMenuOpen(false);
-      }
-    };
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMoreMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onClickOutside);
-    document.addEventListener('keydown', onEsc);
-    return () => {
-      document.removeEventListener('mousedown', onClickOutside);
-      document.removeEventListener('keydown', onEsc);
-    };
-  }, [moreMenuOpen]);
 
   // Close the Run split-menu on outside click / Escape (mirrors the more-menu).
   useEffect(() => {
@@ -1393,24 +1374,40 @@ export const EditorToolbar = ({
     // File-menu commands owned by this toolbar (the handlers close over its
   // state). Registered through a latest-ref so the one-time registration
   // always invokes the current render's closure, never a stale one.
-  const menuCommandsRef = useRef({
+  const makeMenuCommands = () => ({
     import: () => importInputRef.current?.click(),
     export: () => void handleExport(),
     bom: () => void handleExportBom(),
     screenshot: () => void handleExportScreenshot(),
+    firmware: () => firmwareInputRef.current?.click(),
+    // Pro actions fire the same window events the old "..." menu items
+    // fired; without the overlay they are silent no-ops, which is fine —
+    // OSS builds cannot have linked repos or shared projects anyway.
+    share: () =>
+      window.dispatchEvent(new CustomEvent('velxio-pro-share-prompt', {
+        detail: { projectId: currentProject?.id ?? null },
+      })),
+    githubSync: () =>
+      window.dispatchEvent(new CustomEvent('velxio-pro-github-sync-prompt', {
+        detail: { projectId: currentProject?.id ?? null },
+      })),
+    record: () =>
+      window.dispatchEvent(new CustomEvent('velxio-pro-replay-record-toggle', {
+        detail: { projectId: currentProject?.id ?? null },
+      })),
   });
-  menuCommandsRef.current = {
-    import: () => importInputRef.current?.click(),
-    export: () => void handleExport(),
-    bom: () => void handleExportBom(),
-    screenshot: () => void handleExportScreenshot(),
-  };
+  const menuCommandsRef = useRef(makeMenuCommands());
+  menuCommandsRef.current = makeMenuCommands();
   useEffect(() => {
     const offs = [
       registerEditorCommand('project.import', () => menuCommandsRef.current.import()),
       registerEditorCommand('project.export', () => menuCommandsRef.current.export()),
       registerEditorCommand('project.exportBom', () => menuCommandsRef.current.bom()),
       registerEditorCommand('project.exportScreenshot', () => menuCommandsRef.current.screenshot()),
+      registerEditorCommand('firmware.upload', () => menuCommandsRef.current.firmware()),
+      registerEditorCommand('project.share', () => menuCommandsRef.current.share()),
+      registerEditorCommand('project.githubSync', () => menuCommandsRef.current.githubSync()),
+      registerEditorCommand('sim.record', () => menuCommandsRef.current.record()),
     ];
     return () => offs.forEach((off) => off());
   }, []);
@@ -1757,104 +1754,8 @@ export const EditorToolbar = ({
                 a small "PRO" pill in the menu so users know they're
                 premium BEFORE clicking, instead of being surprised by an
                 upgrade prompt. */}
-            <div className="tb-overflow-wrap" ref={moreMenuRef}>
-              <button
-                onClick={() => setMoreMenuOpen((v) => !v)}
-                className={`tb-btn tb-btn-overflow${moreMenuOpen ? ' tb-btn-overflow-active' : ''}`}
-                title={t('editor.toolbar.more', 'More')}
-                aria-haspopup="true"
-                aria-expanded={moreMenuOpen}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <circle cx="5" cy="12" r="1.8" />
-                  <circle cx="12" cy="12" r="1.8" />
-                  <circle cx="19" cy="12" r="1.8" />
-                </svg>
-              </button>
-              {moreMenuOpen && (
-                <div className="tb-overflow-menu" role="menu">
-                  <button
-                    className="tb-overflow-item"
-                    role="menuitem"
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      firmwareInputRef.current?.click();
-                    }}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-                      <line x1="12" y1="15" x2="12" y2="22" />
-                      <polyline points="8 18 12 22 16 18" />
-                    </svg>
-                    <span className="tb-overflow-label">{t('editor.toolbar.uploadFirmwareLabel', 'Upload firmware')}</span>
-                  </button>
-                  {/* Sync to GitHub — Pro feature.  Fires a window event the
-                      pro overlay listens for; if no overlay is loaded (OSS
-                      build) the click is a silent no-op which is fine —
-                      OSS users can't have linked repos anyway. */}
-                  <button
-                    className="tb-overflow-item"
-                    role="menuitem"
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      window.dispatchEvent(new CustomEvent('velxio-pro-github-sync-prompt', {
-                        detail: { projectId: currentProject?.id ?? null },
-                      }));
-                    }}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58 0-.29-.01-1.05-.02-2.06-3.34.72-4.04-1.61-4.04-1.61-.55-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.72.08-.72 1.2.08 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.62-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.11-3.18 0 0 1.01-.32 3.3 1.23A11.5 11.5 0 0 1 12 5.8c1.02.01 2.05.14 3.01.4 2.29-1.55 3.3-1.23 3.3-1.23.65 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.62-5.49 5.92.43.37.82 1.1.82 2.22 0 1.6-.02 2.89-.02 3.29 0 .32.22.7.83.58A12 12 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
-                    </svg>
-                    <span className="tb-overflow-label">{t('editor.toolbar.githubSyncLabel', 'Sync to GitHub')}</span>
-                    <span className="tb-overflow-pro">PRO</span>
-                  </button>
-                  {/* Share / Embed — free for all users with a public project.
-                      Watermark removal on the embed is the Pro perk; the
-                      Share modal itself is open to everyone so they can
-                      copy the link / iframe snippet. */}
-                  <button
-                    className="tb-overflow-item"
-                    role="menuitem"
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      window.dispatchEvent(new CustomEvent('velxio-pro-share-prompt', {
-                        detail: { projectId: currentProject?.id ?? null },
-                      }));
-                    }}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="18" cy="5" r="3" />
-                      <circle cx="6" cy="12" r="3" />
-                      <circle cx="18" cy="19" r="3" />
-                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                    </svg>
-                    <span className="tb-overflow-label">{t('editor.toolbar.shareLabel', 'Share / Embed')}</span>
-                  </button>
-                  {/* Record simulation — Pro feature. Dispatches a toggle the
-                      pro overlay handles (plan check, board-type check,
-                      start/stop the recorder). OSS build → no listener →
-                      silent no-op. */}
-                  <button
-                    className="tb-overflow-item"
-                    role="menuitem"
-                    onClick={() => {
-                      setMoreMenuOpen(false);
-                      window.dispatchEvent(new CustomEvent('velxio-pro-replay-record-toggle', {
-                        detail: { projectId: currentProject?.id ?? null },
-                      }));
-                    }}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                      <circle cx="12" cy="12" r="7" />
-                    </svg>
-                    <span className="tb-overflow-label">{t('editor.toolbar.recordLabel', 'Record simulation')}</span>
-                    <span className="tb-overflow-pro">PRO</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
+            {/* The "..." menu is gone: every item it held now lives in the
+                File menu (with PRO pills where they apply). */}
             <div className="tb-divider" />
 
             {/* Output Console toggle */}
