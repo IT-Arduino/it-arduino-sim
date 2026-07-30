@@ -75,3 +75,12 @@
   color: #6e6e73;
   letter-spacing: 0.4px;
 }
+
+/* Inside the editor's bottom-left corner box the switcher sits at the
+   bottom edge of the screen — the menu must drop UP or it opens straight
+   into the void below the viewport. */
+.editor-corner-box .velxio-language-menu {
+  top: auto;
+  bottom: 110%;
+  margin: 0 0 6px;
+}
