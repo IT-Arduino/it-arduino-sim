@@ -461,6 +461,9 @@ export const EditorPage: React.FC = () => {
             className="view-mode-toggle"
             style={{
               display: 'flex',
+              // Never squeezed below its three buttons: flexbox used to crush
+              // this block to a third of its width and clip two of them.
+              flexShrink: 0,
               gap: 1,
               background: '#252526',
               border: '1px solid #3c3c3c',

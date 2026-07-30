@@ -166,6 +166,12 @@ body {
   display: flex;
   align-items: stretch;
   flex-shrink: 0;
+  /* When the row genuinely cannot fit (narrow window + docked chat), wrap
+     the canvas controls onto a second line instead of letting flexbox
+     squeeze fixed blocks below their content — that used to crush the
+     Code/Both/Circuit toggle to a third of its width, clipping two of its
+     buttons into unreachable slivers. Two short rows beat hidden buttons. */
+  flex-wrap: wrap;
   background: #252526;
   border-bottom: 1px solid #333;
   min-height: 38px;
