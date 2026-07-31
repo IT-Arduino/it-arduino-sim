@@ -451,7 +451,13 @@ PartSimulationRegistry.register('stepper-motor', {
 /**
  * Decode WS2812B bit-stream from DIN pin changes for NeoPixel devices.
  */
-function createNeopixelDecoder(
+/**
+ * WS2812/NeoPixel bit-bang decoder, shared. Exported because a board is not
+ * the only thing that carries an addressable LED: any part with one on board
+ * (the reSpeaker Lite's RGB, driven by whatever host is wired to it) needs the
+ * same decode, and re-implementing it per part is how two of them drift.
+ */
+export function createNeopixelDecoder(
   simulator: any,
   pinDIN: number,
   onPixel: (index: number, r: number, g: number, b: number) => void,

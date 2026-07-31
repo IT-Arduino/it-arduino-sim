@@ -402,10 +402,16 @@ class Esp32BridgeShim {
    * setMicrophoneSource (velxio-prod overlay); everywhere else it's a no-op,
    * which reads as a silent mic.
    */
-  setMicrophoneSource(source: (() => number) | null): void {
-    (
-      this.bridge as { setMicrophoneSource?: (s: (() => number) | null) => void }
-    ).setMicrophoneSource?.(source);
+  setMicrophoneSource(source: (() => number) | null): boolean {
+    const b = this.bridge as { setMicrophoneSource?: (s: (() => number) | null) => void };
+    if (typeof b?.setMicrophoneSource === 'function') {
+      b.setMicrophoneSource(source);
+      return true;
+    }
+    // No bridge, or one without an audio path: the caller learns the truth
+    // instead of talking into a void — a part can then SAY the host has no
+    // I2S rather than pretending to stream.
+    return false;
   }
 
   /**

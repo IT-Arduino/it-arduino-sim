@@ -127,6 +127,36 @@ type TraceState = ReturnType<typeof useSimulatorStore.getState>;
 // Lifted to module scope (was inside getArduinoPin) so that getPinResolver
 // can call it too — the previous nested-scope version caused a runtime
 // ReferenceError "traceDetailed is not defined" on the simulator page.
+
+/**
+ * Resolve a component pad through a SEATED board rather than a wire.
+ *
+ * Sockets are a real electrical connection with nothing to draw: the board's
+ * pads sit on the component's pads. `boardSocket` (read off the element, the
+ * rule-6a way) says the component is a socket; isBoardSeated says a board is
+ * actually in it; and the shared pad NAME is the contract that makes the two
+ * grids one net — which is exactly why a socket's pinInfo uses the board's own
+ * names. Returns null for anything that is not a seated socket pad.
+ */
+function traceThroughSocket(
+  state: TraceState,
+  componentId: string,
+  pinName: string,
+): { pin: number; boardId: string } | null {
+  const el = document.getElementById(componentId) as
+    | (HTMLElement & { boardSocket?: { anchorPin: string; accepts: string[] } })
+    | null;
+  const sock = el?.boardSocket;
+  if (!sock || !Array.isArray(sock.accepts)) return null;
+  for (const b of state.boards) {
+    if (!sock.accepts.some((prefix) => b.boardKind.startsWith(prefix))) continue;
+    if (!isBoardSeated(b.id, b.boardKind, b.x, b.y, state.components)) continue;
+    const pin = boardPinToNumber(b.boardKind, pinName);
+    if (pin !== null) return { pin, boardId: b.id };
+  }
+  return null;
+}
+
 export function traceDetailed(
   state: TraceState,
   fromId: string,
@@ -141,6 +171,18 @@ export function traceDetailed(
       (w.start.componentId === fromId && w.start.pinName === fromPin) ||
       (w.end.componentId === fromId && w.end.pinName === fromPin),
   );
+
+  // A board SEATED on a socket component is connected without any wire — that
+  // is what seating means, and it is how the hardware ships: a XIAO pushed
+  // into a shield's header, a Pi HAT dropped onto the 40-pin. So when this
+  // component declares a socket (boardSocket, the same contract the magnet
+  // reads) and a board is seated on it, a pad resolves to the SAME-NAMED pin
+  // of that board. Without this hop a seated shield's buttons and LEDs were
+  // dead until the user drew wires that the real stack does not have.
+  const socketPin = traceThroughSocket(state, fromId, fromPin);
+  if (socketPin !== null) {
+    return { arduinoPin: socketPin.pin, crossedActiveDevice: activeSeen, boardId: socketPin.boardId };
+  }
 
   // Remember a custom-chip neighbour on this net (if any) as a fallback —
   // a real board pin found in any branch still takes priority over it.
