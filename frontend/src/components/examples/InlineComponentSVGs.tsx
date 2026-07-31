@@ -447,26 +447,33 @@ const EPaperGlyph: React.FC<InlineSVGProps> = ({ w, h }) => {
   );
 };
 
-// ── reSpeaker Lite (dual-mic array board) — flat glyph for gallery cards ────
+// ── reSpeaker Lite (dual-mic XIAO-socket board) — flat glyph for cards ──────
 const RespeakerLite = () => (
-  <svg viewBox="0 0 240 100" xmlns="http://www.w3.org/2000/svg">
-    <rect x="4" y="10" width="232" height="86" rx="10" fill="#14161a" stroke="#2c2e34" strokeWidth="2" />
-    <circle cx="34" cy="52" r="7" fill="#0c0d10" stroke="#4a4f59" />
-    <circle cx="206" cy="52" r="7" fill="#0c0d10" stroke="#4a4f59" />
-    <rect x="96" y="32" width="48" height="32" rx="3" fill="#b9bec7" stroke="#8a8f99" />
-    <rect x="103" y="38" width="34" height="20" fill="#3a3f49" />
-    <text x="120" y="51" fontSize="7" fontFamily="monospace" fill="#e8e8ec" textAnchor="middle">
-      XU316
+  <svg viewBox="0 0 150 320" xmlns="http://www.w3.org/2000/svg">
+    <rect x="5" y="5" width="140" height="304" rx="10" fill="#14161a" stroke="#31353d" strokeWidth="2" />
+    <rect x="11.5" y="13.5" width="127" height="164" rx="8" fill="none" stroke="#3a3f4a" strokeWidth="1.5" strokeDasharray="4 4" />
+    {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+      <g key={i} fill="#c8a02e">
+        <rect x="17.5" y={44.4 + i * 17.8} width="8" height="7.2" rx="1.4" />
+        <rect x="123.5" y={44.4 + i * 17.8} width="8" height="7.2" rx="1.4" />
+      </g>
+    ))}
+    <circle cx="20" cy="190" r="4" fill="#0c0d10" stroke="#4a4f59" />
+    <circle cx="130" cy="190" r="4" fill="#0c0d10" stroke="#4a4f59" />
+    <circle cx="48" cy="214" r="6" fill="#efe9da" stroke="#a8a290" />
+    <circle cx="88" cy="214" r="6" fill="#efe9da" stroke="#a8a290" />
+    <text x="75" y="248" fontSize="10" fontFamily="monospace" fill="#cfd3da" textAnchor="middle">
+      ReSpeaker
     </text>
-    <text x="120" y="90" fontSize="7" fontFamily="monospace" fill="#cfd3da" textAnchor="middle">
-      ReSpeaker Lite
-    </text>
+    <rect x="12" y="262" width="28" height="34" rx="3" fill="#d8963a" />
+    <rect x="52" y="266" width="26" height="28" rx="2" fill="#e8e4d8" />
+    <rect x="90" y="288" width="36" height="24" rx="7" fill="#aab0b8" />
   </svg>
 );
 
 export const INLINE_SVGS: Record<string, InlineEntry> = {
   // Audio front-ends
-  'respeaker-lite': { component: RespeakerLite, w: 240, h: 100 },
+  'respeaker-lite': { component: RespeakerLite, w: 150, h: 320 },
   // BJTs
   'wokwi-bjt-2n2222': { component: BjtNpn, w: 72, h: 72 },
   'wokwi-bjt-2n3904': { component: BjtNpn, w: 72, h: 72 },
