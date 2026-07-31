@@ -225,6 +225,12 @@ class Esp32BridgeShim {
       if (pin >= 11 && pin <= 20) return 10 + (pin - 11);
       return -1;
     }
+    if (kind === 'esp32-c3' || kind === 'xiao-esp32-c3' || kind === 'aitewinrobot-esp32c3-supermini') {
+      // C3: ADC1 = GPIO0-4 -> CH0-4, GPIO5 (ADC2_CH0) -> index 5.
+      // Verified against the qemu SARADC: esp32_adc_set{channel:3} is what
+      // analogRead(3) returns (emulation-gaps harness, 2026-07-31).
+      return pin >= 0 && pin <= 5 ? pin : -1;
+    }
     if (pin >= 36 && pin <= 39) return pin - 36; // GPIO 36→CH0 … 39→CH3
     if (pin >= 32 && pin <= 35) return pin - 28; // GPIO 32→CH4 … 35→CH7
     return -1;
