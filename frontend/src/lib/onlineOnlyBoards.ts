@@ -197,8 +197,8 @@ export const ONLINE_ONLY_COMPONENT_ADS: OnlineOnlyComponentAd[] = [
   {
     id: 'respeaker-lite',
     label: 'ReSpeaker Lite (XMOS XU316)',
-    description: 'Dual-mic far-field audio front-end - available in the online editor',
-    category: 'output',
-    thumbnailSvg: '<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="18" width="56" height="28" rx="6" fill="#14161a" stroke="#2c2e34"/><circle cx="14" cy="32" r="4" fill="#0c0d10" stroke="#4a4f59"/><circle cx="50" cy="32" r="4" fill="#0c0d10" stroke="#4a4f59"/><rect x="26" y="26" width="12" height="12" rx="2" fill="#b9bec7"/></svg>',
+    description: 'Dual-mic array with a XIAO socket: live mic in, audio out, beamforming/AEC/NS model - online editor',
+    category: 'sensors',
+    thumbnailSvg: '<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect x="22" y="2" width="20" height="60" rx="3" fill="#16181d" stroke="#31353d" stroke-width="1"/><rect x="25" y="5" width="14" height="16" rx="2" fill="none" stroke="#3a3f4a" stroke-width="0.8" stroke-dasharray="2 1.5"/><g fill="#c8a02e"><rect x="24" y="7" width="2.6" height="2.2" rx="0.5"/><rect x="24" y="11" width="2.6" height="2.2" rx="0.5"/><rect x="24" y="15" width="2.6" height="2.2" rx="0.5"/><rect x="37.4" y="7" width="2.6" height="2.2" rx="0.5"/><rect x="37.4" y="11" width="2.6" height="2.2" rx="0.5"/><rect x="37.4" y="15" width="2.6" height="2.2" rx="0.5"/></g><path d="M32 24 L26 38 A9 9 0 0 0 38 38 Z" fill="#22c55e" fill-opacity="0.55" stroke="#7ff0b0" stroke-width="0.7"/><circle cx="25" cy="25" r="1.4" fill="#0c0d10" stroke="#4a4f59" stroke-width="0.7"/><circle cx="39" cy="25" r="1.4" fill="#0c0d10" stroke="#4a4f59" stroke-width="0.7"/><rect x="27" y="40" width="4.4" height="3.6" rx="0.8" fill="#c9c3b4"/><rect x="33" y="40" width="4.4" height="3.6" rx="0.8" fill="#c9c3b4"/><rect x="23.5" y="48" width="5" height="8" rx="1" fill="#d8963a"/><rect x="30" y="49" width="5" height="6.6" rx="0.8" fill="#e8e4d8"/><rect x="36.5" y="52" width="7" height="5" rx="2.2" fill="#aab0b8"/></svg>',
   }
 ];
