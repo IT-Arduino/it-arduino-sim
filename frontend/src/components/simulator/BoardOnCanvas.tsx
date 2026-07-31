@@ -127,6 +127,8 @@ export const BoardOnCanvas = ({
     () => isBoardSeated(id, boardKind, x, y, components),
     [id, boardKind, x, y, components, seatEpoch],
   );
+  // Drag-to-front rank: 0 = never dragged (static layering applies).
+  const zRaise = useSimulatorStore((st) => st.zOrders[id] ?? 0);
 
   // Status dot color: green=running, amber=compiled, gray=idle
   const statusColor = board.running ? '#22c55e' : board.compiledProgram ? '#f59e0b' : '#6b7280';
@@ -211,12 +213,20 @@ export const BoardOnCanvas = ({
       // Stacking: boards normally sit BELOW components (z 0 vs their 1/2) —
       // a resistor next to an Arduino must be visible on top, and a blanket
       // z bump here once hid it behind the board in every ordinary example.
-      // The ONE exception is a board SEATED on a socket component (the Round
-      // Display back header): then the board is the thing you see, the way
-      // the physical XIAO stacks on the shield. The magnet snap places the
-      // board exactly on the seat, so the moment it clicks it pops on top,
-      // and dragging it off drops it back under.
-      style={{ position: 'absolute', left: 0, top: 0, zIndex: seated ? 3 : 0 }}
+      // Two exceptions:
+      //  - a board SEATED on a socket component (the Round Display / reSpeaker
+      //    back header): then the board is the thing you see, the way the
+      //    physical XIAO stacks on the shield;
+      //  - a board the user has DRAGGED (zRaise > 0): drag-to-front puts
+      //    whatever you dragged last above everything it overlaps, so a board
+      //    dropped over a part is never lost underneath it — and dragging the
+      //    part afterwards wins the stack right back.
+      style={{
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        zIndex: zRaise > 0 ? 10 + zRaise : seated ? 3 : 0,
+      }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >

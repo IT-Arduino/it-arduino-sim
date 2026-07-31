@@ -1016,6 +1016,23 @@ interface SimulatorState {
   updateWirePositions: (componentId: string) => void;
   recalculateAllWirePositions: () => void;
 
+  // ── Drag-to-front stacking ───────────────────────────────────────────────
+  /**
+   * Items the user has DRAGGED, in drag order: id -> monotonic rank. The
+   * canvas raises an item on the first movement of its drag, so whatever you
+   * dragged last paints above everything it overlaps — boards over parts,
+   * parts over boards, symmetrically. Click-select alone never raises
+   * (deliberate: selection should not reshuffle a scene you arranged), and
+   * untouched items keep the static layering (components above unseated
+   * boards, seated boards above their socket). Ephemeral: not saved with the
+   * project.
+   */
+  zOrders: Record<string, number>;
+  /** Highest rank handed out so far. */
+  zTop: number;
+  /** Move an item (board or component id) to the top of the dragged stack. */
+  raiseItem: (id: string) => void;
+
   // ── Undo/redo ────────────────────────────────────────────────────────────
   /** Bounded ring buffer of canvas mutations (HISTORY_MAX = 50). */
   history: CanvasCommand[];
@@ -3052,6 +3069,15 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         });
         return { wires: updatedWires };
       });
+    },
+
+    zOrders: {},
+    zTop: 0,
+    raiseItem: (id: string) => {
+      const s = get();
+      // Already on top: re-raising would only churn renders.
+      if (s.zOrders[id] === s.zTop && s.zTop > 0) return;
+      set({ zTop: s.zTop + 1, zOrders: { ...s.zOrders, [id]: s.zTop + 1 } });
     },
 
     recalculateAllWirePositions: () => {

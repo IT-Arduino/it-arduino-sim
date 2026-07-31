@@ -339,6 +339,9 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
 
   // Component dragging state
   const [draggedComponentId, setDraggedComponentId] = useState<string | null>(null);
+  // Which drag session already raised its item (drag-to-front fires once per
+  // drag, on the first mousemove).
+  const raisedThisDragRef = useRef<string | null>(null);
   // Captures (x, y) of the dragged component at mousedown so a drag-end
   // can record the diff as a single undoable Move. Boards are intentionally
   // skipped — board moves don't go through component history.
@@ -1529,6 +1532,17 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
 
     // Handle component/board dragging
     if (draggedComponentId) {
+      // Drag-to-front: the FIRST movement of a drag raises the item above
+      // everything else on the canvas (boards over parts and parts over
+      // boards, symmetrically — whatever you dragged last wins). Movement,
+      // not mousedown: a plain click-select must not reshuffle the stack.
+      if (raisedThisDragRef.current !== draggedComponentId) {
+        raisedThisDragRef.current = draggedComponentId;
+        const raiseId = draggedComponentId.startsWith('__board__:')
+          ? draggedComponentId.slice('__board__:'.length)
+          : draggedComponentId;
+        if (raiseId !== '__board__') useSimulatorStore.getState().raiseItem(raiseId);
+      }
       const world = toWorld(e.clientX, e.clientY);
       if (draggedComponentId.startsWith('__board__:')) {
         const boardId = draggedComponentId.slice('__board__:'.length);
@@ -1855,6 +1869,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
 
       recalculateAllWirePositions();
       setDraggedComponentId(null);
+      raisedThisDragRef.current = null;
     }
   };
 
@@ -2809,6 +2824,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
             isPanningRef.current = false;
             setPan({ ...panRef.current });
             setDraggedComponentId(null);
+            raisedThisDragRef.current = null;
           }}
           onContextMenu={(e) => {
             e.preventDefault();
