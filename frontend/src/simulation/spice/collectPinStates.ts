@@ -92,20 +92,27 @@ export function collectPinStates(
   const outputPins = pm.getOutputPins();
 
   // STM32 names pins PA0/PC13 and keys its PinManager on the linear pin
-  // (port*16+pin). It runs in backend QEMU, where its OUTPUT pins are surfaced
-  // to the canvas via the part layer (not SPICE), so here we only contribute
-  // the INPUT internal pull (reported by the worker's gpio_pull) — enough for
-  // NetlistBuilder to stamp the weak resistor so an INPUT_PULLUP button-to-GND
-  // solves to idle-HIGH / pressed-LOW. connectDigitalInputsToMcu then drives
-  // the guest IDR from the solve. Leaving outputs out keeps STM32 LED rendering
-  // exactly as before.
+  // (port*16+pin). It runs in backend QEMU; the worker streams gpio_change
+  // for outputs and gpio_pull for inputs. Outputs were historically LEFT OUT
+  // of the netlist ("the part layer will render them") — but the part layer
+  // never drove wired parts, so a correctly-wired LED sat at ~0 A forever
+  // (lianqi 07-23, emulation-gaps F3). Now that the name mapping is right,
+  // stamp outputs as V sources exactly like every other board; inputs still
+  // contribute only their internal pull.
   const isStm32 = isStm32BoardKind(boardKind);
   if (isStm32) {
     for (const pinName of pinNames) {
       const linear = stm32PinNameToLinear(pinName);
-      if (linear < 0 || outputPins.has(linear)) continue;
-      const pull = pm.getPinPull(linear);
-      if (pull !== 0) result[pinName] = { type: 'input', pull };
+      if (linear < 0) continue;
+      if (outputPins.has(linear)) {
+        result[pinName] = {
+          type: 'digital',
+          v: pm.getPinState(linear) ? vcc : 0,
+        };
+      } else {
+        const pull = pm.getPinPull(linear);
+        if (pull !== 0) result[pinName] = { type: 'input', pull };
+      }
     }
     return result;
   }
