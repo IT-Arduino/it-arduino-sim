@@ -395,6 +395,19 @@ class Esp32BridgeShim {
     (this.bridge as { attachSyncI2cDevice?: (d: I2CDevice) => void }).attachSyncI2cDevice?.(device);
   }
 
+  /**
+   * Attach (or clear, with null) the microphone sample source feeding the
+   * board's I2S RX path: one signed 16-bit sample per call. Same forwarding
+   * pattern as addI2CDevice — the in-browser JS-engine bridges implement
+   * setMicrophoneSource (velxio-prod overlay); everywhere else it's a no-op,
+   * which reads as a silent mic.
+   */
+  setMicrophoneSource(source: (() => number) | null): void {
+    (
+      this.bridge as { setMicrophoneSource?: (s: (() => number) | null) => void }
+    ).setMicrophoneSource?.(source);
+  }
+
   /** Remove a previously-registered virtual device. */
   removeI2CDevice(addr: number, _bus: 0 | 1 = 0): void {
     this.i2cBusInstance.removeDevice(addr);

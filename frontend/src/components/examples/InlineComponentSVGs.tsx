@@ -447,7 +447,26 @@ const EPaperGlyph: React.FC<InlineSVGProps> = ({ w, h }) => {
   );
 };
 
+// ── reSpeaker Lite (dual-mic array board) — flat glyph for gallery cards ────
+const RespeakerLite = () => (
+  <svg viewBox="0 0 240 100" xmlns="http://www.w3.org/2000/svg">
+    <rect x="4" y="10" width="232" height="86" rx="10" fill="#14161a" stroke="#2c2e34" strokeWidth="2" />
+    <circle cx="34" cy="52" r="7" fill="#0c0d10" stroke="#4a4f59" />
+    <circle cx="206" cy="52" r="7" fill="#0c0d10" stroke="#4a4f59" />
+    <rect x="96" y="32" width="48" height="32" rx="3" fill="#b9bec7" stroke="#8a8f99" />
+    <rect x="103" y="38" width="34" height="20" fill="#3a3f49" />
+    <text x="120" y="51" fontSize="7" fontFamily="monospace" fill="#e8e8ec" textAnchor="middle">
+      XU316
+    </text>
+    <text x="120" y="90" fontSize="7" fontFamily="monospace" fill="#cfd3da" textAnchor="middle">
+      ReSpeaker Lite
+    </text>
+  </svg>
+);
+
 export const INLINE_SVGS: Record<string, InlineEntry> = {
+  // Audio front-ends
+  'respeaker-lite': { component: RespeakerLite, w: 240, h: 100 },
   // BJTs
   'wokwi-bjt-2n2222': { component: BjtNpn, w: 72, h: 72 },
   'wokwi-bjt-2n3904': { component: BjtNpn, w: 72, h: 72 },
