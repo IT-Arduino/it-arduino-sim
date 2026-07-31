@@ -408,6 +408,19 @@ class Esp32BridgeShim {
     ).setMicrophoneSource?.(source);
   }
 
+  /**
+   * Watch the board's audio OUTPUT: the callback gets the peak level of each
+   * block the guest played (0..32767). The audio itself goes to the host's
+   * sound card — a board with an on-board speaker/jack plays through YOUR
+   * speakers, so nothing is wired for it on the canvas; this is only the
+   * "is it making sound" signal a part needs to animate. Pass null to stop.
+   * No-op on bridges without an audio path (a silent speaker).
+   */
+  setSpeakerMonitor(cb: ((peak: number) => void) | null): void {
+    (this.bridge as { setSpeakerMonitor?: (c: ((p: number) => void) | null) => void })
+      .setSpeakerMonitor?.(cb);
+  }
+
   /** Remove a previously-registered virtual device. */
   removeI2CDevice(addr: number, _bus: 0 | 1 = 0): void {
     this.i2cBusInstance.removeDevice(addr);
