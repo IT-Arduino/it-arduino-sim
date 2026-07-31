@@ -373,6 +373,19 @@ export class AVRSimulator {
     // register devices BEFORE the firmware loads.  The real AVRTWI
     // takes over via `i2cBus.attachMaster(twi)` inside loadHex.
     this.i2cBus = new I2CBusManager(nullI2CMaster());
+    // Seed the input register to the pull's resting level the instant the
+    // firmware enables it (INPUT_PULLUP -> HIGH). Real silicon does this in
+    // nanoseconds; without the seed, digitalRead returned 0 from pinMode
+    // until the first SPICE solve (~400 ms) — long enough for setup()-time
+    // button checks and emergency-stop latches to fire spuriously (2026-07
+    // audit, reproduced deterministically). The SPICE connector overrides
+    // with the solved level on sourced nets right after, so a button held
+    // at boot still reads pressed within one solve.
+    pinManager.onPullChange = (pin, pull) => {
+      if (pull === 0) return;
+      if (pinManager.getOutputPins().has(pin)) return;
+      this.setPinState(pin, pull === 1);
+    };
   }
 
   private get pwmPins() {

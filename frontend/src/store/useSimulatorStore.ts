@@ -623,12 +623,24 @@ function makeGpioRoutingClearHandler(boardId: string) {
 function makePinPullHandler(boardId: string) {
   return (gpio: number, pull: 0 | 1 | 2) => {
     // Record the internal pull so the netlist stamps a weak resistor
-    // (vcc_rail for pull-up, GND for pull-down) and request a re-solve. The
-    // digital read itself is driven from the solved circuit by
-    // connectDigitalInputsToMcu — we deliberately do NOT seed the pin directly
-    // here, because that would bypass the real wiring and re-introduce the
-    // "mis-wired button still works" bug.
-    pinManagerMap.get(boardId)?.setPinPull(gpio, pull);
+    // (vcc_rail for pull-up, GND for pull-down) and request a re-solve.
+    const pm = pinManagerMap.get(boardId);
+    pm?.setPinPull(gpio, pull);
+    // Seed the guest input to the pull's RESTING level immediately (real
+    // silicon raises the pad in nanoseconds). Two failure modes this
+    // closes (2026-07 audit): (a) the boot window before the first SPICE
+    // solve where INPUT_PULLUP read LOW and phantom-triggered buttons,
+    // and (b) an INPUT_PULLUP pin with NOTHING wired — no net in
+    // pinNetMap, so connectDigitalInputsToMcu never drives it and the
+    // guest read 0 forever. On wired+sourced nets the connector overrides
+    // with the solved level right after, so the "mis-wired button still
+    // works" bug does NOT come back: the solve remains authoritative.
+    if (pull !== 0 && !(pm?.getOutputPins().has(gpio))) {
+      const sim = simulatorMap.get(boardId) as
+        | { setPinState?: (pin: number, state: boolean) => void }
+        | undefined;
+      sim?.setPinState?.(gpio, pull === 1);
+    }
     requestElectricalResolve();
   };
 }
