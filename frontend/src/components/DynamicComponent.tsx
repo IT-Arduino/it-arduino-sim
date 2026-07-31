@@ -295,10 +295,6 @@ export const DynamicComponent: React.FC<DynamicComponentProps> = ({
   const handleComponentEvent = useSimulatorStore((s) => s.handleComponentEvent);
   const running = useSimulatorStore((s) => s.running);
   const simulator = useSimulatorStore((s) => s.simulator);
-  // Drag-to-front rank: 0 = never dragged, static layering applies. A part
-  // the user dragged paints above everything it overlaps — including a board
-  // that was raised earlier — so the stack always reads "last dragged wins".
-  const zRaise = useSimulatorStore((s) => s.zOrders[id] ?? 0);
   // Board-less SPICE circuits (digital / analog gallery) have no MCU to
   // run, so `running` is always false — but interactive parts like
   // slide-switches and pushbuttons should still show a pointer cursor
@@ -810,7 +806,11 @@ export const DynamicComponent: React.FC<DynamicComponentProps> = ({
         // Drag-to-front (zRaise) beats the static layers: a part dragged onto
         // a board — or a board dragged onto a part — the last one dragged
         // paints on top. Untouched parts keep the classic selected/idle z.
-        zIndex: zRaise > 0 ? 10 + zRaise : isSelected ? 5 : 1,
+        // Local order inside .component-interactive-group only. The
+        // drag-to-front rank is applied on that GROUP (SimulatorCanvas) —
+        // a z set here is clamped by the group's stacking context and could
+        // never lift the part above a dragged board.
+        zIndex: isSelected ? 5 : 1,
         pointerEvents: 'auto',
         transform: properties.rotation ? `rotate(${properties.rotation}deg)` : undefined,
         transformOrigin: 'center center',

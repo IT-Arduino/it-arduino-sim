@@ -156,6 +156,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
     setBoardPosition,
     addBoard,
     components,
+    zOrders,
     running,
     sensorResetNonce,
     pinManager,
@@ -2314,7 +2315,13 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
               position: 'absolute',
               left: 0,
               top: 0,
-              zIndex: isSelected ? 2 : 1,
+              // Drag-to-front rank applies HERE (the group is the stacking
+              // context that competes with boards) — see the parts branch.
+              zIndex: (zOrders[component.id] ?? 0) > 0
+                ? 10 + (zOrders[component.id] ?? 0)
+                : isSelected
+                  ? 2
+                  : 1,
               pointerEvents: 'auto',
             }}
           >
@@ -2376,15 +2383,25 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
     // thin parts (resistors, LEDs) and free-floating displays are untouched.
     const isSeated = (seatedPinsByComponent.get(component.id)?.length ?? 0) > 0;
     const occludesWhenSeated = DISPLAY_BODY_METADATA_RE.test(String(component.metadataId));
+    // Drag-to-front (see raiseItem): the rank MUST be applied on this group,
+    // not on the inner .dynamic-component-wrapper. The group is a stacking
+    // context, so a z set inside it is clamped to the group's own level and a
+    // part could never climb above a board that was dragged (boards live one
+    // level up, as direct children of .canvas-world) — dragging a board once
+    // pinned every component under it forever. Same rank space as
+    // BoardOnCanvas (10 + rank) so the last thing dragged genuinely wins.
+    const dragRank = zOrders[component.id] ?? 0;
     const groupZIndex = isBreadboard
       ? -1
-      : isSeated && occludesWhenSeated
-        ? isSelected
-          ? 37
-          : 36
-        : isSelected
-          ? 2
-          : 1;
+      : dragRank > 0
+        ? 10 + dragRank
+        : isSeated && occludesWhenSeated
+          ? isSelected
+            ? 37
+            : 36
+          : isSelected
+            ? 2
+            : 1;
 
     return (
       <React.Fragment key={component.id}>
