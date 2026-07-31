@@ -427,6 +427,17 @@ class Esp32BridgeShim {
       .setSpeakerMonitor?.(cb);
   }
 
+  /**
+   * Gate the board's audio OUTPUT at the sink end: muted, the guest keeps
+   * clocking I2S TX samples out exactly like real hardware with nothing
+   * plugged in, but the host speakers stay silent. The part that IS the
+   * speaker (seated or wired) opens the gate while it is connected and
+   * closes it when it is lifted off. No-op on bridges without an audio path.
+   */
+  setSpeakerMuted(muted: boolean): void {
+    (this.bridge as { setSpeakerMuted?: (m: boolean) => void }).setSpeakerMuted?.(muted);
+  }
+
   /** Remove a previously-registered virtual device. */
   removeI2CDevice(addr: number, _bus: 0 | 1 = 0): void {
     this.i2cBusInstance.removeDevice(addr);
