@@ -1063,6 +1063,23 @@ export class AVRSimulator {
   }
 
   /**
+   * Feed bytes into a hardware UART's RX from an external part (GPS module,
+   * a wired peer board via Interconnect, …). Uniform seam across simulators
+   * (`sim.feedUart(uart, data)`) — Interconnect already probes for it.
+   *
+   * The AVR core only emulates USART0 (Uno/Nano pins 0/1; Mega RX0). Mega
+   * USART1-3 are not modelled by avr8js, so `uart > 0` reports false and the
+   * caller can fall back to bit-level transport (e.g. SoftwareSerial).
+   *
+   * @returns true when the bytes were queued for delivery.
+   */
+  feedUart(uart: number, data: string): boolean {
+    if (uart !== 0 || !this.usart) return false;
+    this.serialWrite(data);
+    return true;
+  }
+
+  /**
    * Pump the next pending RX byte into the USART. Called once from
    * serialWrite() to kick the pipeline, then re-armed from
    * usart.onRxComplete after every byte the sketch actually receives.

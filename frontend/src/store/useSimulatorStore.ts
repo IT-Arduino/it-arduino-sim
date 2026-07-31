@@ -202,6 +202,17 @@ class Esp32BridgeShim {
   serialWrite(text: string): void {
     this.bridge.sendSerialBytes(Array.from(new TextEncoder().encode(text)));
   }
+  /**
+   * Feed bytes into a hardware UART's RX from an external part (GPS module,
+   * a wired peer board via Interconnect, …). Uniform seam across simulators
+   * (`sim.feedUart(uart, data)`). The backend QEMU worker routes the bytes
+   * into the requested UART (0 = Serial / GPIO3, 2 = Serial2 / GPIO16 on
+   * the classic ESP32 pinout).
+   */
+  feedUart(uart: number, data: string): boolean {
+    this.bridge.sendSerialBytes(Array.from(new TextEncoder().encode(data)), uart);
+    return true;
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getADC(): any {
     return null;
@@ -665,6 +676,16 @@ class Stm32BridgeShim {
   /** Drive a GPIO input from a part. `pin` is the linear pin (port*16+pin). */
   setPinState(pin: number, state: boolean): void {
     this.bridge.sendPinEvent(pin, state);
+  }
+
+  /**
+   * Feed bytes into a hardware USART's RX from an external part (GPS module,
+   * a wired peer board via Interconnect, …). Uniform seam across simulators
+   * (`sim.feedUart(uart, data)`). uart 0 = USART1 (PA10 RX), 1 = USART2 (PA3).
+   */
+  feedUart(uart: number, data: string): boolean {
+    this.bridge.sendSerialBytes(Array.from(new TextEncoder().encode(data)), uart);
+    return true;
   }
 
   // ── Generic sensor registration (delegated to the backend QEMU worker) ──
