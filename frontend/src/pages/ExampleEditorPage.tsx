@@ -67,24 +67,21 @@ export const ExampleEditorPage: React.FC = () => {
   );
 
   useEffect(() => {
-    if (!exampleId) {
-      setError(true);
-      return;
-    }
-    if (!example) {
-      // "Not in the gallery" and "not in the gallery YET" are different
-      // answers while the pro overlay's dynamic import is still in flight:
-      // a direct link to a pro example used to flash a 404 (marketing
-      // header and all) before the overlay registered it and the editor
-      // took over. Stay on the loading screen until the registry settles;
-      // only then is a missing id really a 404.
-      if (settled) setError(true);
-      return;
-    }
+    // `settled` is deliberately NOT a dependency. A direct link to a pro
+    // example can begin loading the moment the overlay registers it — one
+    // microtask BEFORE the overlay's import promise settles. With `settled`
+    // in the deps, that flip re-fired the effect mid-load: the cleanup set
+    // `cancelled`, setReady was skipped, and the re-run hit the loadedIdRef
+    // guard and returned — the page hung on "Loading example…" forever
+    // (found with the reSpeaker example; any /example/<pro-id> direct URL
+    // could lose this race). The 404 decision lives in the render below,
+    // where reading `settled` doesn't cancel anything.
+    if (!exampleId || !example) return;
     if (loadedIdRef.current === exampleId) return;
     loadedIdRef.current = exampleId;
 
     let cancelled = false;
+    let done = false;
     setReady(false);
     setError(false);
     (async () => {
@@ -95,18 +92,29 @@ export const ExampleEditorPage: React.FC = () => {
         // are swallowed inside ensureLibraries — anything that DOES bubble
         // up here means the stores are partially populated. Surfacing a
         // clean error is more useful than rendering an empty editor.
+        done = true;
         if (!cancelled) setError(true);
         return;
       }
+      done = true;
       if (!cancelled) setReady(true);
     })();
 
     return () => {
       cancelled = true;
+      // A load cancelled mid-flight must not poison the guard: if this
+      // effect re-runs for the same id, it has to actually reload instead
+      // of early-returning with `ready` still false.
+      if (!done && loadedIdRef.current === exampleId) {
+        loadedIdRef.current = null;
+      }
     };
-  }, [exampleId, example, settled]);
+  }, [exampleId, example]);
 
-  if (error) {
+  // "Not in the gallery" and "not in the gallery YET" are different answers
+  // while the pro overlay's dynamic import is still in flight: only once the
+  // registry settles is a missing id really a 404.
+  if (error || !exampleId || (settled && !example)) {
     return (
       <div
         style={{
