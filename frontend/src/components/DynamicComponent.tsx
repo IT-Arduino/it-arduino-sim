@@ -23,6 +23,7 @@ import { useEditorStore } from '../store/useEditorStore';
 import { buildProjectSdImage, decodeSdFiles } from '../utils/sdCardFiles';
 import { PartSimulationRegistry } from '../simulation/parts';
 import { isBoardComponent, boardPinToNumber } from '../utils/boardPinMapping';
+import { isBoardSeated } from '../utils/socketSnap';
 import { isPiBoardKind } from '../types/board';
 import { isKeyBindable, formatKeyLabel } from '../utils/keyButtonBindings';
 import {
