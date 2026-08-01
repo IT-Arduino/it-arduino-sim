@@ -371,6 +371,13 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
   // Which drag session already raised its item (drag-to-front fires once per
   // drag, on the first mousemove).
   const raisedThisDragRef = useRef<string | null>(null);
+  /**
+   * The socket a dragged board was plugged into when the drag STARTED.
+   * Latched once per drag: "is it seated?" is only true at the seat, so
+   * re-asking after the first pixel of movement answers no and the stack
+   * would come apart one frame in.
+   */
+  const carriedSocketRef = useRef<{ dragId: string; sockId: string } | null>(null);
   // Captures (x, y) of the dragged component at mousedown so a drag-end
   // can record the diff as a single undoable Move. Boards are intentionally
   // skipped — board moves don't go through component history.
@@ -932,14 +939,20 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
           const st = useSimulatorStore.getState();
           const b = st.boards.find((bb) => bb.id === boardId);
           // Same stack rule as the mouse path: while simulating, a seated
-          // board drags its socket along instead of unplugging.
-          const sock =
-            st.running && b
-              ? st.components.find((c) => {
-                  const seat = snapBoardToSocket(b.id, b.boardKind, b.x, b.y, [c]);
-                  return !!seat && Math.hypot(seat.x - b.x, seat.y - b.y) < 0.5;
-                })
-              : undefined;
+          // board drags its socket along instead of unplugging. Latched at
+          // drag start for the same reason (see carriedSocketRef).
+          if (carriedSocketRef.current?.dragId !== touchId) {
+            const seatedOn =
+              st.running && b
+                ? st.components.find((c) => {
+                    const seat = snapBoardToSocket(b.id, b.boardKind, b.x, b.y, [c]);
+                    return !!seat && Math.hypot(seat.x - b.x, seat.y - b.y) < 0.5;
+                  })
+                : undefined;
+            carriedSocketRef.current = { dragId: touchId, sockId: seatedOn?.id ?? '' };
+          }
+          const sockId = carriedSocketRef.current.sockId;
+          const sock = sockId ? st.components.find((c) => c.id === sockId) : undefined;
           if (b && sock) {
             updateComponent(sock.id, {
               x: sock.x + (nb.x - b.x),
@@ -1602,13 +1615,21 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
           // While SIMULATING, a seated stack moves as one piece: dragging the
           // board drags its socket along instead of unplugging it. Unplugging
           // is an edit-mode gesture (carrySeatedBoards is the other half).
-          const sock =
-            st.running && b
-              ? st.components.find((c) => {
-                  const seat = snapBoardToSocket(b.id, b.boardKind, b.x, b.y, [c]);
-                  return !!seat && Math.hypot(seat.x - b.x, seat.y - b.y) < 0.5;
-                })
-              : undefined;
+          if (carriedSocketRef.current?.dragId !== draggedComponentId) {
+            const seatedOn =
+              st.running && b
+                ? st.components.find((c) => {
+                    const seat = snapBoardToSocket(b.id, b.boardKind, b.x, b.y, [c]);
+                    return !!seat && Math.hypot(seat.x - b.x, seat.y - b.y) < 0.5;
+                  })
+                : undefined;
+            carriedSocketRef.current = {
+              dragId: draggedComponentId,
+              sockId: seatedOn?.id ?? '',
+            };
+          }
+          const sockId = carriedSocketRef.current.sockId;
+          const sock = sockId ? st.components.find((c) => c.id === sockId) : undefined;
           if (b && sock) {
             updateComponent(sock.id, {
               x: sock.x + (nb.x - b.x),
@@ -1940,6 +1961,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
       recalculateAllWirePositions();
       setDraggedComponentId(null);
       raisedThisDragRef.current = null;
+      carriedSocketRef.current = null;
     }
   };
 
@@ -2911,6 +2933,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
             setPan({ ...panRef.current });
             setDraggedComponentId(null);
             raisedThisDragRef.current = null;
+      carriedSocketRef.current = null;
           }}
           onContextMenu={(e) => {
             e.preventDefault();
