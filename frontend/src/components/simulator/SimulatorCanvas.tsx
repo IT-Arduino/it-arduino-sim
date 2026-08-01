@@ -50,7 +50,7 @@ import {
   seatOnDrop,
   snapPositionToBreadboard,
 } from '../../utils/breadboardSnap';
-import { snapBoardToSocket } from '../../utils/socketSnap';
+import { snapBoardToSocket, isBoardSeated } from '../../utils/socketSnap';
 import {
   findWireNearPoint,
   findSegmentNearPoint,
@@ -138,8 +138,7 @@ function carrySeatedBoards(
   for (const b of st.boards) {
     // Restricting the candidate list to the dragged component asks the
     // narrow question: is this board seated on THIS socket?
-    const seat = snapBoardToSocket(b.id, b.boardKind, b.x, b.y, [dragged]);
-    if (seat && Math.hypot(seat.x - b.x, seat.y - b.y) < 0.5) {
+    if (isBoardSeated(b.id, b.boardKind, b.x, b.y, [dragged])) {
       st.setBoardPosition({ x: b.x + dx, y: b.y + dy }, b.id);
     }
   }
@@ -949,10 +948,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
             const boardRunning = !!(b && (b.running || st.running));
             const seatedOn =
               boardRunning && b
-                ? st.components.find((c) => {
-                    const seat = snapBoardToSocket(b.id, b.boardKind, b.x, b.y, [c]);
-                    return !!seat && Math.hypot(seat.x - b.x, seat.y - b.y) < 0.5;
-                  })
+                ? st.components.find((c) => isBoardSeated(b.id, b.boardKind, b.x, b.y, [c]))
                 : undefined;
             carriedSocketRef.current = { dragId: touchId, sockId: seatedOn?.id ?? '' };
           }
@@ -1628,10 +1624,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
             const boardRunning = !!(b && (b.running || st.running));
             const seatedOn =
               boardRunning && b
-                ? st.components.find((c) => {
-                    const seat = snapBoardToSocket(b.id, b.boardKind, b.x, b.y, [c]);
-                    return !!seat && Math.hypot(seat.x - b.x, seat.y - b.y) < 0.5;
-                  })
+                ? st.components.find((c) => isBoardSeated(b.id, b.boardKind, b.x, b.y, [c]))
                 : undefined;
             carriedSocketRef.current = {
               dragId: draggedComponentId,

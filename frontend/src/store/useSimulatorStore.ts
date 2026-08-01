@@ -52,7 +52,7 @@ import {
   collectWireSegments,
 } from '../utils/wireAutoRoute';
 import { isBreadboard } from '../utils/breadboardNets';
-import { snapBoardToSocket } from '../utils/socketSnap';
+import { isBoardSeated } from '../utils/socketSnap';
 import { computeSeating } from '../utils/breadboardSnap';
 import { createSerialBatcher } from './serialBatcher';
 import {
@@ -3169,16 +3169,9 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
       // above — raising the socket alone buried its own seated board, and a
       // buried board cannot be grabbed to unplug it.
       const seatedOnIt = s.components.some((c) => c.id === id)
-        ? s.boards.filter((b) => {
-            const seat = snapBoardToSocket(
-              b.id,
-              b.boardKind,
-              b.x,
-              b.y,
-              s.components.filter((c) => c.id === id),
-            );
-            return !!seat && Math.hypot(seat.x - b.x, seat.y - b.y) < 0.5;
-          })
+        ? s.boards.filter((b) =>
+            isBoardSeated(b.id, b.boardKind, b.x, b.y, s.components.filter((c) => c.id === id)),
+          )
         : [];
       let top = s.zTop;
       const zOrders = { ...s.zOrders, [id]: ++top };

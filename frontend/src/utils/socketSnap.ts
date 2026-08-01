@@ -95,12 +95,24 @@ export function snapBoardToSocket(
 }
 
 /**
- * True when the board's CURRENT position IS a socket seat (within half a
- * pixel). This is the z-order question, not the drag question: a seated
- * board must paint above its socket component, an unseated one must stay
- * below components like every other board — the blanket zIndex bump that
- * preceded this check hid a resistor behind an Arduino in every ordinary
- * example.
+ * How far off the exact seat a board may sit and still count as plugged in.
+ * Not zero, and deliberately far below SOCKET_SNAP_TOLERANCE: a stack the
+ * magnet built lands exact, but one an EXAMPLE declares (or a project saved
+ * before a socket's art was nudged) can be a fraction of a pixel out. At the
+ * old half-pixel bar such a board looked seated on screen while every seat
+ * test said otherwise — so it got no electrical connection and its socket
+ * did not travel with it. A couple of pixels is invisible to the eye and
+ * still nowhere near the next hole.
+ */
+const SEATED_EPSILON = 2;
+
+/**
+ * True when the board's CURRENT position IS a socket seat. This is the
+ * "is it plugged in?" question, asked by z-order (a seated board must paint
+ * above its socket, an unseated one stays below components like every other
+ * board — a blanket zIndex bump once hid a resistor behind an Arduino),
+ * by the electrical hop that makes seating mean connection, and by the drag
+ * rules that keep a plugged stack together.
  */
 export function isBoardSeated(
   boardId: string,
@@ -110,5 +122,5 @@ export function isBoardSeated(
   components: ComponentLike[],
 ): boolean {
   const seat = snapBoardToSocket(boardId, boardKind, x, y, components);
-  return !!seat && Math.hypot(seat.x - x, seat.y - y) < 0.5;
+  return !!seat && Math.hypot(seat.x - x, seat.y - y) <= SEATED_EPSILON;
 }
