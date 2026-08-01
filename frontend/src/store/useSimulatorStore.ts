@@ -52,6 +52,7 @@ import {
   collectWireSegments,
 } from '../utils/wireAutoRoute';
 import { isBreadboard } from '../utils/breadboardNets';
+import { snapBoardToSocket } from '../utils/socketSnap';
 import { computeSeating } from '../utils/breadboardSnap';
 import { createSerialBatcher } from './serialBatcher';
 import {
@@ -3164,7 +3165,25 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
       const s = get();
       // Already on top: re-raising would only churn renders.
       if (s.zOrders[id] === s.zTop && s.zTop > 0) return;
-      set({ zTop: s.zTop + 1, zOrders: { ...s.zOrders, [id]: s.zTop + 1 } });
+      // A board plugged into a socket sits ON it, so it must keep painting
+      // above — raising the socket alone buried its own seated board, and a
+      // buried board cannot be grabbed to unplug it.
+      const seatedOnIt = s.components.some((c) => c.id === id)
+        ? s.boards.filter((b) => {
+            const seat = snapBoardToSocket(
+              b.id,
+              b.boardKind,
+              b.x,
+              b.y,
+              s.components.filter((c) => c.id === id),
+            );
+            return !!seat && Math.hypot(seat.x - b.x, seat.y - b.y) < 0.5;
+          })
+        : [];
+      let top = s.zTop;
+      const zOrders = { ...s.zOrders, [id]: ++top };
+      for (const b of seatedOnIt) zOrders[b.id] = ++top;
+      set({ zTop: top, zOrders });
     },
 
     recalculateAllWirePositions: () => {
