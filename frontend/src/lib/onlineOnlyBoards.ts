@@ -189,10 +189,10 @@ export const ONLINE_ONLY_COMPONENT_ADS: OnlineOnlyComponentAd[] = [
   },
   {
     id: 'grove-gesture-pag7660',
-    label: 'Grove Smart IR Gesture (PAG7660)',
-    description: 'IR gesture recognition (rotate/push/tap/...) - available in the online editor',
+    label: 'Grove Smart IR Gesture (PAG7661QN)',
+    description: 'IR camera gesture sensor on a XIAO carrier: seat a XIAO on its socket and read rotate/tap/grab/pinch/swipe over I2C - available in the online editor',
     category: 'input',
-    thumbnailSvg: '<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="12" width="50" height="40" rx="6" fill="#1d3a5f"/><circle cx="36" cy="32" r="12" fill="#0c0d10" stroke="#3a3f49" stroke-width="2"/><circle cx="36" cy="32" r="6" fill="#1b1030"/></svg>',
+    thumbnailSvg: '<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect x="17" y="4" width="30" height="56" rx="5" fill="#12518f" stroke="#0d3c6b"/><circle cx="34" cy="18" r="8" fill="#0a0b0e" stroke="#3a3f49"/><circle cx="34" cy="18" r="4" fill="#1b1030"/><rect x="21" y="30" width="7" height="24" rx="1.5" fill="#15171c"/><rect x="38" y="30" width="7" height="24" rx="1.5" fill="#15171c"/><rect x="8" y="12" width="8" height="14" rx="2" fill="#e8e8ec"/></svg>',
   },
   {
     id: 'respeaker-lite',
