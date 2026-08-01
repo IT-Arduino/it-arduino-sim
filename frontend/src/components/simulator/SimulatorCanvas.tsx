@@ -117,6 +117,34 @@ const LONG_PRESS_MOVE_TOLERANCE = 8;
  */
 const DRAG_PROMOTE_THRESHOLD_PX = 8;
 
+/**
+ * A socket carries its seated board while it is dragged: the pair is plugged
+ * together like the physical stack, so moving the shield must not strand —
+ * and silently disconnect — the board, least of all mid-simulation (the
+ * stranded board's sketch suddenly loses its I2C peer and error-spams).
+ * Unplugging is the opposite gesture: dragging the BOARD off the socket.
+ */
+function carrySeatedBoards(
+  dragged: { id: string; x: number; y: number; properties?: Record<string, unknown> },
+  nx: number,
+  ny: number,
+): void {
+  const dx = nx - dragged.x;
+  const dy = ny - dragged.y;
+  if (!dx && !dy) return;
+  const el = document.getElementById(dragged.id) as (HTMLElement & { boardSocket?: unknown }) | null;
+  if (!el?.boardSocket) return;
+  const st = useSimulatorStore.getState();
+  for (const b of st.boards) {
+    // Restricting the candidate list to the dragged component asks the
+    // narrow question: is this board seated on THIS socket?
+    const seat = snapBoardToSocket(b.id, b.boardKind, b.x, b.y, [dragged]);
+    if (seat && Math.hypot(seat.x - b.x, seat.y - b.y) < 0.5) {
+      st.setBoardPosition({ x: b.x + dx, y: b.y + dy }, b.id);
+    }
+  }
+}
+
 /** Check if a board kind is an ESP32-family board. */
 function isEsp32Kind(kind: BoardKind): boolean {
   return (
@@ -901,9 +929,28 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
             x: world.x - touchDragOffsetRef.current.x,
             y: world.y - touchDragOffsetRef.current.y,
           };
-          const bk = useSimulatorStore.getState().boards.find((b) => b.id === boardId)?.boardKind;
-          const seated = bk && snapBoardToSocket(boardId, bk, nb.x, nb.y, componentsRef.current ?? []);
-          setBoardPosition(seated || nb, boardId);
+          const st = useSimulatorStore.getState();
+          const b = st.boards.find((bb) => bb.id === boardId);
+          // Same stack rule as the mouse path: while simulating, a seated
+          // board drags its socket along instead of unplugging.
+          const sock =
+            st.running && b
+              ? st.components.find((c) => {
+                  const seat = snapBoardToSocket(b.id, b.boardKind, b.x, b.y, [c]);
+                  return !!seat && Math.hypot(seat.x - b.x, seat.y - b.y) < 0.5;
+                })
+              : undefined;
+          if (b && sock) {
+            updateComponent(sock.id, {
+              x: sock.x + (nb.x - b.x),
+              y: sock.y + (nb.y - b.y),
+            } as any);
+            setBoardPosition(nb, boardId);
+          } else {
+            const seated =
+              b && snapBoardToSocket(boardId, b.boardKind, nb.x, nb.y, componentsRef.current ?? []);
+            setBoardPosition(seated || nb, boardId);
+          }
         } else if (touchId === '__board__') {
           setBoardPosition({
             x: world.x - touchDragOffsetRef.current.x,
@@ -934,6 +981,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
               nx = snapped.x;
               ny = snapped.y;
             }
+            carrySeatedBoards(dragged, nx, ny);
           }
           updateComponent(touchDraggedComponentIdRef.current!, {
             x: nx,
@@ -1548,12 +1596,32 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
       if (draggedComponentId.startsWith('__board__:')) {
         const boardId = draggedComponentId.slice('__board__:'.length);
         {
-          // Socket magnet: a shield that declares boardSocket (the Round
-          // Display's XIAO header) grabs a matching board dragged onto it.
           const nb = { x: world.x - dragOffset.x, y: world.y - dragOffset.y };
-          const bk = useSimulatorStore.getState().boards.find((b) => b.id === boardId)?.boardKind;
-          const seated = bk && snapBoardToSocket(boardId, bk, nb.x, nb.y, componentsRef.current ?? []);
-          setBoardPosition(seated || nb, boardId);
+          const st = useSimulatorStore.getState();
+          const b = st.boards.find((bb) => bb.id === boardId);
+          // While SIMULATING, a seated stack moves as one piece: dragging the
+          // board drags its socket along instead of unplugging it. Unplugging
+          // is an edit-mode gesture (carrySeatedBoards is the other half).
+          const sock =
+            st.running && b
+              ? st.components.find((c) => {
+                  const seat = snapBoardToSocket(b.id, b.boardKind, b.x, b.y, [c]);
+                  return !!seat && Math.hypot(seat.x - b.x, seat.y - b.y) < 0.5;
+                })
+              : undefined;
+          if (b && sock) {
+            updateComponent(sock.id, {
+              x: sock.x + (nb.x - b.x),
+              y: sock.y + (nb.y - b.y),
+            } as any);
+            setBoardPosition(nb, boardId);
+          } else {
+            // Socket magnet: a shield that declares boardSocket (the Round
+            // Display's XIAO header) grabs a matching board dragged onto it.
+            const seated =
+              b && snapBoardToSocket(boardId, b.boardKind, nb.x, nb.y, componentsRef.current ?? []);
+            setBoardPosition(seated || nb, boardId);
+          }
         }
       } else if (draggedComponentId === '__board__') {
         // legacy fallback
@@ -1583,6 +1651,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
             nx = snapped.x;
             ny = snapped.y;
           }
+          carrySeatedBoards(dragged, nx, ny);
         }
         updateComponent(draggedComponentId, { x: nx, y: ny } as any);
       }
