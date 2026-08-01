@@ -942,8 +942,13 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
           // board drags its socket along instead of unplugging. Latched at
           // drag start for the same reason (see carriedSocketRef).
           if (carriedSocketRef.current?.dragId !== touchId) {
+            // Ask the DRAGGED board whether it is running, not the store's
+            // top-level flag — that one mirrors the ACTIVE board only, so a
+            // running non-active board read as stopped and its stack came
+            // apart mid-simulation.
+            const boardRunning = !!(b && (b.running || st.running));
             const seatedOn =
-              st.running && b
+              boardRunning && b
                 ? st.components.find((c) => {
                     const seat = snapBoardToSocket(b.id, b.boardKind, b.x, b.y, [c]);
                     return !!seat && Math.hypot(seat.x - b.x, seat.y - b.y) < 0.5;
@@ -1616,8 +1621,13 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
           // board drags its socket along instead of unplugging it. Unplugging
           // is an edit-mode gesture (carrySeatedBoards is the other half).
           if (carriedSocketRef.current?.dragId !== draggedComponentId) {
+            // Ask the DRAGGED board whether it is running, not the store's
+            // top-level flag — that one mirrors the ACTIVE board only, so a
+            // running non-active board read as stopped and its stack came
+            // apart mid-simulation.
+            const boardRunning = !!(b && (b.running || st.running));
             const seatedOn =
-              st.running && b
+              boardRunning && b
                 ? st.components.find((c) => {
                     const seat = snapBoardToSocket(b.id, b.boardKind, b.x, b.y, [c]);
                     return !!seat && Math.hypot(seat.x - b.x, seat.y - b.y) < 0.5;
