@@ -192,7 +192,7 @@ export const ONLINE_ONLY_COMPONENT_ADS: OnlineOnlyComponentAd[] = [
     label: 'Grove Smart IR Gesture (PAG7661QN)',
     description: 'IR camera gesture sensor on a XIAO carrier: seat a XIAO on its socket and read rotate/tap/grab/pinch/swipe over I2C - available in the online editor',
     category: 'input',
-    thumbnailSvg: '<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect x="17" y="4" width="30" height="56" rx="5" fill="#12518f" stroke="#0d3c6b"/><circle cx="34" cy="18" r="8" fill="#0a0b0e" stroke="#3a3f49"/><circle cx="34" cy="18" r="4" fill="#1b1030"/><rect x="21" y="30" width="7" height="24" rx="1.5" fill="#15171c"/><rect x="38" y="30" width="7" height="24" rx="1.5" fill="#15171c"/><rect x="8" y="12" width="8" height="14" rx="2" fill="#e8e8ec"/></svg>',
+    thumbnailSvg: '<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><rect x="16" y="3" width="32" height="58" rx="5" fill="#1263a8" stroke="#0a3a66"/><circle cx="24" cy="13" r="4" fill="#3a2226"/><circle cx="40" cy="13" r="4" fill="#3a2226"/><rect x="21" y="20" width="22" height="20" rx="3" fill="#23262c" stroke="#454b56"/><circle cx="32" cy="30" r="7.5" fill="#33373f"/><circle cx="32" cy="30" r="5" fill="#0d0f13"/><circle cx="32" cy="30" r="3.4" fill="#17202f"/><circle cx="30.4" cy="28.4" r="1.3" fill="#9dbbe4"/><rect x="19" y="44" width="6" height="15" rx="1.5" fill="#15171c"/><rect x="39" y="44" width="6" height="15" rx="1.5" fill="#15171c"/><rect x="6" y="46" width="9" height="14" rx="2" fill="#eeeee9"/></svg>',
   },
   {
     id: 'respeaker-lite',
