@@ -148,20 +148,50 @@ describe('layoutInspectorPins — a crowded header fits its edge', () => {
   });
 });
 
-describe('layoutInspectorPins — interior pins', () => {
-  it('detects a pin far from every edge and anchors its label on the dot', () => {
-    const r = layoutInspectorPins(
-      [
-        { name: 'MID', x: 50, y: 50 },
-        { name: 'L', x: 2, y: 50 },
-      ],
-      { width: 100, height: 100 },
-    );
-    const mid = r.pins.find((p) => p.name === 'MID')!;
-    expect(mid.edge).toBe('interior');
-    expect(mid.labelX).toBe(mid.dotX);
-    expect(mid.labelY).toBe(mid.dotY);
-    expect(r.pins.find((p) => p.name === 'L')!.edge).toBe('left');
+describe('layoutInspectorPins — inset columns (the ReSpeaker Lite case)', () => {
+  // pro/.../SeeedElements.ts ReSpeakerLiteElement.pinInfo, body 178x437.
+  // The XIAO socket is TWO INSET COLUMNS (x=50.5 / 126.5 on a 178-wide body)
+  // plus two breakout pad columns at x=10. A nearest-edge rule called most of
+  // these "interior" and printed no label, so the part looked like it was
+  // missing pins. Every pin must get a label.
+  const RESPEAKER: InspectorPinInput[] = [
+    ...['D0', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6'].map((name, i) => ({
+      name,
+      x: 50.5,
+      y: [43, 55, 68, 81, 93, 106, 119][i],
+    })),
+    ...['D7', 'D8', 'D9', 'D10', '3V3', 'GND', '5V'].map((name, i) => ({
+      name,
+      x: 126.5,
+      y: [43, 55, 68, 81, 93, 106, 119][i],
+    })),
+    ...['BTN1', 'BTN2', 'BTN3'].map((name, i) => ({ name, x: 10, y: 214 + i * 15 })),
+    ...['IO1', 'IO2', 'IO3', 'IO4'].map((name, i) => ({ name, x: 10, y: 289 + i * 13 })),
+  ];
+
+  const r = layoutInspectorPins(RESPEAKER, { width: 178, height: 437 });
+
+  it('labels every single pin — none silently dropped', () => {
+    expect(r.pins).toHaveLength(RESPEAKER.length);
+    const named = new Set(r.pins.map((p) => p.name));
+    for (const p of RESPEAKER) expect(named.has(p.name)).toBe(true);
+  });
+
+  it('keeps each inset column on the side of the body it sits on', () => {
+    const sideOf = (n: string) => r.pins.find((p) => p.name === n)!.edge;
+    for (const n of ['D0', 'D3', 'D6']) expect(sideOf(n)).toBe('left');
+    for (const n of ['D7', '3V3', '5V']) expect(sideOf(n)).toBe('right');
+    for (const n of ['BTN1', 'IO4']) expect(sideOf(n)).toBe('left');
+  });
+
+  it('draws a leader from every inset dot to its gutter label', () => {
+    for (const n of ['D0', 'D7', '3V3']) {
+      expect(r.pins.find((p) => p.name === n)!.needsLeader).toBe(true);
+    }
+  });
+
+  it('never puts a column end-pin in the top or bottom gutter', () => {
+    expect(r.pins.some((p) => p.edge === 'top' || p.edge === 'bottom')).toBe(false);
   });
 });
 

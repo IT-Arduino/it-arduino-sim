@@ -168,6 +168,15 @@
   display: block;
 }
 
+/* Stand-in for the part's body while the art is hidden (pin mode). */
+.pid-body-outline {
+  position: absolute;
+  border: 1px dashed #5a5a5a;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  pointer-events: none;
+}
+
 .pid-preview-missing {
   color: #666;
   font-size: 22px;
@@ -352,7 +361,9 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   min-height: 120px;
-  max-height: min(52vh, 420px);
+  /* Cap the tab, not the dialog: a long datasheet scrolls INSIDE the tab so
+     the dialog keeps a stable height and never runs off the screen. */
+  max-height: min(46vh, 360px);
 }
 
 /* The datasheet reuses the picker card's .cip-doc styles as-is. */

@@ -76,8 +76,14 @@ interface PartInspectorDialogProps {
   wireInProgress?: boolean;
 }
 
-const PREVIEW_ART = 150; // collapsed preview box
-const PINS_ART = 240; // art box when the pin view is on
+const PREVIEW_ART = 150; // collapsed preview box (the part's own art)
+/**
+ * Pin-map box. Smaller than the collapsed preview on purpose: in this mode the
+ * part's art is HIDDEN (it ate the dialog for no information) and only the pin
+ * dots, their labels and a faint outline of the body are drawn, so the spatial
+ * arrangement still reads while the panel stays compact.
+ */
+const PINS_ART = 190;
 
 export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
   componentId,
@@ -146,6 +152,17 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
     window.addEventListener('keydown', onCaptureKey, true);
     return () => window.removeEventListener('keydown', onCaptureKey, true);
   }, [capturingKey, componentId, onPropertyChange]);
+
+  // The preview effect must NOT re-run on every parent render, or the element
+  // is torn down and remounted and the dialog visibly flickers whenever the
+  // canvas re-renders (moving the pointer in and out is enough). Both of the
+  // inputs it cares about arrive as fresh objects each render — pinInfo is a
+  // getter that builds a new array, and componentProperties a new object — so
+  // depend on stable string digests of them instead of their identities.
+  const propsKey = Object.entries(componentProperties)
+    .map(([k, v]) => `${k}=${typeof v === 'string' && v.length > 32 ? v.length : String(v)}`)
+    .join('|');
+  const pinsKey = pinInfo.map((p) => `${p.name}:${p.x},${p.y}`).join('|');
 
   // ── Live preview: mount the real element, measure, lay out pins ──────────
   useEffect(() => {
@@ -218,26 +235,45 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
       el.removeEventListener('pininfo-change', onPinsChange);
       host.textContent = '';
     };
-    // componentProperties is intentionally in the deps: a color change while
-    // the dialog is open should repaint the preview.
-  }, [componentMetadata, componentProperties, pinInfo, showPins]);
+    // propsKey/pinsKey stand in for componentProperties/pinInfo: a real change
+    // (a colour edit, an LED flip) changes the digest and repaints; a bare
+    // re-render does not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [componentMetadata, propsKey, pinsKey, showPins]);
 
   // ── Position: viewport coords, clamped, portaled to body ─────────────────
+  // Re-run on every SIZE change, not just on the inputs we can name. The
+  // datasheet arrives asynchronously (loadDoc) and the markdown can be long,
+  // so a one-shot measure placed the dialog while it was still short and it
+  // then grew off the bottom of the screen — the user only saw it corrected
+  // when some other event happened to re-render and re-measure it.
   useLayoutEffect(() => {
     const el = dialogRef.current;
     if (!el) return;
-    const margin = 12;
-    const w = el.offsetWidth;
-    const h = el.offsetHeight;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    let x = position.x + 16;
-    let y = position.y;
-    if (x + w > vw - margin) x = Math.max(margin, position.x - w - 16);
-    x = Math.max(margin, Math.min(x, vw - w - margin));
-    y = Math.max(margin, Math.min(y, vh - h - margin));
-    setDialogPos({ x, y });
-  }, [position, layout, tab, showPins]);
+    const place = () => {
+      const margin = 12;
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      let x = position.x + 16;
+      let y = position.y;
+      if (x + w > vw - margin) x = Math.max(margin, position.x - w - 16);
+      x = Math.max(margin, Math.min(x, vw - w - margin));
+      y = Math.max(margin, Math.min(y, vh - h - margin));
+      setDialogPos((prev) =>
+        prev && Math.abs(prev.x - x) < 0.5 && Math.abs(prev.y - y) < 0.5 ? prev : { x, y },
+      );
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(el);
+    window.addEventListener('resize', place);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', place);
+    };
+  }, [position]);
 
   // ── Close behaviours (unchanged semantics) ───────────────────────────────
   useEffect(() => {
@@ -376,18 +412,16 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
                       onClick={clickable ? activate : undefined}
                       disabled={!clickable}
                     />
-                    {p.edge !== 'interior' && (
-                      <button
-                        type="button"
-                        className={`pid-pin-label pid-pin-label--${p.edge}`}
-                        style={{ left: ox + p.labelX, top: oy + p.labelY }}
-                        title={pinTitle(p.name, pinInfo.find((q) => q.name === p.name)?.description)}
-                        onClick={clickable ? activate : undefined}
-                        disabled={!clickable}
-                      >
-                        {p.name}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className={`pid-pin-label pid-pin-label--${p.edge}`}
+                      style={{ left: ox + p.labelX, top: oy + p.labelY }}
+                      title={pinTitle(p.name, pinInfo.find((q) => q.name === p.name)?.description)}
+                      onClick={clickable ? activate : undefined}
+                      disabled={!clickable}
+                    >
+                      {p.name}
+                    </button>
                   </React.Fragment>
                 );
               })}

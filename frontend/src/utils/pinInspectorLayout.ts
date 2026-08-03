@@ -151,25 +151,83 @@ export function layoutInspectorPins(
   const W = w * scale;
   const H = h * scale;
 
-  // Classify each pin by its nearest edge on the scaled art.
-  const fW = interiorFrac * W;
-  const fH = interiorFrac * H;
-  const classified = pins.map((pin) => {
-    const x = pin.x * scale;
-    const y = pin.y * scale;
-    const dLeft = x;
-    const dRight = W - x;
-    const dTop = y;
-    const dBottom = H - y;
-    let edge: PinEdge;
-    if (dLeft > fW && dRight > fW && dTop > fH && dBottom > fH) {
-      edge = 'interior';
-    } else {
-      const min = Math.min(dLeft, dRight, dTop, dBottom);
-      edge = min === dLeft ? 'left' : min === dRight ? 'right' : min === dTop ? 'top' : 'bottom';
+  // Classify each pin.
+  //
+  // Nearest-edge alone is wrong for real parts, and got caught by the
+  // ReSpeaker Lite: its XIAO socket is two INSET columns (x=50.5 and 126.5 on
+  // a 178-wide body) plus two rows of breakout pads. Every one of those sat
+  // far enough from all four edges to be called "interior", which printed no
+  // label — the pins were on screen as dots and looked missing. And a plain
+  // nearest-edge rule scatters a column's end pins to the top/bottom gutter.
+  //
+  // So: find the LINES first. Pins sharing an x form a vertical column, pins
+  // sharing a y form a horizontal row; a column belongs to the side of the
+  // body it sits on, however far inset it is, and a leader line joins its
+  // labels to the dots. Only a pin that belongs to no line falls back to its
+  // nearest edge. Every pin gets a printed label — that is the contract.
+  const TOL = 6 * scale; // pads within this are the same column/row
+  const cluster = (vals: number[]): number[][] => {
+    const idx = vals.map((v, i) => [v, i] as const).sort((a, b) => a[0] - b[0]);
+    const groups: number[][] = [];
+    let cur: number[] = [];
+    let last = NaN;
+    for (const [v, i] of idx) {
+      if (cur.length && Math.abs(v - last) > TOL) {
+        groups.push(cur);
+        cur = [];
+      }
+      cur.push(i);
+      last = v;
+    }
+    if (cur.length) groups.push(cur);
+    return groups;
+  };
+
+  const xs = pins.map((p) => p.x * scale);
+  const ys = pins.map((p) => p.y * scale);
+  const side = new Array<PinEdge | null>(pins.length).fill(null);
+
+  // Vertical columns win first: they are the dominant shape on breakout
+  // boards, shields and every DIP part.
+  for (const g of cluster(xs)) {
+    if (g.length < 2) continue;
+    const spanY = Math.max(...g.map((i) => ys[i])) - Math.min(...g.map((i) => ys[i]));
+    if (spanY < TOL) continue; // that is a row, not a column
+    const cx = g.reduce((s, i) => s + xs[i], 0) / g.length;
+    const e: PinEdge = cx <= W / 2 ? 'left' : 'right';
+    for (const i of g) side[i] = e;
+  }
+  // Then horizontal rows, for whatever is still unassigned (headers).
+  for (const g of cluster(ys)) {
+    const free = g.filter((i) => side[i] === null);
+    if (free.length < 2) continue;
+    const spanX = Math.max(...free.map((i) => xs[i])) - Math.min(...free.map((i) => xs[i]));
+    if (spanX < TOL) continue;
+    const cy = free.reduce((s, i) => s + ys[i], 0) / free.length;
+    const e: PinEdge = cy <= H / 2 ? 'top' : 'bottom';
+    for (const i of free) side[i] = e;
+  }
+
+  const classified = pins.map((pin, i) => {
+    const x = xs[i];
+    const y = ys[i];
+    let edge = side[i];
+    if (!edge) {
+      // A lone pad: nearest edge.
+      const d = [
+        ['left', x],
+        ['right', W - x],
+        ['top', y],
+        ['bottom', H - y],
+      ] as Array<[PinEdge, number]>;
+      d.sort((a, b) => a[1] - b[1]);
+      edge = d[0][0];
     }
     return { pin, x, y, edge };
   });
+  // interiorFrac is retained in the options for callers that want the old
+  // behaviour; the line-first classifier makes it unnecessary here.
+  void interiorFrac;
 
   // Lay labels per edge. Left/right stack along y; top/bottom along x
   // (with wider spacing — their labels are horizontal text).
@@ -217,20 +275,15 @@ export function layoutInspectorPins(
       };
     });
   }
-  for (const [c, i] of byEdge('interior')) {
-    // Interior pins keep their label ON the dot: the dialog renders a
-    // tooltip instead of printed text (a label in the middle of the art
-    // would sit on top of the silkscreen).
-    laid[i] = {
-      name: c.pin.name,
-      edge: 'interior',
-      dotX: c.x,
-      dotY: c.y,
-      labelX: c.x,
-      labelY: c.y,
-      needsLeader: false,
-      signalKind: signalKindOf(c.pin),
-    };
+  // A leader is also needed whenever the DOT is inset from its gutter, even
+  // if the label sits on the dot's own row: without it an inset column's
+  // labels look unattached to anything.
+  for (const p of laid) {
+    if (!p) continue;
+    if (p.edge === 'left' && p.dotX > 6) p.needsLeader = true;
+    else if (p.edge === 'right' && p.dotX < W - 6) p.needsLeader = true;
+    else if (p.edge === 'top' && p.dotY > 6) p.needsLeader = true;
+    else if (p.edge === 'bottom' && p.dotY < H - 6) p.needsLeader = true;
   }
 
   const has = (e: PinEdge) => classified.some((c) => c.edge === e);
