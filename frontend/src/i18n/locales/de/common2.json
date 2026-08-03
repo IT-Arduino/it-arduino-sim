@@ -155,7 +155,7 @@
       "dismiss": "Schließen",
       "removeBoard": "Board entfernen",
       "wireCount_one": "{{count}} Leitung",
-      "wireCount_other": "{{count}} Leitungen",
+      "wireCount_other": "{{count}} Kabel",
       "removeConfirm": {
         "boardFallback": "Board",
         "title": "{{label}} entfernen?",
@@ -164,7 +164,9 @@
         "bodyWithWires_other": "Dadurch wird das Board aus dem Arbeitsbereich und {{count}} verbundene Leitungen entfernt. Diese Aktion kann nicht rückgängig gemacht werden.",
         "cancel": "Abbrechen",
         "remove": "Entfernen"
-      }
+      },
+      "boardOptions": "Board-Optionen...",
+      "flashToBoard": "Auf echtes Board flashen"
     },
     "componentPicker": {
       "title": "Komponente hinzufügen",

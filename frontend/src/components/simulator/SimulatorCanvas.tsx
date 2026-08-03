@@ -12,7 +12,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { adcPinMapFor } from '../velxio-components/Esp32Element';
 import { ComponentPickerModal } from '../ComponentPickerModal';
-import { PartInspectorDialog } from './PartInspectorDialog';
+import { PartInspectorDialog, type InspectorAction } from './PartInspectorDialog';
 import { CustomChipDialog } from '../customChips/CustomChipDialog';
 import { SensorControlPanel } from './SensorControlPanel';
 import { SENSOR_CONTROLS, getSensorControl } from '../../simulation/sensorControlConfig';
@@ -3346,6 +3346,98 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
           );
         })()}
 
+      {/* Board inspector — the same dialog components use. Boards do not
+          rotate, so the actions column carries Board Options / Flash and a
+          "Remove board" delete instead. It replaces the small context menu
+          that used to live here. */}
+      {boardContextMenu &&
+        (() => {
+          const board = boards.find((b) => b.id === boardContextMenu.boardId);
+          if (!board) return null;
+          const name = boardDisplayName(board);
+          const connectedWires = wires.filter(
+            (w) =>
+              w.start.componentId === boardContextMenu.boardId ||
+              w.end.componentId === boardContextMenu.boardId,
+          ).length;
+          const element = document.getElementById(boardContextMenu.boardId);
+          const boardPins = element ? (element as any).pinInfo : [];
+          const actions: InspectorAction[] = [];
+          if (isEsp32Family(board.boardKind)) {
+            actions.push({
+              id: 'board-options',
+              label: t('editor.canvas.boardOptions'),
+              onSelect: () => {
+                setBoardOptionsModalFor(boardContextMenu.boardId);
+                setBoardContextMenu(null);
+              },
+            });
+          }
+          // Flashing needs USB serial, which only the desktop shell has.
+          if (isTauriRuntime) {
+            actions.push({
+              id: 'flash',
+              label: t('editor.canvas.flashToBoard'),
+              disabled: !board.compiledProgram,
+              title: board.compiledProgram
+                ? 'Flash the compiled sketch to a real USB-attached board'
+                : 'Compile the sketch first',
+              onSelect: () => {
+                setFlashModalFor(boardContextMenu.boardId);
+                setBoardContextMenu(null);
+              },
+            });
+          }
+          return (
+            <PartInspectorDialog
+              componentId={boardContextMenu.boardId}
+              componentMetadata={
+                {
+                  id: board.boardKind,
+                  tagName: '',
+                  name,
+                  category: 'boards',
+                  description: BOARD_KIND_FQBN[board.boardKind]
+                    ? `FQBN: ${BOARD_KIND_FQBN[board.boardKind]}`
+                    : undefined,
+                  thumbnail: '',
+                  properties: [],
+                  defaultValues: {},
+                  pinCount: boardPins?.length ?? 0,
+                  tags: [],
+                } as unknown as ComponentMetadata
+              }
+              componentProperties={{}}
+              position={{ x: boardContextMenu.x, y: boardContextMenu.y }}
+              pinInfo={boardPins || []}
+              previewTagName={element?.tagName.toLowerCase()}
+              previewAttributes={{ 'board-kind': board.boardKind }}
+              extraActions={actions}
+              deleteLabel={t('editor.canvas.removeBoard')}
+              deleteHint={
+                connectedWires > 0
+                  ? t('editor.canvas.wireCount', { count: connectedWires })
+                  : undefined
+              }
+              wireInProgress={Boolean(wireInProgress)}
+              onClose={() => setBoardContextMenu(null)}
+              onDelete={(id) => {
+                setBoardContextMenu(null);
+                setBoardToRemove(id);
+              }}
+              onPinSelect={(id, pinName) => {
+                const b = boards.find((x) => x.id === id);
+                const pin = (document.getElementById(id) as any)?.pinInfo?.find(
+                  (p: { name: string }) => p.name === pinName,
+                );
+                if (!b || !pin) return;
+                setBoardContextMenu(null);
+                handlePinClick(id, pinName, b.x + pin.x, b.y + pin.y);
+              }}
+            />
+          );
+        })()}
+
       {/* Custom Chip Designer Dialog */}
       {customChipComponentId &&
         (() => {
@@ -3487,211 +3579,6 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                   }}
                 >
                   {t('editor.selectionBar.deleteKind.wire')}
-                </button>
-              </div>
-            </>
-          );
-        })()}
-
-      {boardContextMenu &&
-        (() => {
-          const board = boards.find((b) => b.id === boardContextMenu.boardId);
-          const label = board ? boardDisplayName(board) : 'Board';
-          const connectedWires = wires.filter(
-            (w) =>
-              w.start.componentId === boardContextMenu.boardId ||
-              w.end.componentId === boardContextMenu.boardId,
-          ).length;
-          const supportsOptions = board ? isEsp32Family(board.boardKind) : false;
-          return (
-            <>
-              <div
-                style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
-                onClick={() => setBoardContextMenu(null)}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setBoardContextMenu(null);
-                }}
-              />
-              <div
-                style={{
-                  position: 'fixed',
-                  left: boardContextMenu.x,
-                  top: boardContextMenu.y,
-                  background: '#252526',
-                  border: '1px solid #3c3c3c',
-                  borderRadius: 6,
-                  padding: '4px 0',
-                  zIndex: 9999,
-                  minWidth: 200,
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-                  fontSize: 13,
-                }}
-              >
-                <div
-                  style={{
-                    padding: '6px 14px',
-                    color: '#888',
-                    fontSize: 11,
-                    borderBottom: '1px solid #3c3c3c',
-                    marginBottom: 2,
-                  }}
-                >
-                  {label}
-                </div>
-                <button
-                  disabled={!supportsOptions}
-                  title={supportsOptions ? undefined : 'ESP32 only'}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    width: '100%',
-                    padding: '7px 14px',
-                    background: 'none',
-                    border: 'none',
-                    color: supportsOptions ? '#ddd' : '#555',
-                    cursor: supportsOptions ? 'pointer' : 'not-allowed',
-                    fontSize: 13,
-                    textAlign: 'left',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (supportsOptions) e.currentTarget.style.background = '#2a2d2e';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'none';
-                  }}
-                  onClick={() => {
-                    if (!supportsOptions) return;
-                    setBoardOptionsModalFor(boardContextMenu.boardId);
-                    setBoardContextMenu(null);
-                  }}
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                  </svg>
-                  Board Options...
-                </button>
-                <div
-                  style={{
-                    height: 1,
-                    background: '#3c3c3c',
-                    margin: '4px 0',
-                  }}
-                />
-                {/* Hardware flash — only useful inside Tauri (web can't
-                    talk to USB serial without WebSerial). Hidden in web
-                    so the item doesn't tease a feature that won't work
-                    until the WebSerial track lands. */}
-                {isTauriRuntime && (
-                  <button
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      width: '100%',
-                      padding: '7px 14px',
-                      background: 'none',
-                      border: 'none',
-                      color: !!board?.compiledProgram ? '#e6e6e9' : '#666',
-                      cursor: !!board?.compiledProgram ? 'pointer' : 'not-allowed',
-                      fontSize: 13,
-                      textAlign: 'left',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (board?.compiledProgram) e.currentTarget.style.background = '#2a2d2e';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'none';
-                    }}
-                    disabled={!board?.compiledProgram}
-                    title={
-                      board?.compiledProgram
-                        ? 'Flash the compiled sketch to a real USB-attached board'
-                        : 'Compile the sketch first'
-                    }
-                    onClick={() => {
-                      if (!board?.compiledProgram) return;
-                      setFlashModalFor(boardContextMenu.boardId);
-                      setBoardContextMenu(null);
-                    }}
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                    </svg>
-                    Flash to real board
-                  </button>
-                )}
-                <div
-                  style={{
-                    height: 1,
-                    background: '#3c3c3c',
-                    margin: '4px 0',
-                  }}
-                />
-                <button
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    width: '100%',
-                    padding: '7px 14px',
-                    background: 'none',
-                    border: 'none',
-                    color: '#e06c75',
-                    cursor: 'pointer',
-                    fontSize: 13,
-                    textAlign: 'left',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#2a2d2e';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'none';
-                  }}
-                  onClick={() => {
-                    setBoardContextMenu(null);
-                    setBoardToRemove(boardContextMenu.boardId);
-                  }}
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
-                  {t('editor.canvas.removeBoard')}
-                  {connectedWires > 0 && (
-                    <span style={{ color: '#888', fontSize: 11 }}>
-                      ({t('editor.canvas.wireCount', { count: connectedWires })})
-                    </span>
-                  )}
                 </button>
               </div>
             </>

@@ -164,7 +164,9 @@
         "bodyWithWires_other": "このボードと{{count}}本の接続配線をワークスペースから削除します。この操作は元に戻せません。",
         "cancel": "キャンセル",
         "remove": "削除"
-      }
+      },
+      "boardOptions": "ボード設定...",
+      "flashToBoard": "実機に書き込む"
     },
     "componentPicker": {
       "title": "コンポーネントを追加",

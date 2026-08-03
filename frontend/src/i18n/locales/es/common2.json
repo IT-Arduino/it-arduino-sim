@@ -166,7 +166,9 @@
         "bodyWithWires_other": "Esto eliminará la placa del espacio de trabajo y {{count}} cables conectados. Esta acción no se puede deshacer.",
         "cancel": "Cancelar",
         "remove": "Eliminar"
-      }
+      },
+      "boardOptions": "Opciones de la placa...",
+      "flashToBoard": "Grabar en placa real"
     },
     "componentPicker": {
       "title": "Añadir componente",

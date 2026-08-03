@@ -164,7 +164,9 @@
         "bodyWithWires_other": "这将从工作区中移除该板以及 {{count}} 根连接的导线。此操作无法撤销。",
         "cancel": "取消",
         "remove": "移除"
-      }
+      },
+      "boardOptions": "开发板选项...",
+      "flashToBoard": "烧录到实体板"
     },
     "componentPicker": {
       "title": "添加元件",

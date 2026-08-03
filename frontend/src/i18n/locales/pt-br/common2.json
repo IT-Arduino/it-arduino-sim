@@ -164,7 +164,9 @@
         "bodyWithWires_other": "Isso removerá a placa do workspace e {{count}} fios conectados. Esta ação não pode ser desfeita.",
         "cancel": "Cancelar",
         "remove": "Remover"
-      }
+      },
+      "boardOptions": "Opcoes da placa...",
+      "flashToBoard": "Gravar na placa real"
     },
     "componentPicker": {
       "title": "Adicionar Componente",

@@ -164,7 +164,9 @@
         "bodyWithWires_other": "Questo rimuoverà la scheda dal workspace e {{count}} cavi collegati. Questa azione non può essere annullata.",
         "cancel": "Annulla",
         "remove": "Rimuovi"
-      }
+      },
+      "boardOptions": "Opzioni scheda...",
+      "flashToBoard": "Flash su scheda reale"
     },
     "componentPicker": {
       "title": "Aggiungi componente",

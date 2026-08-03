@@ -60,6 +60,18 @@ function displayCategory(cat: string): string {
   return cat ? cat.charAt(0).toUpperCase() + cat.slice(1) : cat;
 }
 
+/**
+ * An action shown in the left column instead of Rotate. Boards do not rotate;
+ * they carry Board Options / Flash instead, and the canvas owns what those do.
+ */
+export interface InspectorAction {
+  id: string;
+  label: string;
+  title?: string;
+  disabled?: boolean;
+  onSelect: () => void;
+}
+
 interface PartInspectorDialogProps {
   componentId: string;
   componentMetadata: ComponentMetadata;
@@ -68,12 +80,23 @@ interface PartInspectorDialogProps {
   position: { x: number; y: number };
   pinInfo: Array<{ name: string; x: number; y: number; signals?: any[]; description?: string }>;
   onClose: () => void;
-  onRotate: (componentId: string) => void;
+  /** Omitted for boards, which do not rotate. */
+  onRotate?: (componentId: string) => void;
   onDelete: (componentId: string) => void;
   onPropertyChange?: (componentId: string, propertyName: string, value: unknown) => void;
   /** Same contract as the old dialog: the canvas starts/finishes a wire here. */
   onPinSelect?: (componentId: string, pinName: string) => void;
   wireInProgress?: boolean;
+  /** Board-only extras, rendered above Delete in the actions column. */
+  extraActions?: InspectorAction[];
+  /** Overrides the Delete button's label (boards say "Remove board"). */
+  deleteLabel?: string;
+  /** Extra line under the delete confirmation (e.g. "3 wires will be removed"). */
+  deleteHint?: string;
+  /** Tag rendered live in the preview when the element is not the metadata's. */
+  previewTagName?: string;
+  /** Attributes to set on the preview element (boards need board-kind). */
+  previewAttributes?: Record<string, string>;
 }
 
 const PREVIEW_ART = 150; // collapsed preview box (the part's own art)
@@ -97,6 +120,11 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
   onPropertyChange,
   onPinSelect,
   wireInProgress,
+  extraActions,
+  deleteLabel,
+  deleteHint,
+  previewTagName,
+  previewAttributes,
 }) => {
   const { t } = useTranslation();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -172,7 +200,7 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
     setLayout(null);
     host.textContent = '';
 
-    const tag = componentMetadata.tagName;
+    const tag = previewTagName || componentMetadata.tagName;
     if (!tag || !customElements.get(tag)) {
       // Unregistered tag (or none): the header thumbnail already shows the
       // art, so the preview just reports there is nothing live to mount.
@@ -195,6 +223,9 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
         /* read-only prop on some element - ignore */
       }
     }
+    // Boards select their art through an ATTRIBUTE (board-kind), not a
+    // property: velxio-esp32 renders nothing until it has one.
+    for (const [k, v] of Object.entries(previewAttributes ?? {})) el.setAttribute(k, v);
     el.classList.add('pid-preview-element');
     host.appendChild(el);
 
@@ -239,7 +270,7 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
     // (a colour edit, an LED flip) changes the digest and repaints; a bare
     // re-render does not.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [componentMetadata, propsKey, pinsKey, showPins]);
+  }, [componentMetadata, propsKey, pinsKey, showPins, previewTagName]);
 
   // ── Position: viewport coords, clamped, portaled to body ─────────────────
   // Re-run on every SIZE change, not just on the inputs we can name. The
@@ -446,6 +477,7 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
               <>
                 <span className="pid-confirm-label">
                   {t('editor.componentProps.confirmDelete', { name: componentMetadata.name })}
+                  {deleteHint && <em className="pid-confirm-hint">{deleteHint}</em>}
                 </span>
                 <button
                   className="pid-action-button"
@@ -462,24 +494,39 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
                   }}
                   title={t('editor.componentProps.confirmDeleteTitle')}
                 >
-                  {t('editor.componentProps.delete')}
+                  {deleteLabel ?? t('editor.componentProps.delete')}
                 </button>
               </>
             ) : (
               <>
-                <button
-                  className="pid-action-button"
-                  onClick={() => onRotate(componentId)}
-                  title={t('editor.componentProps.rotate90')}
-                >
-                  {t('editor.componentProps.rotate')}
-                </button>
+                {/* Boards pass no onRotate (they do not rotate); they pass
+                    Board Options / Flash as extraActions instead. */}
+                {onRotate && (
+                  <button
+                    className="pid-action-button"
+                    onClick={() => onRotate(componentId)}
+                    title={t('editor.componentProps.rotate90')}
+                  >
+                    {t('editor.componentProps.rotate')}
+                  </button>
+                )}
+                {extraActions?.map((a) => (
+                  <button
+                    key={a.id}
+                    className="pid-action-button"
+                    onClick={a.disabled ? undefined : a.onSelect}
+                    disabled={a.disabled}
+                    title={a.title}
+                  >
+                    {a.label}
+                  </button>
+                ))}
                 <button
                   className="pid-action-button pid-action-delete"
                   onClick={() => setConfirmingDelete(true)}
                   title={t('editor.componentProps.deleteTitle')}
                 >
-                  {t('editor.componentProps.delete')}
+                  {deleteLabel ?? t('editor.componentProps.delete')}
                 </button>
               </>
             )}

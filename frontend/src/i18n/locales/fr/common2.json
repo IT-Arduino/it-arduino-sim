@@ -164,7 +164,9 @@
         "bodyWithWires_other": "Cela supprimera la carte de l'espace de travail ainsi que {{count}} fils connectés. Cette action est irréversible.",
         "cancel": "Annuler",
         "remove": "Supprimer"
-      }
+      },
+      "boardOptions": "Options de la carte...",
+      "flashToBoard": "Flasher la carte reelle"
     },
     "componentPicker": {
       "title": "Ajouter un composant",

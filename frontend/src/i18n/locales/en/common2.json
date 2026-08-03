@@ -166,7 +166,9 @@
         "bodyWithWires_other": "This will remove the board from the workspace and {{count}} connected wires. This action cannot be undone.",
         "cancel": "Cancel",
         "remove": "Remove"
-      }
+      },
+      "boardOptions": "Board Options...",
+      "flashToBoard": "Flash to real board"
     },
     "componentPicker": {
       "title": "Add Component",
