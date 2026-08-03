@@ -397,10 +397,18 @@ export class Esp32Bridge {
             // Stage 1: banner "Type help()" → poke UART with \r to flush ">>> "
             // The >>> prompt has no \n so the backend UART buffer holds it until
             // we send a byte that causes another write.
+            // The poke only fires while the prompt is STILL missing. If the
+            // backend ever delivers ">>>" on its own within 600 ms, stage 2
+            // arms Ctrl-A (+200 ms) before this timer (+800 ms) fires, and the
+            // \r then lands inside the pasted code — MicroPython reads a lone
+            // \r as a newline, so it silently cuts a source line in half. That
+            // is exactly what broke the in-browser JS engines, where the prompt
+            // arrives immediately (see pro microPythonRepl.ts).
             if (this._replState === 'idle' && this._serialBuffer.includes('Type "help()"')) {
               this._replState = 'banner_seen';
               console.log('[Esp32Bridge] Stage 1: banner seen → poking UART with \\r');
               setTimeout(() => {
+                if (this._replState !== 'banner_seen') return; // prompt already arrived
                 this._send({ type: 'esp32_serial_input', data: { bytes: [0x0d] } });
               }, 800);
             }
