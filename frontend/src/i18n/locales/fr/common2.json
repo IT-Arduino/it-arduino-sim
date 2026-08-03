@@ -386,6 +386,11 @@
       "run": "Exécuter",
       "hideExplorer": "Masquer l'explorateur de fichiers",
       "showExplorer": "Afficher l'explorateur de fichiers"
+    },
+    "inspector": {
+      "propertiesTab": "Propriétés",
+      "datasheetTab": "Fiche technique",
+      "showPins": "Afficher les broches"
     }
   },
   "about": {

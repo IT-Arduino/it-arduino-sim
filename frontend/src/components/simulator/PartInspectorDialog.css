@@ -1,0 +1,424 @@
+/**
+ * Part Inspector dialog — the merged right-click surface (preview + pins on
+ * the left, Properties/Datasheet tabs on the right). Portaled to <body> and
+ * positioned in viewport coordinates, unlike its predecessor.
+ */
+
+.part-inspector-dialog {
+  position: fixed;
+  background-color: #2d2d2d;
+  border: 1px solid #555;
+  border-radius: 10px;
+  width: 560px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.55);
+  /* Above every canvas overlay (wire menus sit at ~1001); below the picker
+     modal stack (9000+), which is never open at the same time anyway. */
+  z-index: 1300;
+  pointer-events: all;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-size: 13px;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────── */
+
+.pid-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #444;
+  flex: 0 0 auto;
+}
+
+.pid-thumb {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pid-thumb svg {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.pid-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.pid-name {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pid-badges {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.pid-cat,
+.pid-pins-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: #3d3d3d;
+  color: #bbb;
+}
+
+.pid-pro {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: #7c5cff;
+  color: #fff;
+  font-weight: 700;
+}
+
+.pid-brand {
+  font-size: 11px;
+  color: #999;
+}
+
+.pid-close {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  flex: 0 0 auto;
+}
+
+.pid-close:hover {
+  color: #fff;
+}
+
+/* ── Two columns ─────────────────────────────────────────────────────── */
+
+.pid-columns {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.pid-left {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-right: 1px solid #444;
+  max-width: 60%;
+  overflow: auto;
+}
+
+.pid-right {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  min-height: 0;
+}
+
+/* ── Preview + spatial pins ──────────────────────────────────────────── */
+
+.pid-preview {
+  position: relative;
+  min-width: 90px;
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pid-preview-art {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* Collapsed mode centres the scaled art in the box via flex on the parent —
+   the art host is absolute, so centre it with inset auto margins instead. */
+.pid-preview:not(.pid-preview--pins) .pid-preview-art {
+  position: relative;
+}
+
+.pid-preview-element {
+  display: block;
+}
+
+.pid-preview-missing {
+  color: #666;
+  font-size: 22px;
+}
+
+.pid-preview-fallback svg {
+  width: 90px;
+  height: 90px;
+}
+
+.pid-pin-leader {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.pid-pin-leader line {
+  stroke: #777;
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
+.pid-pin-dot {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  margin: -5px 0 0 -5px; /* centre on the pin coordinate */
+  border-radius: 50%;
+  border: 1px solid #111;
+  background: #9aa0a6;
+  padding: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.pid-pin-dot:disabled {
+  cursor: default;
+}
+
+.pid-pin-dot:hover:not(:disabled) {
+  transform: scale(1.5);
+  background: #4dd0e1;
+}
+
+/* Signal tinting — the same data the wire classifier reads. */
+.pid-sig-power-gnd { background: #616161; }
+.pid-sig-power-vcc { background: #e57373; }
+.pid-sig-i2c { background: #64b5f6; }
+.pid-sig-spi { background: #81c784; }
+.pid-sig-usart { background: #ffb74d; }
+.pid-sig-pwm { background: #ba68c8; }
+.pid-sig-analog { background: #4db6ac; }
+
+.pid-pin-label {
+  position: absolute;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #ddd;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.pid-pin-label:disabled {
+  cursor: default;
+}
+
+.pid-pin-label:hover:not(:disabled) {
+  color: #4dd0e1;
+}
+
+.pid-pin-label--left {
+  transform: translate(-100%, -50%);
+}
+
+.pid-pin-label--top {
+  transform: translate(-50%, -100%);
+}
+
+.pid-pin-label--bottom {
+  transform: translate(-50%, 0);
+}
+
+.pid-show-pins {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #ccc;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pid-wire-hint {
+  color: #4dd0e1;
+  font-size: 11px;
+}
+
+/* ── Actions ─────────────────────────────────────────────────────────── */
+
+.pid-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: auto;
+}
+
+.pid-action-button {
+  background: #3d3d3d;
+  border: 1px solid #555;
+  border-radius: 6px;
+  color: #eee;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pid-action-button:hover {
+  background: #4a4a4a;
+}
+
+.pid-action-delete {
+  border-color: #7a3b3b;
+  color: #ff8a80;
+}
+
+.pid-action-delete:hover {
+  background: #4a3030;
+}
+
+.pid-confirm-label {
+  font-size: 12px;
+  color: #ffb4ab;
+  flex-basis: 100%;
+  text-align: center;
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────────── */
+
+.pid-tabs {
+  display: flex;
+  border-bottom: 1px solid #444;
+  flex: 0 0 auto;
+}
+
+.pid-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #aaa;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pid-tab--active {
+  color: #fff;
+  border-bottom-color: #4dd0e1;
+}
+
+.pid-tab-body {
+  padding: 10px 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  min-height: 120px;
+  max-height: min(52vh, 420px);
+}
+
+/* The datasheet reuses the picker card's .cip-doc styles as-is. */
+.pid-tab-body--doc .cip-doc {
+  max-height: none;
+}
+
+/* ── Property rows ───────────────────────────────────────────────────── */
+
+.pid-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.pid-row-label {
+  color: #bbb;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pid-row-value {
+  color: #eee;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.pid-row--dim .pid-row-label,
+.pid-row--dim .pid-row-value {
+  color: #888;
+}
+
+.pid-select,
+.pid-input {
+  background: #1f1f1f;
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #eee;
+  padding: 4px 6px;
+  font-size: 12px;
+  max-width: 150px;
+}
+
+.pid-defaults {
+  margin-top: 8px;
+  border-top: 1px dashed #444;
+  padding-top: 6px;
+}
+
+/* ── Mobile: full sheet, columns stack ───────────────────────────────── */
+
+@media (max-width: 560px) {
+  .part-inspector-dialog {
+    left: 8px !important;
+    right: 8px !important;
+    top: 8px !important;
+    bottom: 8px !important;
+    width: auto;
+    max-height: none;
+  }
+
+  .pid-columns {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .pid-left {
+    border-right: none;
+    border-bottom: 1px solid #444;
+    max-width: none;
+  }
+
+  .pid-tab-body {
+    max-height: none;
+  }
+}

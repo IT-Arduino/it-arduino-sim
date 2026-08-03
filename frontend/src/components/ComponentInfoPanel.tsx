@@ -24,6 +24,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { PropertyDescriptor } from '../types/component-metadata';
 import { loadDoc, type ComponentDoc } from './componentDocs';
+import './ComponentInfoPanel.css';
 
 export interface PanelData {
   id: string; // component / board id — used to look up the Markdown doc
@@ -47,7 +48,7 @@ export const HOVER_DELAY = 160;
 
 // Bulk / opaque properties that are never useful in a datasheet popover
 // (base64 blobs, embedded source, framebuffers, …).
-const HIDDEN_PROPS = new Set([
+export const HIDDEN_PROPS = new Set([
   'imageData',
   'wasmBase64',
   'sourceC',
@@ -55,15 +56,17 @@ const HIDDEN_PROPS = new Set([
   'chipJson',
   'programFile',
   'programTarget',
+  // The Part Inspector reuses this list; sdFiles is a base64 payload too.
+  'sdFiles',
 ]);
 
 /** Only allow real web links through to the Buy button (no javascript:, etc.). */
-function safeHref(url?: string): string | null {
+export function safeHref(url?: string): string | null {
   if (!url) return null;
   return /^https?:\/\//i.test(url) ? url : null;
 }
 
-function formatValue(p: PropertyDescriptor): string {
+export function formatValue(p: PropertyDescriptor): string {
   const raw = p.defaultValue;
   let def = raw === undefined || raw === null || raw === '' ? '' : String(raw);
   if (def.length > 40) def = def.slice(0, 39) + '…';
@@ -80,6 +83,106 @@ function formatValue(p: PropertyDescriptor): string {
   return def || '—';
 }
 
+/**
+ * Load the authored Markdown datasheet (if any) for a component/board id.
+ * Thin hook over `loadDoc`'s cache so both the hover panel and the Part
+ * Inspector dialog share one code path (and one cache) for docs.
+ */
+export function useComponentDoc(id: string): ComponentDoc | null {
+  const [doc, setDoc] = React.useState<ComponentDoc | null>(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    setDoc(null);
+    loadDoc(id).then((d) => {
+      if (!cancelled) setDoc(d);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+  return doc;
+}
+
+/**
+ * The panel's CONTENT, with no portal, no positioning and no header: the doc
+ * markdown (or the metadata description as fallback), the default-property
+ * rows, the tag chips and the Buy footer. The hover panel wraps it; the Part
+ * Inspector dialog embeds it as its Datasheet tab.
+ */
+export const ComponentInfoBody: React.FC<{
+  data: PanelData;
+  /** false = doc/description + tags + Buy only (the dialog has its own props UI). */
+  showProps?: boolean;
+}> = ({ data, showProps = true }) => {
+  const doc = useComponentDoc(data.id);
+
+  const visibleProps = data.properties.filter((p) => !HIDDEN_PROPS.has(p.name));
+  const shownProps = visibleProps.slice(0, 8);
+  const hiddenCount = visibleProps.length - shownProps.length;
+  const buyHref = safeHref(doc?.buy);
+
+  return (
+    <>
+      {/* Authored datasheet supersedes the thin auto-generated description. */}
+      {doc?.body ? (
+        <div className="cip-doc">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc.body}</ReactMarkdown>
+        </div>
+      ) : (
+        data.description && <p className="cip-desc">{data.description}</p>
+      )}
+
+      {showProps && shownProps.length > 0 && (
+        <div className="cip-props">
+          <div className="cip-section-title">Properties</div>
+          <div className="cip-prop-list">
+            {shownProps.map((p) => (
+              <div className="cip-prop-row" key={p.name}>
+                <span className="cip-prop-name">{p.name}</span>
+                <span className="cip-prop-val">{formatValue(p)}</span>
+              </div>
+            ))}
+          </div>
+          {hiddenCount > 0 && <div className="cip-more">+{hiddenCount} more</div>}
+        </div>
+      )}
+
+      {data.tags && data.tags.length > 0 && (
+        <div className="cip-tags">
+          {data.tags.slice(0, 6).map((t) => (
+            <span className="cip-tag" key={t}>
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {buyHref && (
+        <div className="cip-footer">
+          <a className="cip-buy" href={buyHref} target="_blank" rel="noopener noreferrer">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="9" cy="21" r="1" />
+              <circle cx="20" cy="21" r="1" />
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+            </svg>
+            Buy
+          </a>
+        </div>
+      )}
+    </>
+  );
+};
+
 interface ComponentInfoPanelProps {
   target: HoverTarget;
   /** Called when the pointer enters the panel — cancels the pending hide. */
@@ -95,20 +198,12 @@ export const ComponentInfoPanel: React.FC<ComponentInfoPanelProps> = ({
 }) => {
   const ref = React.useRef<HTMLDivElement>(null);
   const [pos, setPos] = React.useState<{ left: number; top: number } | null>(null);
-  const [doc, setDoc] = React.useState<ComponentDoc | null>(null);
   const { data, rect } = target;
 
-  // Pull the authored Markdown datasheet (if any) for this id.
-  React.useEffect(() => {
-    let cancelled = false;
-    setDoc(null);
-    loadDoc(data.id).then((d) => {
-      if (!cancelled) setDoc(d);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [data.id]);
+  // The doc is loaded here TOO (same cached loadDoc as ComponentInfoBody):
+  // the panel needs it for the brand line in its header, and as a dependency
+  // of the measure effect below — the doc arriving changes the panel height.
+  const doc = useComponentDoc(data.id);
 
   // The panel is portaled to <body>, OUTSIDE the React root container, so
   // React's synthetic onMouseEnter/onMouseLeave never fire on it (React binds
@@ -169,12 +264,7 @@ export const ComponentInfoPanel: React.FC<ComponentInfoPanelProps> = ({
   const svgThumb =
     data.thumbnail && data.thumbnail.trim().startsWith('<svg') ? data.thumbnail : null;
 
-  const visibleProps = data.properties.filter((p) => !HIDDEN_PROPS.has(p.name));
-  const shownProps = visibleProps.slice(0, 8);
-  const hiddenCount = visibleProps.length - shownProps.length;
-
   const brand = doc?.brand;
-  const buyHref = safeHref(doc?.buy);
 
   return createPortal(
     <div
@@ -204,67 +294,7 @@ export const ComponentInfoPanel: React.FC<ComponentInfoPanelProps> = ({
         </div>
       </div>
 
-      {/* Authored datasheet supersedes the thin auto-generated description. */}
-      {doc?.body ? (
-        <div className="cip-doc">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc.body}</ReactMarkdown>
-        </div>
-      ) : (
-        data.description && <p className="cip-desc">{data.description}</p>
-      )}
-
-      {shownProps.length > 0 && (
-        <div className="cip-props">
-          <div className="cip-section-title">Properties</div>
-          <div className="cip-prop-list">
-            {shownProps.map((p) => (
-              <div className="cip-prop-row" key={p.name}>
-                <span className="cip-prop-name">{p.name}</span>
-                <span className="cip-prop-val">{formatValue(p)}</span>
-              </div>
-            ))}
-          </div>
-          {hiddenCount > 0 && <div className="cip-more">+{hiddenCount} more</div>}
-        </div>
-      )}
-
-      {data.tags && data.tags.length > 0 && (
-        <div className="cip-tags">
-          {data.tags.slice(0, 6).map((t) => (
-            <span className="cip-tag" key={t}>
-              {t}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {buyHref && (
-        <div className="cip-footer">
-          <a
-            className="cip-buy"
-            href={buyHref}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <circle cx="9" cy="21" r="1" />
-              <circle cx="20" cy="21" r="1" />
-              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-            </svg>
-            Buy
-          </a>
-        </div>
-      )}
+      <ComponentInfoBody data={data} />
     </div>,
     document.body,
   );

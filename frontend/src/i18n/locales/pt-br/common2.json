@@ -386,6 +386,11 @@
       "run": "Executar",
       "hideExplorer": "Ocultar explorador de arquivos",
       "showExplorer": "Mostrar explorador de arquivos"
+    },
+    "inspector": {
+      "propertiesTab": "Propriedades",
+      "datasheetTab": "Ficha técnica",
+      "showPins": "Mostrar pinos"
     }
   },
   "about": {

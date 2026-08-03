@@ -12,7 +12,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { adcPinMapFor } from '../velxio-components/Esp32Element';
 import { ComponentPickerModal } from '../ComponentPickerModal';
-import { ComponentPropertyDialog } from './ComponentPropertyDialog';
+import { PartInspectorDialog } from './PartInspectorDialog';
 import { CustomChipDialog } from '../customChips/CustomChipDialog';
 import { SensorControlPanel } from './SensorControlPanel';
 import { SENSOR_CONTROLS, getSensorControl } from '../../simulation/sensorControlConfig';
@@ -1111,9 +1111,23 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                 }
               } else {
                 setPropertyDialogComponentId(touchId);
+                // The inspector positions itself in VIEWPORT coordinates (it
+                // is portaled to body), so convert the component's canvas
+                // position through the canvas-content rect. The right-click
+                // path passes e.clientX/Y, which is already viewport space —
+                // the two gestures used to disagree on this.
+                const canvasRect = document
+                  .querySelector('.canvas-content')
+                  ?.getBoundingClientRect();
                 setPropertyDialogPosition({
-                  x: component.x * zoomRef.current + panRef.current.x,
-                  y: component.y * zoomRef.current + panRef.current.y,
+                  x:
+                    component.x * zoomRef.current +
+                    panRef.current.x +
+                    (canvasRect?.left ?? 0),
+                  y:
+                    component.y * zoomRef.current +
+                    panRef.current.y +
+                    (canvasRect?.top ?? 0),
                 });
                 setShowPropertyDialog(true);
               }
@@ -3283,7 +3297,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
           const pinInfo = element ? (element as any).pinInfo : [];
 
           return (
-            <ComponentPropertyDialog
+            <PartInspectorDialog
               componentId={propertyDialogComponentId}
               componentMetadata={metadata}
               componentProperties={component.properties}

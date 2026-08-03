@@ -386,6 +386,11 @@
       "run": "Запустить",
       "hideExplorer": "Скрыть проводник файлов",
       "showExplorer": "Показать проводник файлов"
+    },
+    "inspector": {
+      "propertiesTab": "Свойства",
+      "datasheetTab": "Спецификация",
+      "showPins": "Показать выводы"
     }
   },
   "about": {

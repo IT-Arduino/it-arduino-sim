@@ -386,6 +386,11 @@
       "run": "実行",
       "hideExplorer": "ファイルエクスプローラーを隠す",
       "showExplorer": "ファイルエクスプローラーを表示"
+    },
+    "inspector": {
+      "propertiesTab": "プロパティ",
+      "datasheetTab": "データシート",
+      "showPins": "ピンを表示"
     }
   },
   "about": {

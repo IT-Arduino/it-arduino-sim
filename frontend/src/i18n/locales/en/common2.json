@@ -388,6 +388,11 @@
       "run": "Run",
       "hideExplorer": "Hide file explorer",
       "showExplorer": "Show file explorer"
+    },
+    "inspector": {
+      "propertiesTab": "Properties",
+      "datasheetTab": "Datasheet",
+      "showPins": "Show pins"
     }
   },
   "about": {

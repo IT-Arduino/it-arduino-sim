@@ -386,6 +386,11 @@
       "run": "Esegui",
       "hideExplorer": "Nascondi esplora file",
       "showExplorer": "Mostra esplora file"
+    },
+    "inspector": {
+      "propertiesTab": "Proprietà",
+      "datasheetTab": "Scheda tecnica",
+      "showPins": "Mostra i pin"
     }
   },
   "about": {

@@ -386,6 +386,11 @@
       "run": "运行",
       "hideExplorer": "隐藏文件资源管理器",
       "showExplorer": "显示文件资源管理器"
+    },
+    "inspector": {
+      "propertiesTab": "属性",
+      "datasheetTab": "数据手册",
+      "showPins": "显示引脚"
     }
   },
   "about": {
