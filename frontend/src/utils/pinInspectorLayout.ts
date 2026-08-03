@@ -287,14 +287,37 @@ export function layoutInspectorPins(
   }
 
   const has = (e: PinEdge) => classified.some((c) => c.edge === e);
+  let padLeft = has('left') ? SIDE_GUTTER : 0;
+  let padRight = has('right') ? SIDE_GUTTER : 0;
+  let padTop = has('top') ? CAP_GUTTER : 0;
+  let padBottom = has('bottom') ? CAP_GUTTER : 0;
+
+  // A stack taller than the art must not be clipped. A ReSpeaker's left side
+  // carries 13 labels: at the minimum spacing that is 208 px against a 190 px
+  // body, so the column necessarily runs past both ends and the first and
+  // last labels were cut off. Grow the gutters to whatever the labels
+  // actually occupy — the box follows the content, not the other way round.
+  const HALF_LINE = 7; // half a label's line box, plus a hair of margin
+  for (const p of laid) {
+    if (!p) continue;
+    if (p.edge === 'left' || p.edge === 'right') {
+      padTop = Math.max(padTop, HALF_LINE - p.labelY);
+      padBottom = Math.max(padBottom, p.labelY + HALF_LINE - H);
+    } else {
+      // Vertical text on the caps: its extent along x is the line box.
+      padLeft = Math.max(padLeft, HALF_LINE - p.labelX);
+      padRight = Math.max(padRight, p.labelX + HALF_LINE - W);
+    }
+  }
+
   return {
     scale,
     artWidth: W,
     artHeight: H,
     pins: laid,
-    padLeft: has('left') ? SIDE_GUTTER : 0,
-    padRight: has('right') ? SIDE_GUTTER : 0,
-    padTop: has('top') ? CAP_GUTTER : 0,
-    padBottom: has('bottom') ? CAP_GUTTER : 0,
+    padLeft: Math.max(0, Math.round(padLeft)),
+    padRight: Math.max(0, Math.round(padRight)),
+    padTop: Math.max(0, Math.round(padTop)),
+    padBottom: Math.max(0, Math.round(padBottom)),
   };
 }

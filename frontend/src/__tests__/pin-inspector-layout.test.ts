@@ -193,6 +193,17 @@ describe('layoutInspectorPins — inset columns (the ReSpeaker Lite case)', () =
   it('never puts a column end-pin in the top or bottom gutter', () => {
     expect(r.pins.some((p) => p.edge === 'top' || p.edge === 'bottom')).toBe(false);
   });
+
+  it('grows the box so a stack taller than the body is not clipped', () => {
+    // 13 labels on the left at >=16px need more room than the scaled body,
+    // so the first and last used to be cut off by the preview's clip.
+    const top = -r.padTop;
+    const bottom = r.artHeight + r.padBottom;
+    for (const p of r.pins) {
+      expect(p.labelY).toBeGreaterThanOrEqual(top);
+      expect(p.labelY).toBeLessThanOrEqual(bottom);
+    }
+  });
 });
 
 describe('signalKindOf', () => {
