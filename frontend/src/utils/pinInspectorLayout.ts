@@ -69,10 +69,14 @@ export interface PinLayoutOptions {
 
 /** Horizontal gutter for left/right label columns (room for "GND2" etc.). */
 const SIDE_GUTTER = 72;
-/** Vertical gutter for top/bottom labels (one text line + leader). */
-const CAP_GUTTER = 28;
-/** Top/bottom labels are horizontal text, so they need more room than 16px. */
-const CAP_MIN_SPACING = 36;
+/**
+ * Vertical gutter for top/bottom labels. Those are drawn as VERTICAL text —
+ * the way printed pinout diagrams do it — because horizontal ones do not fit:
+ * an SSD1306 has 8 pins along a 240px edge, and at the ~36px a horizontal
+ * "DATA" needs they demand 288px and spill out of the dialog. Vertical text
+ * needs only the same spacing as a side column, and the gutter grows instead.
+ */
+const CAP_GUTTER = 52;
 /** Small parts (a resistor is 107x11) are upscaled, but only this far. */
 const MAX_UPSCALE = 2;
 
@@ -197,7 +201,7 @@ export function layoutInspectorPins(
     const group = byEdge(edge);
     const { out, nudged } = stackLabels(
       group.map(([c]) => c.x),
-      Math.max(minSpacing, CAP_MIN_SPACING),
+      minSpacing,
       W,
     );
     group.forEach(([c, i], k) => {

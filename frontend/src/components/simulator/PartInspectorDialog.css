@@ -147,6 +147,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Labels are laid out inside the reserved gutters; clip anything that still
+     overshoots rather than letting it escape over the header or the canvas. */
+  overflow: hidden;
 }
 
 .pid-preview-art {
@@ -248,8 +251,16 @@
   transform: translate(-100%, -50%);
 }
 
+/* Top/bottom labels are VERTICAL, like a printed pinout diagram: a header row
+   packs pins every ~12px, where horizontal text would need ~36px and spill
+   out of the dialog (an 8-pin SSD1306 header is 240px wide). */
+.pid-pin-label--top,
+.pid-pin-label--bottom {
+  writing-mode: vertical-rl;
+}
+
 .pid-pin-label--top {
-  transform: translate(-50%, -100%);
+  transform: translate(-50%, -100%) rotate(180deg);
 }
 
 .pid-pin-label--bottom {

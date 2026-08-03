@@ -127,6 +127,27 @@ describe('layoutInspectorPins — small parts', () => {
   });
 });
 
+describe('layoutInspectorPins — a crowded header fits its edge', () => {
+  it('packs 8 top pins inside the art width (they are drawn as vertical text)', () => {
+    // The SSD1306's 8-pin header measured 240px wide in the dialog. With
+    // horizontal labels this demanded ~288px and the labels escaped the
+    // dialog; vertical labels use the side spacing instead.
+    const pins: InspectorPinInput[] = Array.from({ length: 8 }, (_, i) => ({
+      name: ['DATA', 'CLK', 'DC', 'RST', 'CS', '3V3', 'VIN', 'GND'][i],
+      x: 14 + i * 13,
+      y: 2,
+    }));
+    const r = layoutInspectorPins(pins, { width: 128, height: 119 });
+    for (const p of r.pins) expect(p.edge).toBe('top');
+    const xs = r.pins.map((p) => p.labelX).sort((a, b) => a - b);
+    expect(xs[0]).toBeGreaterThanOrEqual(0);
+    expect(xs[xs.length - 1]).toBeLessThanOrEqual(r.artWidth);
+    for (let i = 1; i < xs.length; i++) {
+      expect(xs[i] - xs[i - 1]).toBeGreaterThanOrEqual(16 - 1e-6);
+    }
+  });
+});
+
 describe('layoutInspectorPins — interior pins', () => {
   it('detects a pin far from every edge and anchors its label on the dot', () => {
     const r = layoutInspectorPins(
