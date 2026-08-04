@@ -4,7 +4,7 @@
  * and we assert a full round-trip (names + bytes), plus BPB/structure checks.
  */
 import { describe, it, expect } from 'vitest';
-import { buildFat16Image, type SdFile } from '../utils/fatImage';
+import { buildFat16Image, readFat16Image, type SdFile } from '../utils/fatImage';
 import { buildProjectSdImage, bytesToB64, decodeSdFiles } from '../utils/sdCardFiles';
 
 // ── Minimal FAT16 reader (test-only) — parses root dir + FAT chains ──────────
@@ -194,5 +194,32 @@ describe('sdCardFiles upload helpers', () => {
     )!;
     expect(f.data.length).toBe(700);
     expect(f.data.every((b) => b === 0x7e)).toBe(true);
+  });
+});
+
+describe('readFat16Image (the production reader feeding the SD panel)', () => {
+  it('round-trips names and bytes through build -> read', () => {
+    const jpeg = new Uint8Array(2289);
+    jpeg[0] = 0xff; jpeg[1] = 0xd8;
+    jpeg[2287] = 0xff; jpeg[2288] = 0xd9;
+    const files: SdFile[] = [
+      { name: 'photo0.jpg', data: jpeg },
+      { name: 'a-much-longer-file-name.txt', data: new TextEncoder().encode('hola') },
+    ];
+    const got = readFat16Image(buildFat16Image(files));
+    expect(got.map((f) => f.name.toLowerCase()).sort()).toEqual([
+      'a-much-longer-file-name.txt',
+      'photo0.jpg',
+    ]);
+    const photo = got.find((f) => f.name.toLowerCase() === 'photo0.jpg')!;
+    expect(photo.size).toBe(2289);
+    expect(photo.data[0]).toBe(0xff);
+    expect(photo.data[1]).toBe(0xd8);
+    expect(photo.data[2288]).toBe(0xd9);
+  });
+
+  it('returns [] for garbage instead of throwing', () => {
+    expect(readFat16Image(new Uint8Array(0))).toEqual([]);
+    expect(readFat16Image(new Uint8Array(4096).fill(0x5a))).toEqual([]);
   });
 });
