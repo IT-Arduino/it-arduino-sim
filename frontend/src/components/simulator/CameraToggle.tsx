@@ -103,11 +103,14 @@ export const CameraToggle: React.FC<CameraToggleProps> = ({ boardId }) => {
       onClick={handleClick}
       disabled={!boardId || status === 'requesting'}
       title={tooltip}
-      // Ants while the button wants a click (idle after a failed/stopped
-      // auto-start, denied, error). Solid border once streaming or asking.
+      // Ants while the button wants a click DURING a run (idle after a
+      // failed/stopped auto-start, denied, error): a camera sketch is
+      // starving without frames. Never while the sim is stopped — the
+      // button is not asking for anything then. Solid border once
+      // streaming or asking.
       className={
-        boardId && status !== 'streaming' && status !== 'requesting'
-          ? 'velxio-ants'
+        running && boardId && status !== 'streaming' && status !== 'requesting'
+          ? 'velxio-btn-ants'
           : undefined
       }
       style={{
@@ -126,8 +129,8 @@ export const CameraToggle: React.FC<CameraToggleProps> = ({ boardId }) => {
         fontSize: 13,
         cursor: boardId ? 'pointer' : 'not-allowed',
         // Inline only while requesting. 'none' here would OVERRIDE the
-        // .velxio-ants class animation (inline beats class), which is exactly
-        // how the ants shipped dead the first time.
+        // .velxio-btn-ants class animation (inline beats class), which is
+        // exactly how the ants shipped dead the first time.
         animation:
           status === 'requesting'
             ? 'velxio-pulse 1s ease-in-out infinite'

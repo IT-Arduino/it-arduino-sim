@@ -457,11 +457,15 @@ body {
    four thin repeating-gradient strips, one per edge, sliding one dash
    period per cycle. Drawn as backgrounds rather than a border because a
    CSS border cannot animate its dash offset. Uses currentColor so the
-   ants inherit the button's state colour (grey idle, red on error). */
+   ants inherit the button's state colour (grey idle, red on error).
+   NOT named .velxio-ants: that class is the canvas selection outline
+   (SimulatorCanvas.css) whose ::after is position:absolute — on a
+   non-positioned button it anchored to the toolbar and drew a
+   toolbar-wide ant line. */
 @keyframes velxio-marching-ants {
   to { background-position: 12px 0, -12px 100%, 0 -12px, 100% 12px; }
 }
-.velxio-ants {
+.velxio-btn-ants {
   background-image:
     repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 12px),
     repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 12px),
@@ -473,7 +477,7 @@ body {
   animation: velxio-marching-ants 0.7s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .velxio-ants { animation: none; }
+  .velxio-btn-ants { animation: none; }
 }
 
 /* ── Editor: toolbar riding inside the header ─────────────────────────────
