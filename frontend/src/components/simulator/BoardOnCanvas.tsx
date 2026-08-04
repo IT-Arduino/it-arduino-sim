@@ -229,6 +229,12 @@ export const BoardOnCanvas = ({
       }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      // Right-click opens the board inspector in EVERY mode. It used to live
+      // on the drag overlay only, which is hidden while running — so during a
+      // simulation there was no way to open the SD panel and grab the files
+      // the sketch just wrote. Bubbling from the board element lands here
+      // without covering the board (its buttons/screen stay interactive).
+      onContextMenu={onContextMenu}
     >
       {boardEl}
 
@@ -285,7 +291,6 @@ export const BoardOnCanvas = ({
             e.stopPropagation();
             onMouseDown(e);
           }}
-          onContextMenu={onContextMenu}
         />
       )}
 

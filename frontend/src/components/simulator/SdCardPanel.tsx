@@ -180,7 +180,7 @@ export const SdCardPanel: React.FC<SdCardPanelProps> = ({ files, onChange, board
               title={`Download ${f.name}`}
               onClick={() => download(f)}
             >
-              Save
+              Download
             </button>
           </div>
         ))

@@ -367,16 +367,16 @@
   font-size: 11px;
 }
 
-/* Buy in the action bar: same solid treatment as the other buttons, in the
-   brand's success green so it reads as the outward link, not an app action. */
+/* Buy in the action bar: solid brand blue (Velxio buttons are solid, and
+   the buy link is the primary action of the datasheet). */
 .pid-buy-button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #2c2c2e;
-  border: 1px solid #4a4a4c;
+  background: #0071e3;
+  border: 1px solid #0071e3;
   border-radius: 6px;
-  color: #f5f5f7;
+  color: #fff;
   padding: 6px 14px;
   font-size: 12px;
   font-weight: 500;
@@ -385,7 +385,8 @@
 }
 
 .pid-buy-button:hover {
-  background: #3a3a3c;
+  background: #005a9e;
+  border-color: #005a9e;
 }
 
 /* ── Tabs ────────────────────────────────────────────────────────────── */
