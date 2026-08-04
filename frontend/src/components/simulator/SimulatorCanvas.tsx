@@ -2700,8 +2700,11 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                   {t('editor.canvas.serial')}
                 </button>
 
-                {/* ESP32-CAM webcam stream toggle */}
-                {activeBoard?.boardKind === 'esp32-cam' && (
+                {/* Webcam stream toggle, for boards with a camera: the
+                    ESP32-CAM (OV2640 over I2S0 DVP) and the XIAO ESP32S3
+                    Sense (OV2640-compatible over LCD_CAM). */}
+                {(activeBoard?.boardKind === 'esp32-cam' ||
+                  activeBoard?.boardKind === 'xiao-esp32s3-sense') && (
                   <CameraToggle boardId={activeBoard.id} />
                 )}
 
