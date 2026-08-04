@@ -175,6 +175,12 @@ export async function loadExample(
         useEditorStore.getState().loadFiles([{ name: filename, content: eb.code }]);
       }
 
+      // Built-in SD slot uploads (XIAO Sense): land on the board exactly as
+      // the SD Card panel would put them, so the Run path finds them.
+      if (eb.sdFiles?.length) {
+        useSimulatorStore.getState().updateBoard(boardId, { sdFiles: eb.sdFiles });
+      }
+
       if (eb.vfsFiles && isPiBoardKind(eb.boardKind)) {
         // Pi example scripts go into the board's REGULAR file group — they
         // are edited in Monaco like any other board's code, and the run

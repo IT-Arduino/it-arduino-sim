@@ -146,6 +146,12 @@ export interface BoardInstance {
   // Types live in `./boardOptions` to avoid a circular import.
   boardOptions?: import('./boardOptions').ESP32BoardOptions;
   spiffsFiles?: import('./boardOptions').SpiffsFile[];
+  /** User uploads for a board's BUILT-IN microSD slot (a ProBoardDef with
+   *  builtInSdCsPin, e.g. the XIAO ESP32S3 Sense). Same shape the
+   *  microsd-card component persists in properties.sdFiles, and consumed the
+   *  same way: merged into buildProjectSdImage on Run, overriding same-named
+   *  project files. Undefined for boards without a slot. */
+  sdFiles?: Array<{ name: string; contentB64: string }>;
   // P2.4 — this board's declared library manifest (its velxio.json). The ESP32
   // compile scope: each board resolves ONLY its own declared libraries, so two
   // boards in the same project can use different (even conflicting) libraries

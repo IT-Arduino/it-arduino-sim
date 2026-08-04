@@ -2251,7 +2251,12 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
           const builtInSdCs = getProBoard(board.boardKind)?.builtInSdCsPin;
           if (sdCard || builtInSdCs !== undefined) {
             try {
-              const uploaded = sdCard ? decodeSdFiles(sdCard.properties.sdFiles) : [];
+              // Uploads come from the card component when one is on the
+              // canvas, else from the BOARD's own slot (board.sdFiles - the
+              // XIAO Sense pattern, same panel, persisted on the board).
+              const uploaded = sdCard
+                ? decodeSdFiles(sdCard.properties.sdFiles)
+                : decodeSdFiles(board.sdFiles);
               const image = buildProjectSdImage(useEditorStore.getState().files, uploaded);
               esp32Bridge.sdImageB64 = bytesToB64(image);
               esp32Bridge.sdCsPin = sdCard ? undefined : builtInSdCs;

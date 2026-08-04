@@ -4,7 +4,7 @@ import {
   getBoardBridge,
   getBoardSimulator,
 } from '../../store/useSimulatorStore';
-import { getBoardBuiltins } from '../../lib/proBoardRegistry';
+import { getBoardBuiltins, getProBoard } from '../../lib/proBoardRegistry';
 import { useElectricalStore } from '../../store/useElectricalStore';
 import { openDeviceGateway } from '../../lib/openDeviceGateway';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
@@ -67,7 +67,7 @@ import {
 } from '../../utils/wireHitDetection';
 import { useIsCoarsePointer } from '../../utils/useTouchDevice';
 import type { ComponentMetadata } from '../../types/component-metadata';
-import type { BoardKind } from '../../types/board';
+import type { BoardKind, BoardInstance } from '../../types/board';
 import { BOARD_KIND_FQBN, boardDisplayName } from '../../types/board';
 import {
   boardGateDecision,
@@ -3405,9 +3405,13 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                   defaultValues: {},
                   pinCount: boardPins?.length ?? 0,
                   tags: [],
+                  // A board with a BUILT-IN microSD slot (XIAO Sense) gets the
+                  // same SD Card upload panel a component slot gets; the files
+                  // live on board.sdFiles and feed the card image on Run.
+                  sdSlot: getProBoard(board.boardKind)?.builtInSdCsPin !== undefined,
                 } as unknown as ComponentMetadata
               }
-              componentProperties={{}}
+              componentProperties={{ sdFiles: board.sdFiles }}
               position={{ x: boardContextMenu.x, y: boardContextMenu.y }}
               pinInfo={boardPins || []}
               previewTagName={element?.tagName.toLowerCase()}
@@ -3421,6 +3425,14 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
               }
               wireInProgress={Boolean(wireInProgress)}
               onClose={() => setBoardContextMenu(null)}
+              onPropertyChange={(id, propName, value) => {
+                // The board dialog's only editable "property" is the SD
+                // slot's upload list; it lives on the board, not in a
+                // component's properties bag.
+                if (propName === 'sdFiles') {
+                  updateBoard(id, { sdFiles: value as BoardInstance['sdFiles'] });
+                }
+              }}
               onDelete={(id) => {
                 setBoardContextMenu(null);
                 setBoardToRemove(id);

@@ -53,6 +53,7 @@ export interface VlxPayload {
     activeFileGroupId: string;
     languageMode?: string;
     serialBaudRate?: number;
+    sdFiles?: Array<{ name: string; contentB64: string }>;
   }>;
   fileGroups: Record<string, Array<{ name: string; content: string }>>;
   components: Component[];
@@ -70,6 +71,9 @@ function serialisableBoard(b: BoardInstance) {
     activeFileGroupId: b.activeFileGroupId,
     languageMode: b.languageMode,
     serialBaudRate: b.serialBaudRate,
+    // Built-in SD slot uploads (XIAO Sense etc.) travel with the project,
+    // exactly like a microsd-card component's properties.sdFiles do.
+    sdFiles: b.sdFiles,
   };
 }
 
