@@ -391,8 +391,7 @@
     },
     "inspector": {
       "propertiesTab": "属性",
-      "datasheetTab": "数据手册",
-      "showPins": "显示引脚"
+      "datasheetTab": "数据手册"
     }
   },
   "about": {

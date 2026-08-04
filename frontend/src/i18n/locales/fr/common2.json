@@ -391,8 +391,7 @@
     },
     "inspector": {
       "propertiesTab": "Propriétés",
-      "datasheetTab": "Fiche technique",
-      "showPins": "Afficher les broches"
+      "datasheetTab": "Fiche technique"
     }
   },
   "about": {

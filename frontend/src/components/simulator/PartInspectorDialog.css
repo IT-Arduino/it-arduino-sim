@@ -15,9 +15,11 @@
   display: flex;
   flex-direction: column;
   box-shadow: 0 6px 28px rgba(0, 0, 0, 0.55);
-  /* Above every canvas overlay (wire menus sit at ~1001); below the picker
-     modal stack (9000+), which is never open at the same time anyway. */
-  z-index: 1300;
+  /* Above every canvas overlay (wire menus ~1001) AND above the pro agent
+     chat panel (8000/8001), which docks over the canvas — the dialog opens
+     from a right-click on the very thing the chat covers, so it has to win.
+     Still below the component picker (9000+), which is never open with it. */
+  z-index: 8500;
   pointer-events: all;
   color: #fff;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
@@ -200,6 +202,14 @@
   stroke: #777;
   stroke-width: 1;
   stroke-dasharray: 2 2;
+  transition: stroke 0.1s;
+}
+
+/* Tracing a name back to its pad: the whole run lights at once. */
+.pid-pin-leader--lit line {
+  stroke: #4dd0e1;
+  stroke-width: 1.6;
+  stroke-dasharray: none;
 }
 
 .pid-pin-dot {
@@ -219,9 +229,11 @@
   cursor: default;
 }
 
-.pid-pin-dot:hover:not(:disabled) {
-  transform: scale(1.5);
+.pid-pin-dot:hover:not(:disabled),
+.pid-pin-dot--lit {
+  transform: scale(1.6);
   background: #4dd0e1;
+  box-shadow: 0 0 6px rgba(77, 208, 225, 0.9);
 }
 
 /* Signal tinting — the same data the wire classifier reads. */
@@ -252,8 +264,10 @@
   cursor: default;
 }
 
-.pid-pin-label:hover:not(:disabled) {
+.pid-pin-label:hover:not(:disabled),
+.pid-pin-label--lit {
   color: #4dd0e1;
+  font-weight: 700;
 }
 
 .pid-pin-label--left {
@@ -276,19 +290,10 @@
   transform: translate(-50%, 0);
 }
 
-.pid-show-pins {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #ccc;
-  cursor: pointer;
-  user-select: none;
-}
-
-.pid-wire-hint {
-  color: #4dd0e1;
+.pid-pin-hint {
   font-size: 11px;
+  color: #999;
+  text-align: center;
 }
 
 /* ── Actions ─────────────────────────────────────────────────────────── */

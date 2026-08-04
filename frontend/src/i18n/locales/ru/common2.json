@@ -391,8 +391,7 @@
     },
     "inspector": {
       "propertiesTab": "Свойства",
-      "datasheetTab": "Спецификация",
-      "showPins": "Показать выводы"
+      "datasheetTab": "Спецификация"
     }
   },
   "about": {

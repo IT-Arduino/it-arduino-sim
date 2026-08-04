@@ -391,8 +391,7 @@
     },
     "inspector": {
       "propertiesTab": "プロパティ",
-      "datasheetTab": "データシート",
-      "showPins": "ピンを表示"
+      "datasheetTab": "データシート"
     }
   },
   "about": {

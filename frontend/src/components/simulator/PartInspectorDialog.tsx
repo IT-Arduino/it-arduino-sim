@@ -8,10 +8,11 @@
  * Datasheet tabs on the right.
  *
  * The preview is the REAL web component, mounted and scaled — not a drawing.
- * With "Show pins" enabled (off by default), pin markers are laid over it at
- * their true positions and labels flank the art on the side each pin lives on
- * (pinInspectorLayout). Everything is driven by the element's own pinInfo and
- * measured size, so any part present or future works with zero per-part data.
+ * Pin markers are laid over it at their true positions and their labels flank
+ * the art on the side each pin lives on (pinInspectorLayout); hovering a name
+ * lights its leader line and its pad so the two can be traced to each other.
+ * Everything is driven by the element's own pinInfo and measured size, so any
+ * part present or future works with zero per-part data.
  *
  * Clicking a pin keeps the exact contract of the old dialog: onPinSelect ->
  * the canvas starts (or finishes) a wire through handlePinClick, with its
@@ -99,12 +100,9 @@ interface PartInspectorDialogProps {
   previewAttributes?: Record<string, string>;
 }
 
-const PREVIEW_ART = 150; // collapsed preview box (the part's own art)
 /**
- * Pin-map box. Smaller than the collapsed preview on purpose: in this mode the
- * part's art is HIDDEN (it ate the dialog for no information) and only the pin
- * dots, their labels and a faint outline of the body are drawn, so the spatial
- * arrangement still reads while the panel stays compact.
+ * The art box the part is scaled into. The pin gutters are added around it, so
+ * the dialog's left column ends up a little wider than this.
  */
 const PINS_ART = 190;
 
@@ -131,10 +129,9 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
   const previewHostRef = useRef<HTMLDivElement>(null);
   const [dialogPos, setDialogPos] = useState<{ x: number; y: number } | null>(null);
   const [tab, setTab] = useState<'properties' | 'datasheet'>('properties');
-  // Pins are HIDDEN by default (explicit product decision): most opens are
-  // for a property tweak or a delete, and the quiet preview keeps the dialog
-  // compact until pins are actually wanted.
-  const [showPins, setShowPins] = useState(false);
+  // The pin the pointer is on — its leader line and dot light up together, so
+  // a name in the gutter can be traced to the pad it belongs to.
+  const [hoverPin, setHoverPin] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [layout, setLayout] = useState<PinLayoutResult | null>(null);
   const [previewFailed, setPreviewFailed] = useState(false);
@@ -247,7 +244,7 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
         return;
       }
       const pins: InspectorPinInput[] = (el.pinInfo && el.pinInfo.length ? el.pinInfo : pinInfo) ?? [];
-      const art = showPins ? PINS_ART : PREVIEW_ART;
+      const art = PINS_ART;
       const result = layoutInspectorPins(pins, { width: w, height: h }, {
         maxArtWidth: art,
         maxArtHeight: art,
@@ -270,7 +267,7 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
     // (a colour edit, an LED flip) changes the digest and repaints; a bare
     // re-render does not.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [componentMetadata, propsKey, pinsKey, showPins, previewTagName]);
+  }, [componentMetadata, propsKey, pinsKey, previewTagName]);
 
   // ── Position: viewport coords, clamped, portaled to body ─────────────────
   // Re-run on every SIZE change, not just on the inputs we can name. The
@@ -391,12 +388,12 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
         {/* Left column: live preview, pin toggle, actions. */}
         <div className="pid-left">
           <div
-            className={`pid-preview${showPins ? ' pid-preview--pins' : ''}`}
+            className="pid-preview pid-preview--pins"
             style={
               layout
                 ? {
-                    width: layout.artWidth + (showPins ? layout.padLeft + layout.padRight : 0),
-                    height: layout.artHeight + (showPins ? layout.padTop + layout.padBottom : 0),
+                    width: layout.artWidth + layout.padLeft + layout.padRight,
+                    height: layout.artHeight + layout.padTop + layout.padBottom,
                   }
                 : undefined
             }
@@ -404,11 +401,7 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
             <div
               className="pid-preview-art"
               ref={previewHostRef}
-              style={
-                layout && showPins
-                  ? { left: layout.padLeft, top: layout.padTop }
-                  : undefined
-              }
+              style={layout ? { left: layout.padLeft, top: layout.padTop } : undefined}
             />
             {previewFailed && !svgThumb && <div className="pid-preview-missing">—</div>}
             {previewFailed && svgThumb && (
@@ -416,17 +409,29 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
             )}
 
             {/* Pin markers + labels, at their true positions. */}
-            {showPins &&
-              layout &&
+            {layout &&
               layout.pins.map((p) => {
                 const ox = layout.padLeft;
                 const oy = layout.padTop;
                 const clickable = Boolean(onPinSelect);
                 const activate = () => onPinSelect?.(componentId, p.name);
+                const lit = hoverPin === p.name;
+                // Hovering EITHER the label or the dot lights the whole run:
+                // label, leader and pad. On a 32-pin board that is the only
+                // way to be sure which pad a gutter name belongs to.
+                const trace = {
+                  onMouseEnter: () => setHoverPin(p.name),
+                  onMouseLeave: () => setHoverPin((c) => (c === p.name ? null : c)),
+                  onFocus: () => setHoverPin(p.name),
+                  onBlur: () => setHoverPin((c) => (c === p.name ? null : c)),
+                };
                 return (
                   <React.Fragment key={p.name}>
                     {p.needsLeader && (
-                      <svg className="pid-pin-leader" aria-hidden="true">
+                      <svg
+                        className={`pid-pin-leader${lit ? ' pid-pin-leader--lit' : ''}`}
+                        aria-hidden="true"
+                      >
                         <line
                           x1={ox + p.dotX}
                           y1={oy + p.dotY}
@@ -437,19 +442,21 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
                     )}
                     <button
                       type="button"
-                      className={`pid-pin-dot pid-sig-${p.signalKind}`}
+                      className={`pid-pin-dot pid-sig-${p.signalKind}${lit ? ' pid-pin-dot--lit' : ''}`}
                       style={{ left: ox + p.dotX, top: oy + p.dotY }}
                       title={pinTitle(p.name, pinInfo.find((q) => q.name === p.name)?.description)}
                       onClick={clickable ? activate : undefined}
                       disabled={!clickable}
+                      {...trace}
                     />
                     <button
                       type="button"
-                      className={`pid-pin-label pid-pin-label--${p.edge}`}
+                      className={`pid-pin-label pid-pin-label--${p.edge}${lit ? ' pid-pin-label--lit' : ''}`}
                       style={{ left: ox + p.labelX, top: oy + p.labelY }}
                       title={pinTitle(p.name, pinInfo.find((q) => q.name === p.name)?.description)}
                       onClick={clickable ? activate : undefined}
                       disabled={!clickable}
+                      {...trace}
                     >
                       {p.name}
                     </button>
@@ -459,17 +466,13 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
           </div>
 
           {pinInfo.length > 0 && (
-            <label className="pid-show-pins">
-              <input
-                type="checkbox"
-                checked={showPins}
-                onChange={(e) => setShowPins(e.target.checked)}
-              />
-              {t('editor.inspector.showPins')}
-              {wireInProgress && showPins && (
-                <span className="pid-wire-hint">{t('editor.componentProps.tapToConnect')}</span>
-              )}
-            </label>
+            <div className="pid-pin-hint">
+              {wireInProgress
+                ? t('editor.componentProps.tapToConnect')
+                : onPinSelect
+                  ? t('editor.componentProps.tapToWire')
+                  : t('editor.componentProps.pinRoles')}
+            </div>
           )}
 
           <div className="pid-actions">

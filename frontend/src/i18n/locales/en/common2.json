@@ -393,8 +393,7 @@
     },
     "inspector": {
       "propertiesTab": "Properties",
-      "datasheetTab": "Datasheet",
-      "showPins": "Show pins"
+      "datasheetTab": "Datasheet"
     }
   },
   "about": {

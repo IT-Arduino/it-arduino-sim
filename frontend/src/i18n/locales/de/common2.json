@@ -391,8 +391,7 @@
     },
     "inspector": {
       "propertiesTab": "Eigenschaften",
-      "datasheetTab": "Datenblatt",
-      "showPins": "Pins anzeigen"
+      "datasheetTab": "Datenblatt"
     }
   },
   "about": {
