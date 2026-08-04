@@ -141,16 +141,34 @@ describe('buildFat16Image', () => {
 });
 
 describe('buildProjectSdImage', () => {
-  it('auto-copies workspace (text) files into the image', () => {
+  it('auto-copies workspace DATA files; source files stay off the card', () => {
     const ws = [
       { name: 'sketch.ino', content: 'void setup(){}' },
+      { name: 'helper.h', content: '#define X 1' },
+      { name: 'impl.cpp', content: 'int x;' },
+      { name: 'script.py', content: 'print(1)' },
       { name: 'notes.txt', content: 'hello from the card' },
+      { name: 'config.json', content: '{}' },
     ];
     const got = readFat16(buildProjectSdImage(ws));
+    const names = got.map((g) => g.name.toLowerCase());
     const notes = got.find((g) => g.name.toLowerCase() === 'notes.txt');
     expect(notes).toBeTruthy();
     expect(new TextDecoder().decode(notes!.data)).toBe('hello from the card');
-    expect(got.some((g) => g.name.toLowerCase() === 'sketch.ino')).toBe(true);
+    expect(names).toContain('config.json');
+    // Code lives in flash, not on the microSD.
+    expect(names).not.toContain('sketch.ino');
+    expect(names).not.toContain('helper.h');
+    expect(names).not.toContain('impl.cpp');
+    expect(names).not.toContain('script.py');
+  });
+
+  it('an explicit upload lands even with a source extension', () => {
+    const uploaded = decodeSdFiles([
+      { name: 'ref.py', contentB64: bytesToB64(new TextEncoder().encode('print(2)')) },
+    ]);
+    const got = readFat16(buildProjectSdImage([], uploaded));
+    expect(got.some((g) => g.name.toLowerCase() === 'ref.py')).toBe(true);
   });
 
   it('uploaded (paid) files override same-named project files', () => {
@@ -161,11 +179,14 @@ describe('buildProjectSdImage', () => {
     expect(Array.from(f.data)).toEqual([0xde, 0xad, 0xbe, 0xef]); // binary, not "TEXT"
   });
 
-  it('adds uploaded binary files alongside project files', () => {
-    const ws = [{ name: 'main.ino', content: 'x' }];
+  it('adds uploaded binary files alongside project data files', () => {
+    const ws = [
+      { name: 'main.ino', content: 'x' }, // source: stays off the card
+      { name: 'readme.txt', content: 'data' },
+    ];
     const uploaded = [{ name: 'logo.bmp', data: new Uint8Array(800).fill(0x42) }];
     const got = readFat16(buildProjectSdImage(ws, uploaded));
-    expect(got.length).toBe(2);
+    expect(got.length).toBe(2); // readme.txt + logo.bmp, no main.ino
     const logo = got.find((g) => g.name.toLowerCase() === 'logo.bmp')!;
     expect(logo.data.length).toBe(800);
     expect(logo.data.every((b) => b === 0x42)).toBe(true);

@@ -118,8 +118,9 @@ export const SdCardPanel: React.FC<SdCardPanelProps> = ({ files, onChange, board
       </div>
       {files.length === 0 && (
         <div className="sd-card-hint">
-          Upload your own files (images, audio, data). Project files are added
-          automatically.
+          Upload your own files (images, audio, data). The project's data files
+          are added automatically; source files (.ino, .h, .cpp, .py) stay off
+          the card.
         </div>
       )}
       {files.map((f) => (
