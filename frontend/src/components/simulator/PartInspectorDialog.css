@@ -307,27 +307,37 @@
   margin-top: auto;
 }
 
+/* Solid fills, per the brand kit: interactive surfaces are the accent blue
+   (--blue-600 #0071e3), destructive ones the danger red (--red-500 #ff453a),
+   both with white text. Velxio does not use outline buttons. */
 .pid-action-button {
-  background: #3d3d3d;
-  border: 1px solid #555;
+  background: var(--color-action-primary, #0071e3);
+  border: none;
   border-radius: 6px;
-  color: #eee;
-  padding: 5px 12px;
+  color: var(--color-action-primary-fg, #fff);
+  padding: 6px 14px;
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
+  transition: background 0.12s, opacity 0.12s;
 }
 
-.pid-action-button:hover {
-  background: #4a4a4a;
+.pid-action-button:hover:not(:disabled) {
+  background: var(--color-action-primary-hover, #0a84ff);
+}
+
+.pid-action-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .pid-action-delete {
-  border-color: #7a3b3b;
-  color: #ff8a80;
+  background: var(--color-feedback-error, #ff453a);
+  color: #fff;
 }
 
-.pid-action-delete:hover {
-  background: #4a3030;
+.pid-action-delete:hover:not(:disabled) {
+  background: #d70015; /* --red-600 */
 }
 
 .pid-confirm-label {
@@ -360,15 +370,16 @@
   border-bottom-color: #4dd0e1;
 }
 
+/* ONE height for both tabs. Sizing each tab to its own content made the whole
+   dialog jump every time you switched — a short Properties list shrank it, a
+   long datasheet grew it. The pane is fixed and each tab scrolls inside it. */
 .pid-tab-body {
   padding: 10px 12px;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  min-height: 120px;
-  /* Cap the tab, not the dialog: a long datasheet scrolls INSIDE the tab so
-     the dialog keeps a stable height and never runs off the screen. */
-  max-height: min(46vh, 360px);
+  height: 360px;
+  max-height: 46vh;
 }
 
 /* The datasheet reuses the picker card's .cip-doc styles as-is. */
@@ -445,7 +456,10 @@
     max-width: none;
   }
 
+  /* The full-sheet layout scrolls as one column, so the fixed desktop pane
+     height would leave a dead gap under a short tab. */
   .pid-tab-body {
+    height: auto;
     max-height: none;
   }
 }
