@@ -693,6 +693,20 @@ class ESPIDFCompiler:
         'Udp.h', 'IPAddress.h', 'Client.h', 'Server.h', 'Stream.h',
         'Print.h', 'Printable.h', 'WiFiUdp.h', 'WiFiClient.h',
         'WiFiServer.h', 'WiFiType.h', 'esp_wifi.h',
+        # Platform headers that do NOT exist in the arduino-esp32 core, so
+        # the core-tree scan can't discover them, yet carry names generic
+        # enough that some random installed library owns a file by that
+        # name. Resolving one drags that whole library into user_libs_all
+        # and its sources then fail on THEIR own missing includes.
+        #
+        # Reported 2026-08-03 (nikas79): ESPAsyncWebServer includes <Hash.h>
+        # (an ESP8266-core header, guarded for that platform) and the global
+        # scan resolved it to `stemihexapod/src/Hash.h` — a hexapod-robot
+        # library — whose Serial.cpp / Hash.cpp / Server.cpp /
+        # BluetoothLowEnergy.cpp / ExpansionDriver.cpp then broke every
+        # ESP32 build with errors naming libraries the user never installed.
+        'Hash.h', 'Serial.h', 'HardwareSerial.h', 'WString.h',
+        'WCharacter.h', 'binary.h', 'pins_arduino.h', 'Esp.h',
     })
 
     # arduino-esp32 uses a single library architecture id ("esp32") across
