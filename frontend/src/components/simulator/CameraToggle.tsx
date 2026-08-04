@@ -20,9 +20,12 @@ import { useSimulatorStore } from '../../store/useSimulatorStore';
 
 interface CameraToggleProps {
   boardId: string | null;
+  /** Per-board frame byte budget (see useWebcamFrames). Omit for the
+   *  default QEMU ESP32-CAM bound. */
+  maxFrameBytes?: number;
 }
 
-export const CameraToggle: React.FC<CameraToggleProps> = ({ boardId }) => {
+export const CameraToggle: React.FC<CameraToggleProps> = ({ boardId, maxFrameBytes }) => {
   const {
     status,
     errorMessage,
@@ -32,7 +35,7 @@ export const CameraToggle: React.FC<CameraToggleProps> = ({ boardId }) => {
     lastDownscaled,
     start,
     stop,
-  } = useWebcamFrames();
+  } = useWebcamFrames(maxFrameBytes);
 
   // Auto-start when the sketch RUNS. An ESP32-CAM sketch exists to capture, so
   // waiting for a click on this toggle just reads as "the camera is broken":

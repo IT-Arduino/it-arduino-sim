@@ -2706,7 +2706,16 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                     Sense (OV2640-compatible over LCD_CAM). */}
                 {(activeBoard?.boardKind === 'esp32-cam' ||
                   activeBoard?.boardKind === 'xiao-esp32s3-sense') && (
-                  <CameraToggle boardId={activeBoard.id} />
+                  <CameraToggle
+                    boardId={activeBoard.id}
+                    // The S3 esp32-camera build allocates width*height/5 bytes
+                    // for a QVGA JPEG frame (15360) and stops copying at
+                    // fb_size - one 1 KiB DMA half-buffer: frames must stay
+                    // under ~14336 or the EOI marker is truncated (NO-EOI).
+                    maxFrameBytes={
+                      activeBoard.boardKind === 'xiao-esp32s3-sense' ? 14000 : undefined
+                    }
+                  />
                 )}
 
                 {/* Microphone stream toggle, for boards whose def declares an
