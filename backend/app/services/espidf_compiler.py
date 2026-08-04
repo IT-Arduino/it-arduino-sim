@@ -1137,10 +1137,104 @@ class ESPIDFCompiler:
         )
         return ['user_libs_all'], header_to_comp
 
+    # Platform macros we can decide with certainty when scanning a source
+    # for #include directives. Everything NOT listed here is unknown, and an
+    # expression mentioning an unknown identifier is treated as LIVE — the
+    # scanner must never hide a header the compiler will really need.
+    _PP_TRUE = frozenset({
+        'ESP32', 'ESP_PLATFORM', 'ARDUINO_ARCH_ESP32',
+    })
+    _PP_FALSE = frozenset({
+        'ESP8266', 'ARDUINO_ARCH_ESP8266', '__AVR__', 'ARDUINO_ARCH_AVR',
+        'ARDUINO_ARCH_SAMD', 'ARDUINO_ARCH_SAM', 'ARDUINO_ARCH_STM32',
+        'ARDUINO_ARCH_RENESAS', 'ARDUINO_ARCH_RP2040', 'ARDUINO_ARCH_MBED',
+        'TARGET_RP2040', 'TARGET_RP2350', 'PICO_RP2040', 'PICO_RP2350',
+        'CORE_TEENSY', '__MBED__', '__SAMD51__', '__SAM3X8E__',
+        'ARDUINO_ARCH_NRF52', 'NRF52', 'TARGET_ESP8266',
+    })
+    _PP_IDENT_RE = re.compile(r'[A-Za-z_][A-Za-z_0-9]*')
+    _PP_COMMENT_BLOCK_RE = re.compile(r'/\*.*?\*/', re.DOTALL)
+    _PP_COMMENT_LINE_RE = re.compile(r'//[^\n]*')
+
+    def _pp_branch_is_live(self, expr: str) -> bool:
+        """Best-effort evaluation of a #if / #elif condition.
+
+        Returns False ONLY when every identifier in the expression is a
+        platform macro we know is undefined on ESP32 (so the branch is
+        provably dead here). Anything else — unknown macros, arithmetic,
+        version checks — is reported LIVE. Being wrong in the LIVE
+        direction only costs us the old behaviour; being wrong the other
+        way would hide a genuinely needed library.
+        """
+        idents = [
+            i for i in self._PP_IDENT_RE.findall(expr)
+            if i not in ('defined', 'ifdef', 'ifndef')
+        ]
+        if not idents:
+            return True
+        if any(i in self._PP_TRUE for i in idents):
+            return True
+        # Dead only when we recognise EVERY identifier as false-on-ESP32.
+        return not all(i in self._PP_FALSE for i in idents)
+
     def _detect_external_includes(self, code: str) -> list[str]:
-        """Return library header names that are likely from external libraries."""
-        headers = []
-        for m in re.finditer(r'#\s*include\s*<([^>]+)>', code):
+        """Library header names an ESP32 build could really need.
+
+        Preprocessor-aware: includes that only exist inside a branch which
+        is provably dead on ESP32 are skipped. Without this, the scanner
+        reported headers the compiler never sees, and each one was resolved
+        against the ~1000 installed libraries — dragging an unrelated
+        library (and ALL of its sources) into user_libs_all.
+
+        The canonical break, reported 2026-08-03: ESPAsyncWebServer has
+        `#if defined(ESP8266) ... #include <Hash.h> ... #endif`. Hash.h was
+        resolved to stemi-hexapod's src/Hash.h (a hexapod-robot library),
+        whose Serial.cpp / Server.cpp / BluetoothLowEnergy.cpp then failed
+        on their own missing includes, breaking every ESP32 build in that
+        project with errors naming libraries the user never installed.
+        """
+        # Comments first: a commented-out include is not an include.
+        code = self._PP_COMMENT_BLOCK_RE.sub(' ', code)
+        code = self._PP_COMMENT_LINE_RE.sub(' ', code)
+
+        headers: list[str] = []
+        # Stack of (this_branch_live, any_branch_taken_yet) per #if nesting.
+        stack: list[tuple[bool, bool]] = []
+        for raw in code.splitlines():
+            line = raw.strip()
+            if line.startswith('#'):
+                dtv = line[1:].lstrip()
+                if dtv.startswith(('ifdef', 'ifndef', 'if ', 'if(')):
+                    if dtv.startswith('ifdef'):
+                        live = self._pp_branch_is_live(dtv[5:])
+                    elif dtv.startswith('ifndef'):
+                        # #ifndef X is live unless X is known-defined here.
+                        idents = self._PP_IDENT_RE.findall(dtv[6:])
+                        live = not any(i in self._PP_TRUE for i in idents)
+                    else:
+                        live = self._pp_branch_is_live(dtv[2:])
+                    stack.append((live, live))
+                    continue
+                if dtv.startswith('elif'):
+                    if stack:
+                        _cur, taken = stack[-1]
+                        live = (not taken) and self._pp_branch_is_live(dtv[4:])
+                        stack[-1] = (live, taken or live)
+                    continue
+                if dtv.startswith('else'):
+                    if stack:
+                        _cur, taken = stack[-1]
+                        stack[-1] = (not taken, True)
+                    continue
+                if dtv.startswith('endif'):
+                    if stack:
+                        stack.pop()
+                    continue
+            if not all(live for live, _ in stack):
+                continue  # inside a branch that is dead on ESP32
+            m = re.search(r'#\s*include\s*<([^>]+)>', line)
+            if not m:
+                continue
             h = m.group(1)
             if h in self._BUILTIN_HEADERS:
                 continue
