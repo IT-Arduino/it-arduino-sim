@@ -188,6 +188,17 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
     .map(([k, v]) => `${k}=${typeof v === 'string' && v.length > 32 ? v.length : String(v)}`)
     .join('|');
   const pinsKey = pinInfo.map((p) => `${p.name}:${p.x},${p.y}`).join('|');
+  // componentMetadata is stable for components (the registry hands back the
+  // same object) but NOT for boards, whose metadata the canvas builds inline
+  // per render — depending on its identity remounted the preview on every
+  // parent render and the dialog flickered under the pointer.
+  const metaKey = `${componentMetadata.id}|${componentMetadata.tagName}|${Object.entries(
+    componentMetadata.defaultValues ?? {},
+  )
+    .map(([k, v]) => `${k}=${String(v).slice(0, 24)}`)
+    .join(',')}`;
+  const metaRef = useRef(componentMetadata);
+  metaRef.current = componentMetadata;
 
   // ── Live preview: mount the real element, measure, lay out pins ──────────
   useEffect(() => {
@@ -197,7 +208,7 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
     setLayout(null);
     host.textContent = '';
 
-    const tag = previewTagName || componentMetadata.tagName;
+    const tag = previewTagName || metaRef.current.tagName;
     if (!tag || !customElements.get(tag)) {
       // Unregistered tag (or none): the header thumbnail already shows the
       // art, so the preview just reports there is nothing live to mount.
@@ -211,7 +222,7 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
     // art and, for flip, the pinInfo itself), then the metadata defaults for
     // whatever the instance does not carry.
     for (const [k, v] of Object.entries({
-      ...componentMetadata.defaultValues,
+      ...metaRef.current.defaultValues,
       ...componentProperties,
     })) {
       try {
@@ -267,9 +278,12 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
     // (a colour edit, an LED flip) changes the digest and repaints; a bare
     // re-render does not.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [componentMetadata, propsKey, pinsKey, previewTagName]);
+  }, [metaKey, propsKey, pinsKey, previewTagName]);
 
   // ── Position: viewport coords, clamped, portaled to body ─────────────────
+  // NOTE the guard inside place(): setDialogPos only fires on a real move.
+  // Without it the ResizeObserver below and this effect feed each other and
+  // the dialog jitters.
   // Re-run on every SIZE change, not just on the inputs we can name. The
   // datasheet arrives asynchronously (loadDoc) and the markdown can be long,
   // so a one-shot measure placed the dialog while it was still short and it
