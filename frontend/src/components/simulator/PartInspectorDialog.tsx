@@ -4,8 +4,9 @@
  * Merges the two surfaces that used to exist separately: the old
  * ComponentPropertyDialog (a 250px column of pin names, editors and
  * Rotate/Delete) and the component-picker info card (datasheet, brand, Buy).
- * Layout: actions and a live preview of the part on the left; Properties /
- * Datasheet tabs on the right.
+ * Layout: a live preview of the part on the left, Properties / Datasheet
+ * tabs on the right, and one action bar across the bottom (Rotate/Delete on
+ * the left, Buy on the right) that stays put whichever tab is open.
  *
  * The preview is the REAL web component, mounted and scaled — not a drawing.
  * Pin markers are laid over it at their true positions and their labels flank
@@ -37,6 +38,7 @@ import {
   useComponentDoc,
   HIDDEN_PROPS,
   formatValue,
+  safeHref,
   type PanelData,
 } from '../ComponentInfoPanel';
 import {
@@ -356,6 +358,10 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
       ? componentMetadata.thumbnail
       : null;
 
+  // Same http(s)-only guard the picker card applies — docs are a surface the
+  // pro overlay can write to, so the validation is load-bearing.
+  const buyHref = safeHref(doc?.buy);
+
   const editableProps = componentMetadata.properties.filter((p: any) => isEditable(p));
   const readOnlyProps = componentMetadata.properties.filter(
     (p: any) => !isEditable(p) && !HIDDEN_PROPS.has(p.name),
@@ -489,65 +495,6 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
             </div>
           )}
 
-          <div className="pid-actions">
-            {confirmingDelete ? (
-              <>
-                <span className="pid-confirm-label">
-                  {t('editor.componentProps.confirmDelete', { name: componentMetadata.name })}
-                  {deleteHint && <em className="pid-confirm-hint">{deleteHint}</em>}
-                </span>
-                <button
-                  className="pid-action-button"
-                  onClick={() => setConfirmingDelete(false)}
-                  title={t('editor.componentProps.cancel')}
-                >
-                  {t('editor.componentProps.cancel')}
-                </button>
-                <button
-                  className="pid-action-button pid-action-delete"
-                  onClick={() => {
-                    setConfirmingDelete(false);
-                    onDelete(componentId);
-                  }}
-                  title={t('editor.componentProps.confirmDeleteTitle')}
-                >
-                  {deleteLabel ?? t('editor.componentProps.delete')}
-                </button>
-              </>
-            ) : (
-              <>
-                {/* Boards pass no onRotate (they do not rotate); they pass
-                    Board Options / Flash as extraActions instead. */}
-                {onRotate && (
-                  <button
-                    className="pid-action-button"
-                    onClick={() => onRotate(componentId)}
-                    title={t('editor.componentProps.rotate90')}
-                  >
-                    {t('editor.componentProps.rotate')}
-                  </button>
-                )}
-                {extraActions?.map((a) => (
-                  <button
-                    key={a.id}
-                    className="pid-action-button"
-                    onClick={a.disabled ? undefined : a.onSelect}
-                    disabled={a.disabled}
-                    title={a.title}
-                  >
-                    {a.label}
-                  </button>
-                ))}
-                <button
-                  className="pid-action-button pid-action-delete"
-                  onClick={() => setConfirmingDelete(true)}
-                  title={t('editor.componentProps.deleteTitle')}
-                >
-                  {deleteLabel ?? t('editor.componentProps.delete')}
-                </button>
-              </>
-            )}
-          </div>
         </div>
 
         {/* Right column: tabs. */}
@@ -684,6 +631,98 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
           )}
         </div>
       </div>
+
+        <div className="pid-actions">
+          {confirmingDelete ? (
+            <>
+              <span className="pid-confirm-label">
+                {t('editor.componentProps.confirmDelete', { name: componentMetadata.name })}
+                {deleteHint && <em className="pid-confirm-hint">{deleteHint}</em>}
+              </span>
+              <button
+                className="pid-action-button"
+                onClick={() => setConfirmingDelete(false)}
+                title={t('editor.componentProps.cancel')}
+              >
+                {t('editor.componentProps.cancel')}
+              </button>
+              <button
+                className="pid-action-button pid-action-delete"
+                onClick={() => {
+                  setConfirmingDelete(false);
+                  onDelete(componentId);
+                }}
+                title={t('editor.componentProps.confirmDeleteTitle')}
+              >
+                {deleteLabel ?? t('editor.componentProps.delete')}
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Boards pass no onRotate (they do not rotate); they pass
+                  Board Options / Flash as extraActions instead. */}
+              {onRotate && (
+                <button
+                  className="pid-action-button"
+                  onClick={() => onRotate(componentId)}
+                  title={t('editor.componentProps.rotate90')}
+                >
+                  {t('editor.componentProps.rotate')}
+                </button>
+              )}
+              {extraActions?.map((a) => (
+                <button
+                  key={a.id}
+                  className="pid-action-button"
+                  onClick={a.disabled ? undefined : a.onSelect}
+                  disabled={a.disabled}
+                  title={a.title}
+                >
+                  {a.label}
+                </button>
+              ))}
+              <button
+                className="pid-action-button pid-action-delete"
+                onClick={() => setConfirmingDelete(true)}
+                title={t('editor.componentProps.deleteTitle')}
+              >
+                {deleteLabel ?? t('editor.componentProps.delete')}
+              </button>
+            </>
+          )}
+
+          {/* Buy lives here, right-aligned, so it is reachable from BOTH
+              tabs — it used to sit at the end of the datasheet body, which
+              meant scrolling to the bottom of the right tab to find it. */}
+          {buyHref && (
+            <div className="pid-actions-right">
+              <a
+                className="pid-buy-button"
+                href={buyHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={buyHref}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="9" cy="21" r="1" />
+                  <circle cx="20" cy="21" r="1" />
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                </svg>
+                Buy
+              </a>
+            </div>
+          )}
+        </div>
     </div>,
     document.body,
   );
