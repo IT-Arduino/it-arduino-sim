@@ -333,3 +333,10 @@
   flex-shrink: 0;
 }
 
+
+/* No authored doc and no metadata description — most of the catalogue. Say it
+   plainly instead of leaving the panel looking broken. */
+.cip-desc--empty {
+  color: #7a7a7a;
+  font-style: italic;
+}

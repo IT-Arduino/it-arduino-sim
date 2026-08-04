@@ -123,13 +123,20 @@ export const ComponentInfoBody: React.FC<{
 
   return (
     <>
-      {/* Authored datasheet supersedes the thin auto-generated description. */}
+      {/* Authored datasheet supersedes the thin auto-generated description.
+          91 of the 156 catalogue parts have NEITHER, so say so rather than
+          leaving the reader looking at an empty panel wondering if it broke. */}
       {doc?.body ? (
         <div className="cip-doc">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{doc.body}</ReactMarkdown>
         </div>
+      ) : data.description ? (
+        <p className="cip-desc">{data.description}</p>
       ) : (
-        data.description && <p className="cip-desc">{data.description}</p>
+        <p className="cip-desc cip-desc--empty">
+          No datasheet written for this part yet.
+          {data.pinCount > 0 && ' Its pins are listed on the left.'}
+        </p>
       )}
 
       {showProps && shownProps.length > 0 && (
