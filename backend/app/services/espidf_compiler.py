@@ -894,6 +894,7 @@ class ESPIDFCompiler:
         arduino_comp_name: str,
         user_libs_dir: Path,
         allowed_libraries: set[str] | None = None,
+        merged_libs: dict[str, str] | None = None,
     ) -> tuple[list[str], dict[str, str]]:
         """
         BFS over ext_headers (and transitive includes) to discover all external
@@ -1039,6 +1040,14 @@ class ESPIDFCompiler:
                 logger.info(f'[espidf] Merging "{lib_dir_name}" into user_libs_all for <{header}>')
                 found_any = True
                 header_to_comp[header] = 'user_libs_all'
+                if merged_libs is not None:
+                    # Report the DISPLAY name (library.properties name=, the
+                    # one the Library Manager shows) so the frontend can
+                    # auto-declare it in the project manifest. Cache folder
+                    # names carry a @version-hash suffix — strip it.
+                    _lib_root = src_root.parent if src_root.name == 'src' else src_root
+                    _props_name = self._parse_library_properties(_lib_root).get('name', '')
+                    merged_libs[header] = _props_name or lib_dir_name.split('@', 1)[0]
 
                 # Preserve directory structure while merging libraries.
                 # Skip non-buildable directories like examples, tests, docs.
@@ -1249,16 +1258,56 @@ class ESPIDFCompiler:
 
     def _find_library_for_header(self, header: str, libs_dir: Path) -> Path | None:
         """
-        Search libs_dir for a library that provides `header`.
-        Returns the source root of the library (root or src/ subdirectory).
+        Search libs_dir for a library that provides `header`, preferring the
+        best-named candidate instead of the first alphabetical one.
+
+        First-alphabetical was how <Servo.h> (6 providers in the live cache)
+        could resolve to a random lib that merely ships a same-named file,
+        and how generic headers landed on unrelated libraries. Scoring:
+
+          +100  normalized library name == normalized header stem
+                ("Servo.h" -> the lib actually named Servo/ESP32Servo...)
+           +40  library.properties architectures lists esp32 explicitly
+                (purpose-built beats a wildcard/absent declaration)
+           +20  library name CONTAINS the header stem, minus a length
+                penalty so "servo" outranks "simpleservoesp32"
+
+        Alphabetical remains the final tie-break so resolution stays
+        deterministic. Libraries with score 0 still resolve (legacy
+        behaviour) — this only changes WHICH provider wins when several
+        exist.
         """
+        stem = self._norm_lib_name(Path(header).stem)
+        best: tuple[float, str, Path] | None = None
         for lib_dir in sorted(libs_dir.iterdir()):
             if not lib_dir.is_dir():
                 continue
-            for src_root in [lib_dir, lib_dir / 'src']:
-                if (src_root / header).exists():
-                    return src_root
-        return None
+            src_root = None
+            for cand in (lib_dir, lib_dir / 'src'):
+                if (cand / header).exists():
+                    src_root = cand
+                    break
+            if src_root is None:
+                continue
+            # Folder names in the shared cache look like "esp32servo@3.2.1-<hash>"
+            # — strip the version suffix before comparing.
+            folder = lib_dir.name.split('@', 1)[0]
+            props = self._parse_library_properties(lib_dir)
+            names = {self._norm_lib_name(folder)}
+            if props.get('name'):
+                names.add(self._norm_lib_name(props['name']))
+            score = 0.0
+            if stem and stem in names:
+                score += 100
+            arch = {a.strip().lower() for a in props.get('architectures', '').split(',') if a.strip()}
+            if self._ESP32_LIB_ARCH in arch:
+                score += 40
+            if stem and score < 100 and any(stem in n for n in names if n):
+                shortest = min((len(n) for n in names if stem in n), default=0)
+                score += max(5.0, 20.0 - (shortest - len(stem)) * 0.5)
+            if best is None or score > best[0]:
+                best = (score, lib_dir.name, src_root)
+        return best[2] if best else None
 
     def _create_idf_component(
         self,
@@ -2263,6 +2312,12 @@ class ESPIDFCompiler:
                     )
             ext_headers = list(ext_headers_set)
             component_names: list[str] = []
+            # header -> display name of the library the resolver merged for
+            # it. Fed back to the client on scan-all success so the project
+            # manifest can be auto-completed (79% of projects compile with an
+            # empty manifest today; this migrates them one green build at a
+            # time instead of ever breaking them).
+            merged_libs_report: dict[str, str] = {}
             # arduino-esp32 component name (directory basename of ARDUINO_ESP32_PATH)
             arduino_comp_name = Path(self.arduino_path).name if self.arduino_path else 'arduino-esp32'
 
@@ -2282,6 +2337,7 @@ class ESPIDFCompiler:
                     ext_headers, arduino_libs, esp32_libs,
                     arduino_comp_name, user_libs_dir,
                     allowed_libraries=allowed_libraries,
+                    merged_libs=merged_libs_report,
                 )
 
             # Patch main/CMakeLists.txt — REQUIRES and INCLUDE_DIRS for user_libs_all.
@@ -2522,7 +2578,7 @@ class ESPIDFCompiler:
         binary_b64 = base64.b64encode(merged_path.read_bytes()).decode('ascii')
         logger.info(f'[espidf] Compilation successful — {len(binary_b64) // 1024} KB (base64), has_wifi={has_wifi}')
 
-        return {
+        result_ok: dict = {
             'success': True,
             'hex_content': None,
             'binary_content': binary_b64,
@@ -2531,6 +2587,16 @@ class ESPIDFCompiler:
             'stdout': all_stdout,
             'stderr': all_stderr,
         }
+        # Scan-all build (no manifest): tell the client exactly which
+        # libraries the build really used, shaped like the existing
+        # manifest_suggested_libraries ({header: [candidates]}) so one
+        # consumer handles both this and the incomplete-manifest retry.
+        if allowed_libraries is None and merged_libs_report:
+            result_ok['manifest_incomplete'] = True
+            result_ok['manifest_suggested_libraries'] = {
+                h: [name] for h, name in merged_libs_report.items()
+            }
+        return result_ok
 
 
 # Singleton instance
