@@ -21,6 +21,7 @@ import { InstrumentComponent } from '../components-instruments/InstrumentCompone
 import { ComponentRegistry } from '../../services/ComponentRegistry';
 import { getTabSessionId } from '../../simulation/Esp32Bridge';
 import { CameraToggle } from './CameraToggle';
+import { MicrophoneToggle } from './MicrophoneToggle';
 import { WireLayer } from './WireLayer';
 import type { SegmentHandle, WaypointHandle, AlignmentGuide } from './WireLayer';
 import { ElectricalOverlay } from '../analog-ui/ElectricalOverlay';
@@ -2707,6 +2708,16 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                   activeBoard?.boardKind === 'xiao-esp32s3-sense') && (
                   <CameraToggle boardId={activeBoard.id} />
                 )}
+
+                {/* Microphone stream toggle, for boards whose def declares an
+                    on-board mic (their bridge implements setMicrophoneSource).
+                    Off = the bridge's 440 Hz test tone keeps mic sketches
+                    alive, so no auto-start: taking the user's microphone is
+                    an explicit click. */}
+                {activeBoard &&
+                  getProBoard(activeBoard.boardKind)?.builtInMicrophone === true && (
+                    <MicrophoneToggle boardId={activeBoard.id} />
+                  )}
 
                 {/* WiFi status indicator + IoT-gateway launcher (ESP32 + Pico W) */}
                 {activeBoard &&

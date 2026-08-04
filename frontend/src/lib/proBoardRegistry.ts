@@ -101,6 +101,10 @@ export interface ProBoardDef {
   /** Built-in microSD on a shared SPI bus: the CS pin the bridge must gate.
    *  (A standalone SD card component still overrides this to un-gated.) */
   builtInSdCsPin?: number;
+  /** Board carries an on-board microphone whose bridge implements
+   *  setMicrophoneSource (I2S RX sample injection): shows the canvas-header
+   *  Mic toggle that streams the computer's microphone into it. */
+  builtInMicrophone?: boolean;
   /** Built-in peripheral attachment for a RUNNING board (LCD decoder onto the
    *  element's own canvas, speaker, on-board button/keyboard event forwarding).
    *  Called shortly after run start with the board's DOM element plus its
