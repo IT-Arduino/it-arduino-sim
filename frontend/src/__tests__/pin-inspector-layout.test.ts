@@ -206,6 +206,67 @@ describe('layoutInspectorPins — inset columns (the ReSpeaker Lite case)', () =
   });
 });
 
+
+describe('layoutInspectorPins — the Arduino Uno (two opposite headers)', () => {
+  // node_modules/@wokwi/elements arduino-uno-element pinInfo, board 274x208.
+  // 18 pins along the top header (y=9) and 13 along the bottom (y=192), with
+  // SIX x values shared between the two. Reading those pairs as columns threw
+  // most of the board into the side gutters with leaders fanning across the
+  // art; a column has to be a run of pads, not two opposite ends.
+  const UNO: InspectorPinInput[] = [
+    { name: 'A5.2', x: 87, y: 9 },
+    { name: 'A4.2', x: 97, y: 9 },
+    { name: 'AREF', x: 106, y: 9 },
+    { name: 'GND.1', x: 115.5, y: 9 },
+    { name: '13', x: 125, y: 9 },
+    { name: '12', x: 134.5, y: 9 },
+    { name: '11', x: 144, y: 9 },
+    { name: '10', x: 153.5, y: 9 },
+    { name: '9', x: 163, y: 9 },
+    { name: '8', x: 173, y: 9 },
+    { name: '7', x: 189, y: 9 },
+    { name: '6', x: 198.5, y: 9 },
+    { name: '5', x: 208, y: 9 },
+    { name: '4', x: 217.5, y: 9 },
+    { name: '3', x: 227, y: 9 },
+    { name: '2', x: 236.5, y: 9 },
+    { name: '1', x: 246, y: 9 },
+    { name: '0', x: 255.5, y: 9 },
+    { name: 'IOREF', x: 131, y: 191.5 },
+    { name: 'RESET', x: 140.5, y: 191.5 },
+    { name: '3.3V', x: 150, y: 191.5 },
+    { name: '5V', x: 160, y: 191.5 },
+    { name: 'GND.2', x: 169.5, y: 191.5 },
+    { name: 'GND.3', x: 179, y: 191.5 },
+    { name: 'VIN', x: 188.5, y: 191.5 },
+    { name: 'A0', x: 208, y: 191.5 },
+    { name: 'A1', x: 217.5, y: 191.5 },
+    { name: 'A2', x: 227, y: 191.5 },
+    { name: 'A3', x: 236.5, y: 191.5 },
+    { name: 'A4', x: 246, y: 191.5 },
+    { name: 'A5', x: 255.5, y: 191.5 }
+  ];
+
+  const r = layoutInspectorPins(UNO, { width: 274, height: 208 });
+
+  it('puts every pin on the header it belongs to', () => {
+    expect(r.pins).toHaveLength(31);
+    expect(r.pins.filter((p) => p.edge === 'top')).toHaveLength(18);
+    expect(r.pins.filter((p) => p.edge === 'bottom')).toHaveLength(13);
+  });
+
+  it('uses no side gutters at all', () => {
+    expect(r.pins.some((p) => p.edge === 'left' || p.edge === 'right')).toBe(false);
+  });
+
+  it('keeps the shared-x pairs apart — one per header', () => {
+    for (const name of ['5', '4', '3', '2', '1', '0']) {
+      const p = r.pins.find((q) => q.name === name);
+      if (p) expect(p.edge).toBe('top');
+    }
+  });
+});
+
 describe('signalKindOf', () => {
   it('maps the wokwi signal shapes', () => {
     expect(signalKindOf({ name: 'SDA', x: 0, y: 0, signals: [{ type: 'i2c', signal: 'SDA' }] })).toBe('i2c');

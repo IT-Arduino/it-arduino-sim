@@ -187,12 +187,25 @@ export function layoutInspectorPins(
   const ys = pins.map((p) => p.y * scale);
   const side = new Array<PinEdge | null>(pins.length).fill(null);
 
+  /** Largest gap between consecutive values — a real header has small ones. */
+  const maxGap = (vals: number[]): number => {
+    const s = [...vals].sort((a, b) => a - b);
+    let m = 0;
+    for (let i = 1; i < s.length; i++) m = Math.max(m, s[i] - s[i - 1]);
+    return m;
+  };
+
   // Vertical columns win first: they are the dominant shape on breakout
-  // boards, shields and every DIP part.
+  // boards, shields and every DIP part. A column must be a RUN of pads, which
+  // is why it needs three of them and small gaps: an Arduino Uno has two
+  // opposite headers with six x values shared between them, and reading those
+  // pairs as columns threw most of the board's pins into the side gutters
+  // with a fan of leader lines across the art.
   for (const g of cluster(xs)) {
-    if (g.length < 2) continue;
-    const spanY = Math.max(...g.map((i) => ys[i])) - Math.min(...g.map((i) => ys[i]));
-    if (spanY < TOL) continue; // that is a row, not a column
+    if (g.length < 3) continue;
+    const gys = g.map((i) => ys[i]);
+    if (Math.max(...gys) - Math.min(...gys) < TOL) continue; // a row, not a column
+    if (maxGap(gys) > 0.4 * H) continue; // opposite ends of the body, not a run
     const cx = g.reduce((s, i) => s + xs[i], 0) / g.length;
     const e: PinEdge = cx <= W / 2 ? 'left' : 'right';
     for (const i of g) side[i] = e;
@@ -201,8 +214,9 @@ export function layoutInspectorPins(
   for (const g of cluster(ys)) {
     const free = g.filter((i) => side[i] === null);
     if (free.length < 2) continue;
-    const spanX = Math.max(...free.map((i) => xs[i])) - Math.min(...free.map((i) => xs[i]));
-    if (spanX < TOL) continue;
+    const gxs = free.map((i) => xs[i]);
+    if (Math.max(...gxs) - Math.min(...gxs) < TOL) continue;
+    if (maxGap(gxs) > 0.4 * W) continue;
     const cy = free.reduce((s, i) => s + ys[i], 0) / free.length;
     const e: PinEdge = cy <= H / 2 ? 'top' : 'bottom';
     for (const i of free) side[i] = e;
