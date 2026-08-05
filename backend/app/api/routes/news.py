@@ -14,6 +14,7 @@ The upstream feed is plain public JSON (no auth, no identifiers sent).
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
@@ -27,6 +28,14 @@ router = APIRouter()
 
 DEFAULT_FEED_URL = "https://velxio.dev/api/pro/news/feed"
 _CACHE_TTL_SECONDS = 6 * 60 * 60
+# On a failed upstream fetch, don't retry for a while — otherwise every
+# anonymous /feed hit while upstream is unreachable opens a fresh 5s
+# outbound connection (a request loop would turn this instance into a
+# slow hammer against the feed host).
+_FAIL_RETRY_SECONDS = 5 * 60
+# Upstream body cap. httpx's timeout is per read operation, so a
+# byte-dripping upstream could otherwise deliver an unbounded body.
+_MAX_FEED_BYTES = 2_000_000
 
 _cache: dict = {"at": 0.0, "posts": None}
 
@@ -79,12 +88,23 @@ async def news_feed() -> list[dict]:
     url = os.environ.get("VELXIO_NEWS_URL", DEFAULT_FEED_URL)
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
-            posts = _sanitize(resp.json())
+            async with client.stream("GET", url) as resp:
+                resp.raise_for_status()
+                size = 0
+                chunks: list[bytes] = []
+                async for chunk in resp.aiter_bytes():
+                    size += len(chunk)
+                    if size > _MAX_FEED_BYTES:
+                        raise ValueError("news feed exceeds size cap")
+                    chunks.append(chunk)
+        posts = _sanitize(json.loads(b"".join(chunks)))
     except Exception as exc:  # offline / DNS / upstream down — all fine
         logger.debug("[news] feed fetch failed (%s); serving stale/empty", exc)
-        return _cache["posts"] or []
+        # Negative cache: keep serving the stale/empty result without
+        # touching the network again until the retry window passes.
+        _cache["posts"] = _cache["posts"] or []
+        _cache["at"] = now - _CACHE_TTL_SECONDS + _FAIL_RETRY_SECONDS
+        return _cache["posts"]
 
     _cache["posts"] = posts
     _cache["at"] = now

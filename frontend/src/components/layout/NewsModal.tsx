@@ -17,6 +17,13 @@ import './NewsModal.css';
 
 const FETCH_DELAY_MS = 4000;
 
+// Self-hosted privacy promise: the feed is proxied through the local
+// backend precisely so users' browsers never contact velxio.dev — an
+// inline remote image would undo that (one request per viewer). OSS
+// builds therefore render images as their alt text; the pro cloud build
+// (VITE_PRO_BUILD) shows them normally.
+const SHOW_REMOTE_IMAGES = import.meta.env.VITE_PRO_BUILD === 'true';
+
 export function NewsModal() {
   const [post, setPost] = useState<NewsPost | null>(null);
 
@@ -58,7 +65,16 @@ export function NewsModal() {
           </button>
         </div>
         <div className="velxio-news-body">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{post.body_md}</ReactMarkdown>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={
+              SHOW_REMOTE_IMAGES
+                ? undefined
+                : { img: ({ alt }) => <em>[{alt || 'image'}]</em> }
+            }
+          >
+            {post.body_md}
+          </ReactMarkdown>
         </div>
         <div className="velxio-news-footer">
           <button className="velxio-news-ok" onClick={() => setPost(null)}>
