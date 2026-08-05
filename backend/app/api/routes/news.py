@@ -4,12 +4,15 @@ The editor shows a once-per-browser "What's New" modal (see
 frontend/src/lib/newsSource.ts). Rather than every user's browser
 fetching velxio.dev directly, the backend proxies the public feed:
 
-  - users' browsers only ever talk to this server;
-  - one cached fetch per instance instead of one per visitor;
+  - the FEED fetch never leaves this server (one cached fetch per
+    instance instead of one per visitor, no identifiers sent) — though
+    media embedded in a post (images/GIFs, YouTube thumbnails) does
+    load in the viewer's browser from wherever it's hosted, as the
+    README documents;
   - a single, documented opt-out: VELXIO_NEWS=off (also the automatic
     behavior when the host has no internet — errors degrade to []).
 
-The upstream feed is plain public JSON (no auth, no identifiers sent).
+The upstream feed is plain public JSON (no auth).
 """
 
 from __future__ import annotations
