@@ -3378,11 +3378,6 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
           const board = boards.find((b) => b.id === boardContextMenu.boardId);
           if (!board) return null;
           const name = boardDisplayName(board);
-          const connectedWires = wires.filter(
-            (w) =>
-              w.start.componentId === boardContextMenu.boardId ||
-              w.end.componentId === boardContextMenu.boardId,
-          ).length;
           const element = document.getElementById(boardContextMenu.boardId);
           const boardPins = element ? (element as any).pinInfo : [];
           const actions: InspectorAction[] = [];
@@ -3441,11 +3436,9 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
               previewAttributes={{ 'board-kind': board.boardKind }}
               extraActions={actions}
               deleteLabel={t('editor.canvas.removeBoard')}
-              deleteHint={
-                connectedWires > 0
-                  ? t('editor.canvas.wireCount', { count: connectedWires })
-                  : undefined
-              }
+              // The remove-board modal (boardToRemove) is the confirmation for
+              // boards — it knows the wire count; a second ask here would stack.
+              skipDeleteConfirm
               wireInProgress={Boolean(wireInProgress)}
               onClose={() => setBoardContextMenu(null)}
               onPropertyChange={(id, propName, value) => {

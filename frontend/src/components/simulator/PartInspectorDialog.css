@@ -353,20 +353,6 @@
   background: #d70015; /* --red-600 */
 }
 
-.pid-confirm-label {
-  font-size: 12px;
-  color: #ffb4ab;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.pid-confirm-hint {
-  color: #b58b86;
-  font-style: normal;
-  font-size: 11px;
-}
-
 /* Buy in the action bar: solid brand blue (Velxio buttons are solid, and
    the buy link is the primary action of the datasheet). */
 .pid-buy-button {

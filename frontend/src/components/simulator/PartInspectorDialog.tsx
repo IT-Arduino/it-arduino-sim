@@ -46,6 +46,7 @@ import {
   type InspectorPinInput,
   type PinLayoutResult,
 } from '../../utils/pinInspectorLayout';
+import { showConfirmDialog } from '../../store/useMessageDialogStore';
 // The keybind chips and the SD Card panel keep their existing class names and
 // styles — both live in ComponentPropertyDialog.css, imported here so the old
 // dialog file can eventually retire without orphaning them.
@@ -94,8 +95,9 @@ interface PartInspectorDialogProps {
   extraActions?: InspectorAction[];
   /** Overrides the Delete button's label (boards say "Remove board"). */
   deleteLabel?: string;
-  /** Extra line under the delete confirmation (e.g. "3 wires will be removed"). */
-  deleteHint?: string;
+  /** The caller confirms deletion itself (boards open the remove-board modal
+      with its wire count), so Delete fires onDelete without asking here. */
+  skipDeleteConfirm?: boolean;
   /** Tag rendered live in the preview when the element is not the metadata's. */
   previewTagName?: string;
   /** Attributes to set on the preview element (boards need board-kind). */
@@ -122,7 +124,7 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
   wireInProgress,
   extraActions,
   deleteLabel,
-  deleteHint,
+  skipDeleteConfirm,
   previewTagName,
   previewAttributes,
 }) => {
@@ -134,7 +136,6 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
   // The pin the pointer is on — its leader line and dot light up together, so
   // a name in the gutter can be traced to the pad it belongs to.
   const [hoverPin, setHoverPin] = useState<string | null>(null);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [layout, setLayout] = useState<PinLayoutResult | null>(null);
   const [previewFailed, setPreviewFailed] = useState(false);
 
@@ -319,10 +320,37 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
     };
   }, [position]);
 
+  // ── Delete goes through the global confirm modal ─────────────────────────
+  // Same pattern as FileExplorer / BoardOptionsModal. The old inline
+  // confirmation swapped the action bar's contents in place, which made the
+  // buttons jump around. While the modal is open the dialog's Escape and
+  // click-outside close handlers must stand down — the modal is portaled to
+  // document.body, so interacting with it looks like "outside" to them.
+  const confirmOpenRef = useRef(false);
+  const handleDeleteClick = async () => {
+    if (skipDeleteConfirm) {
+      onDelete(componentId);
+      return;
+    }
+    confirmOpenRef.current = true;
+    const confirmed = await showConfirmDialog(
+      t('editor.componentProps.confirmDelete', { name: componentMetadata.name }),
+      {
+        kind: 'error',
+        title: t('editor.componentProps.confirmDeleteTitle'),
+        confirmLabel: deleteLabel ?? t('editor.componentProps.delete'),
+        cancelLabel: t('editor.componentProps.cancel'),
+        danger: true,
+      },
+    );
+    confirmOpenRef.current = false;
+    if (confirmed) onDelete(componentId);
+  };
+
   // ── Close behaviours (unchanged semantics) ───────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !confirmOpenRef.current) onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -330,6 +358,7 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      if (confirmOpenRef.current) return;
       if (dialogRef.current && !dialogRef.current.contains(e.target as Node)) onClose();
     };
     // Delay to avoid immediate close from the click that opened the dialog.
@@ -637,63 +666,35 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
       </div>
 
         <div className="pid-actions">
-          {confirmingDelete ? (
-            <>
-              <span className="pid-confirm-label">
-                {t('editor.componentProps.confirmDelete', { name: componentMetadata.name })}
-                {deleteHint && <em className="pid-confirm-hint">{deleteHint}</em>}
-              </span>
-              <button
-                className="pid-action-button"
-                onClick={() => setConfirmingDelete(false)}
-                title={t('editor.componentProps.cancel')}
-              >
-                {t('editor.componentProps.cancel')}
-              </button>
-              <button
-                className="pid-action-button pid-action-delete"
-                onClick={() => {
-                  setConfirmingDelete(false);
-                  onDelete(componentId);
-                }}
-                title={t('editor.componentProps.confirmDeleteTitle')}
-              >
-                {deleteLabel ?? t('editor.componentProps.delete')}
-              </button>
-            </>
-          ) : (
-            <>
-              {/* Boards pass no onRotate (they do not rotate); they pass
-                  Board Options / Flash as extraActions instead. */}
-              {onRotate && (
-                <button
-                  className="pid-action-button"
-                  onClick={() => onRotate(componentId)}
-                  title={t('editor.componentProps.rotate90')}
-                >
-                  {t('editor.componentProps.rotate')}
-                </button>
-              )}
-              {extraActions?.map((a) => (
-                <button
-                  key={a.id}
-                  className="pid-action-button"
-                  onClick={a.disabled ? undefined : a.onSelect}
-                  disabled={a.disabled}
-                  title={a.title}
-                >
-                  {a.label}
-                </button>
-              ))}
-              <button
-                className="pid-action-button pid-action-delete"
-                onClick={() => setConfirmingDelete(true)}
-                title={t('editor.componentProps.deleteTitle')}
-              >
-                {deleteLabel ?? t('editor.componentProps.delete')}
-              </button>
-            </>
+          {/* Boards pass no onRotate (they do not rotate); they pass
+              Board Options / Flash as extraActions instead. */}
+          {onRotate && (
+            <button
+              className="pid-action-button"
+              onClick={() => onRotate(componentId)}
+              title={t('editor.componentProps.rotate90')}
+            >
+              {t('editor.componentProps.rotate')}
+            </button>
           )}
+          {extraActions?.map((a) => (
+            <button
+              key={a.id}
+              className="pid-action-button"
+              onClick={a.disabled ? undefined : a.onSelect}
+              disabled={a.disabled}
+              title={a.title}
+            >
+              {a.label}
+            </button>
+          ))}
+          <button
+            className="pid-action-button pid-action-delete"
+            onClick={handleDeleteClick}
+            title={t('editor.componentProps.deleteTitle')}
+          >
+            {deleteLabel ?? t('editor.componentProps.delete')}
+          </button>
 
           {/* Buy lives here, right-aligned, so it is reachable from BOTH
               tabs — it used to sit at the end of the datasheet body, which
