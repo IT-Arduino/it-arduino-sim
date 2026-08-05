@@ -345,6 +345,7 @@ change the CORS origin used during local development.
 | Variable | Default | Description |
 | --- | --- | --- |
 | `FRONTEND_URL` | `http://localhost:5173` | Origin allowed by CORS for local Vite dev |
+| `VELXIO_NEWS` | `on` | Product news: the backend fetches release notes and product news from velxio.dev's public feed (cached ~6h, anonymous, no identifiers sent) and the editor shows each item once as a "What's New" modal. Set to `off` to disable entirely; an offline host degrades to no news automatically. |
 
 > **Deploying behind a reverse proxy?** The container listens on plain HTTP
 > on port 80 and accepts any `Host` header — no `server_name` whitelist.

@@ -20,6 +20,7 @@ import { Oscilloscope } from '../components/simulator/Oscilloscope';
 import { AppHeader } from '../components/layout/AppHeader';
 import { triggerSaveAction } from '../lib/proSaveAction';
 import { GitHubStarBanner } from '../components/layout/GitHubStarBanner';
+import { NewsModal } from '../components/layout/NewsModal';
 import { useSimulatorStore, DEFAULT_BOARD_POSITION } from '../store/useSimulatorStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useCompileLogsStore } from '../store/useCompileLogsStore';
@@ -748,6 +749,7 @@ export const EditorPage: React.FC = () => {
           round={starRound}
         />
       )}
+      <NewsModal />
       {/* Slot reserved for the private pro overlay (e.g. agent chat panel).
           Self-hosted builds without an overlay see nothing here. */}
       <div data-velxio-slot="agent-chat" />
