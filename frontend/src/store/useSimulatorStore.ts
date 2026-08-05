@@ -1993,9 +1993,16 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
           esp32Bridge.setPendingMicroPythonCode(prelude + mainFile.content);
         }
       } else {
-        // RP2040 path: load firmware + filesystem in browser
-        const sim = getBoardSimulator(boardId);
-        if (!(sim instanceof RP2040Simulator)) return;
+        // Browser-side firmware+filesystem path. Any simulator exposing
+        // `loadMicroPython(files)` plugs in here — the OSS RP2040Simulator, or
+        // an overlay-registered pro simulator (e.g. the RP2350's ARM
+        // MicroPython). Duck-typed rather than `instanceof RP2040Simulator` so
+        // pro boards need no change here; a sim without the method is a no-op.
+        const sim = getBoardSimulator(boardId) as {
+          attachPioPeripheral?: (kind: string, id: string) => void;
+          loadMicroPython?: (files: Array<{ name: string; content: string }>) => Promise<void>;
+        } | null;
+        if (typeof sim?.loadMicroPython !== 'function') return;
         // (Re)attach the PIO peripheral before loading firmware. An example
         // deep-link adds the board during render, which can race the pro
         // overlay's async mountPro that installs the CYW43 factory — so the
@@ -2004,7 +2011,7 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         // is idempotent; by run time the factory is installed, so a paid user
         // gets the W peripheral -> the RPI_PICO_W firmware variant. No-op in
         // OSS (no factory) and for free users (factory returns null).
-        sim.attachPioPeripheral(board.boardKind, boardId);
+        sim.attachPioPeripheral?.(board.boardKind, boardId);
         await sim.loadMicroPython(files);
       }
 
