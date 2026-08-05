@@ -166,7 +166,13 @@ export async function loadExample(
       const board = newBoards.find((b) => b.id === boardId);
       if (!board) return;
 
-      if (eb.code) {
+      if (eb.files?.length) {
+        // Full multi-file workspace (may carry '/' folder paths). First
+        // entry is the main/active file — the example must lead with the
+        // sketch so compile picks it up.
+        useEditorStore.getState().setActiveGroup(board.activeFileGroupId);
+        useEditorStore.getState().loadFiles(eb.files);
+      } else if (eb.code) {
         // Arduino-style boards (AVR, RP2040, ESP32, …) all need the `.ino`
         // extension so arduino-cli auto-includes <Arduino.h>. Only the Pi 3B
         // uses a different toolchain (Python via VFS or g++ for `.cpp`).

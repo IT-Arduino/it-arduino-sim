@@ -30,6 +30,11 @@ export interface ExampleBoard {
   y: number;
   /** Arduino/firmware code loaded into this board's file group */
   code?: string;
+  /** Full multi-file workspace for this board's file group. Names may carry
+   *  '/' folder paths ("apps/badge/__init__.py") — the explorer renders them
+   *  as a tree. Takes precedence over `code`; the FIRST entry becomes the
+   *  active/main file, so lead with the sketch. */
+  files?: Array<{ name: string; content: string }>;
   /** Files pre-loaded into the Pi VFS (path → content). Only used for raspberry-pi-3. */
   vfsFiles?: Record<string, string>;
   /** Uploads pre-loaded onto a board's BUILT-IN microSD slot (a ProBoardDef

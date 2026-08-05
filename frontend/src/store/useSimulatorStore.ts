@@ -1002,6 +1002,7 @@ interface SimulatorState {
   loadProjectState: (payload: {
     boards: BoardInstance[];
     fileGroups: Record<string, { name: string; content: string }[]>;
+    folderGroups?: Record<string, string[]>;
     components: Component[];
     wires: Wire[];
     activeBoardId: string | null;
@@ -1714,7 +1715,7 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
 
       // Replace editor file groups atomically. Skip groups that already exist
       // (createFileGroup is a no-op for existing ids) — overwrite their files.
-      useEditorStore.getState().replaceFileGroups(payload.fileGroups);
+      useEditorStore.getState().replaceFileGroups(payload.fileGroups, payload.folderGroups);
 
       // Components and wires. Normalize the retired ssd1306-i2c / ssd1306-spi
       // ids (merged into the single auto-detecting `ssd1306`, issues #101/#215)
