@@ -344,12 +344,23 @@ export class SSD168xDecoder {
         // Transposed (rotation 1): native actual width = H. Inverse of
         // Adafruit_GFX rotation 1: native(x_raw,y_raw) -> display(xd=y_raw,
         // yd=Wn-1-x_raw), Wn = true native width = H.
+        //
+        // Under a Y-decrement entry mode (BadgeOS) the source axis ends up
+        // vertically flipped in the display versus the standard Y-increment
+        // (GxEPD2 / raw-SSD1680) path this transpose was calibrated against, so
+        // the whole image renders upside-down (its text reads flipped). Map the
+        // source index straight to the display row for the Y-decrement case;
+        // Y-increment panels keep the Wn-1-x mapping and are byte-for-byte
+        // unchanged.
         const out = new Uint8Array(W * H).fill(fill);
         const Wn = H;
         for (let ny = 0; ny < nh; ny++) {
           if (ny >= W) break;
           const s = ny * nw;
-          for (let x = 0; x < Wn; x++) out[(Wn - 1 - x) * W + ny] = src[s + x];
+          for (let x = 0; x < Wn; x++) {
+            const dispRow = yTopIsHigh ? x : Wn - 1 - x;
+            out[dispRow * W + ny] = src[s + x];
+          }
         }
         return out;
       }
