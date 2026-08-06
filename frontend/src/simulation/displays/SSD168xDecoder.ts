@@ -49,9 +49,45 @@ export type EPaperPalette = 0 | 1 | 2;
 export interface Frame {
   width: number;
   height: number;
-  /** width*height palette indices. */
+  /**
+   * width*height palette indices (0 = black, 1 = white, 2 = red). Always
+   * present. For a 4-level greyscale frame this is a 1-bit projection of
+   * `grey` (level 0/1 -> black, level 2/3 -> white) so 1-bit/BWR consumers
+   * keep working unchanged.
+   */
   pixels: Uint8Array;
+  /**
+   * OPTIONAL 4-level greyscale channel. Present ONLY when the stream was
+   * detected as 2-bits-per-pixel greyscale (a custom waveform LUT via 0x32
+   * AND both RAM planes written): width*height values 0..3 where 0 = black,
+   * 3 = white, 1/2 = the two intermediate greys. Absent for every 1-bit /
+   * tri-colour panel, so consumers that only read `pixels` are unaffected.
+   */
+  grey?: Uint8Array;
 }
+
+/**
+ * Maps the 2-bit plane combo -> grey level 0..3 for greyscale mode. The
+ * combo index is (bwBit << 1) | redBit, where bwBit is the 0x24 (WRITE_RAM_BW)
+ * plane bit and redBit is the 0x26 (WRITE_RAM_RED) plane bit at that pixel.
+ * Level 0 = black, 3 = white.
+ *
+ * The bwBit (0x24) is the dominant luminance bit — bwBit=0 selects the LIGHT
+ * pair {white, light-grey}, bwBit=1 the DARK pair {dark-grey, black}; this is
+ * the same polarity as the custom-waveform 1-bit path (white where 0x24 bit=0),
+ * so the 1-bit projection of a greyscale frame is byte-identical to the legacy
+ * render. The redBit (0x26) refines within each half — set = one step darker.
+ * Verified empirically against a captured SSD1680 2.7" greyscale (picovector,
+ * antialiased) menu render: combo 0 (both clear) is the white page background,
+ * and this ordering yields smooth icon greys rather than speckle. Overridable
+ * via SSD168xDecoderOptions.greyComboToLevel for a LUT that reorders the pair.
+ */
+export const DEFAULT_GREY_COMBO_TO_LEVEL: Readonly<[number, number, number, number]> = [
+  3, // combo 0: bw=0 red=0 -> white
+  2, // combo 1: bw=0 red=1 -> light grey
+  1, // combo 2: bw=1 red=0 -> dark grey
+  0, // combo 3: bw=1 red=1 -> black
+];
 
 export interface SSD168xDecoderOptions {
   width: number;
@@ -65,6 +101,12 @@ export interface SSD168xDecoderOptions {
   palette?: 'bw' | 'bwr' | 'acep';
   /** Fired on every 0x20 MASTER_ACTIVATION with the latched composed frame. */
   onFlush?: (frame: Frame) => void;
+  /**
+   * Optional override of the 2-bit-combo -> grey-level map used in greyscale
+   * mode (see DEFAULT_GREY_COMBO_TO_LEVEL). Only tunes the level ordering; it
+   * does NOT force greyscale on — that is auto-detected from the stream.
+   */
+  greyComboToLevel?: Readonly<[number, number, number, number]>;
 }
 
 /**
@@ -130,6 +172,19 @@ export class SSD168xDecoder {
    */
   private customBwLut = false;
 
+  /**
+   * True once the host wrote the 0x26 (WRITE_RAM_RED) plane since the last
+   * flush/reset. On a standard mono panel 0x26 is never sent; on a tri-colour
+   * panel it is the additive red plane; combined with customBwLut (a custom
+   * 0x32 waveform) it signals the SECOND greyscale bit-plane of a 2-bpp
+   * 4-level greyscale render. Reset per frame so a later 1-bit-only refresh
+   * (0x24 alone) is not mis-detected as greyscale.
+   */
+  private redWritten = false;
+
+  /** combo (bwBit<<1|redBit) -> grey level 0..3, for greyscale compose. */
+  private readonly greyMap: Readonly<[number, number, number, number]>;
+
   /** Diagnostics: how many full refresh activations we've seen. */
   refreshedCount = 0;
   /** Diagnostics: opcodes the host emitted that aren't in our table. */
@@ -147,6 +202,7 @@ export class SSD168xDecoder {
     this.ramBpr = (longSide + 7) >> 3;
     this.ramRows = longSide;
     this.onFlush = opts.onFlush;
+    this.greyMap = opts.greyComboToLevel ?? DEFAULT_GREY_COMBO_TO_LEVEL;
 
     const size = this.ramBpr * this.ramRows;
     this.bwRam = new Uint8Array(size).fill(0xff); // default white
@@ -181,6 +237,7 @@ export class SSD168xDecoder {
     this.y = 0;
     this.entryMode = 0x03;
     this.customBwLut = false;
+    this.redWritten = false;
     this.xrange = [0, ((this.width + 7) >> 3) - 1];
     this.yrange = [0, this.height - 1];
     this.winXSet = false;
@@ -216,10 +273,17 @@ export class SSD168xDecoder {
     const yTopIsHigh = (this.entryMode & 0x02) === 0;
     // Inverted B/W polarity when the host uploaded a custom waveform LUT (0x32).
     const bwInvert = this.customBwLut;
+    // 4-level greyscale: a custom waveform LUT (0x32) AND both RAM planes
+    // written this frame means each pixel is 2 bits (0x24 = one bit-plane,
+    // 0x26 = the other), composited by the custom LUT into 4 grey levels.
+    // Auto-detected purely from the stream — no panel name involved.
+    const greyscale = this.customBwLut && this.redWritten;
     const nwBytes = Math.max(0, x1 - x0 + 1);
     const nw = nwBytes * 8; // native width (px)
     const nh = Math.max(0, y1 - y0 + 1); // native height (rows)
-    const native = new Uint8Array(nw * nh);
+    const native = new Uint8Array(nw * nh); // palette 0/1/2
+    // Parallel greyscale plane (level 0..3), only allocated in greyscale mode.
+    const nativeGrey = greyscale ? new Uint8Array(nw * nh) : null;
     for (let ny = 0; ny < nh; ny++) {
       const srcY = yTopIsHigh ? y1 - ny : y0 + ny;
       const row = srcY * this.ramBpr + x0;
@@ -232,6 +296,17 @@ export class SSD168xDecoder {
           const x = base + bit;
           if (x >= nw) break;
           const mask = 0x80 >> bit;
+          if (greyscale) {
+            // Two raw plane bits -> combo -> grey level via the custom-LUT map.
+            const bBit = (bByte & mask) !== 0 ? 1 : 0;
+            const rBit = (rByte & mask) !== 0 ? 1 : 0;
+            const level = this.greyMap[(bBit << 1) | rBit];
+            nativeGrey![outRow + x] = level;
+            // 1-bit projection for consumers that only read `pixels`:
+            // dark levels (0,1) -> black, light levels (2,3) -> white.
+            native[outRow + x] = level >= 2 ? 1 : 0;
+            continue;
+          }
           const bwWhite = ((bByte & mask) !== 0) !== bwInvert;
           if (this.isBwr) {
             native[outRow + x] = (rByte & mask) !== 0 ? 2 : bwWhite ? 1 : 0;
@@ -247,48 +322,51 @@ export class SSD168xDecoder {
       }
     }
 
-    // Map native -> display. `nw` is byte-padded (nwBytes*8) so it can exceed
-    // the real native width when that isn't a multiple of 8 (e.g. the 2.13"
-    // panel is 122 px wide -> nw=128). Detect orientation by BYTE width and
-    // crop the padding using the true native width.
+    // Map a native-geometry array -> display geometry (handles the byte-padded
+    // native width and the rotation-0 / rotation-1 transpose). Shared by the
+    // palette plane and the greyscale plane so both rotate identically.
     const W = this.width;
     const H = this.height;
     const Wb = (W + 7) >> 3;
     const Hb = (H + 7) >> 3;
-    let pixels: Uint8Array;
-    if (nh === H && nwBytes === Wb) {
-      // Non-transposed (rotation 0): native actual width = W.
-      if (nw === W) {
-        pixels = native;
-      } else {
-        pixels = new Uint8Array(W * H).fill(1);
+    const toDisplay = (src: Uint8Array, fill: number): Uint8Array => {
+      if (nh === H && nwBytes === Wb) {
+        // Non-transposed (rotation 0): native actual width = W.
+        if (nw === W) return src;
+        const out = new Uint8Array(W * H).fill(fill);
         for (let ny = 0; ny < H; ny++) {
           const s = ny * nw;
           const d = ny * W;
-          for (let x = 0; x < W; x++) pixels[d + x] = native[s + x];
+          for (let x = 0; x < W; x++) out[d + x] = src[s + x];
         }
-      }
-    } else if (nh === W && nwBytes === Hb && nh) {
-      // Transposed (rotation 1): native actual width = H. Inverse of
-      // Adafruit_GFX rotation 1: native(x_raw,y_raw) -> display(xd=y_raw,
-      // yd=Wn-1-x_raw), Wn = true native width = H.
-      pixels = new Uint8Array(W * H).fill(1);
-      const Wn = H;
-      for (let ny = 0; ny < nh; ny++) {
-        if (ny >= W) break;
-        const src = ny * nw;
-        for (let x = 0; x < Wn; x++) {
-          pixels[(Wn - 1 - x) * W + ny] = native[src + x];
+        return out;
+      } else if (nh === W && nwBytes === Hb && nh) {
+        // Transposed (rotation 1): native actual width = H. Inverse of
+        // Adafruit_GFX rotation 1: native(x_raw,y_raw) -> display(xd=y_raw,
+        // yd=Wn-1-x_raw), Wn = true native width = H.
+        const out = new Uint8Array(W * H).fill(fill);
+        const Wn = H;
+        for (let ny = 0; ny < nh; ny++) {
+          if (ny >= W) break;
+          const s = ny * nw;
+          for (let x = 0; x < Wn; x++) out[(Wn - 1 - x) * W + ny] = src[s + x];
         }
+        return out;
       }
-    } else {
-      // Unexpected geometry — best-effort top-left copy onto white.
-      pixels = new Uint8Array(W * H).fill(1);
+      // Unexpected geometry — best-effort top-left copy onto the fill colour.
+      const out = new Uint8Array(W * H).fill(fill);
       for (let ny = 0; ny < Math.min(nh, H); ny++) {
         const s = ny * nw;
         const d = ny * W;
-        for (let x = 0; x < Math.min(nw, W); x++) pixels[d + x] = native[s + x];
+        for (let x = 0; x < Math.min(nw, W); x++) out[d + x] = src[s + x];
       }
+      return out;
+    };
+
+    const pixels = toDisplay(native, 1); // 1 = white padding
+    if (nativeGrey) {
+      const grey = toDisplay(nativeGrey, 3); // 3 = white padding
+      return { width: W, height: H, pixels, grey };
     }
     return { width: W, height: H, pixels };
   }
@@ -307,9 +385,12 @@ export class SSD168xDecoder {
         this.refreshedCount += 1;
         const frame = this.composeFrame();
         this.onFlush?.(frame);
-        // Start a fresh window union for the next frame's pages.
+        // Start a fresh window union for the next frame's pages, and a fresh
+        // red-plane-written flag so a subsequent 1-bit-only refresh (0x24 with
+        // no 0x26) is not mis-detected as greyscale.
         this.winXSet = false;
         this.winYSet = false;
+        this.redWritten = false;
         return;
       }
       // WRITE_BLACK/RED are recognized no-ops here; handleData() routes their
@@ -381,6 +462,7 @@ export class SSD168xDecoder {
     } else if (cmd === CMD_WRITE_BLACK_VRAM) {
       this.writeRamByte(this.bwRam, byte);
     } else if (cmd === CMD_WRITE_RED_VRAM) {
+      this.redWritten = true;
       this.writeRamByte(this.redRam, byte);
     } else if (cmd === CMD_WRITE_LUT) {
       // The host uploaded its own B/W waveform LUT (write_luts()) rather than
