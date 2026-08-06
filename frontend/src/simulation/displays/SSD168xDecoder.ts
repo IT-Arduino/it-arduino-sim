@@ -92,8 +92,6 @@ export class SSD168xDecoder {
 
   private currentCmd = -1;
   private params: number[] = [];
-  /** Which RAM plane subsequent data bytes target. */
-  private ramTarget: 'bw' | 'red' = 'bw';
 
   /** Current X position in bytes (1 byte = 8 px). */
   private xByte = 0;
@@ -118,6 +116,19 @@ export class SSD168xDecoder {
 
   /** Data-entry-mode register (0x11). Default = 0x03 (X+, Y+, X-first). */
   private entryMode = 0x03;
+
+  /**
+   * True once the host uploaded its own B/W waveform LUT via 0x32 (WRITE_LUT)
+   * instead of loading the OTP/built-in waveform (0x22 with the load-LUT bit
+   * 0x10, e.g. 0xF7). A custom waveform redefines the generic SSD168x B/W
+   * convention: on the OTP/built-in waveform RAM bit 1 = white, but a
+   * custom-waveform panel in our catalog inverts it (bit 1 = black). This is
+   * auto-detected from the command stream — the decoder never keys off a panel
+   * name. Every standard SSD168x path we drive (GxEPD2 full refresh, the raw
+   * SSD1680 badge examples) loads the OTP LUT and never sends 0x32, so this
+   * stays false for them and their polarity is unchanged.
+   */
+  private customBwLut = false;
 
   /** Diagnostics: how many full refresh activations we've seen. */
   refreshedCount = 0;
@@ -166,10 +177,10 @@ export class SSD168xDecoder {
     this.redRam.fill(this.isBwr ? 0x00 : 0xff);
     this.currentCmd = -1;
     this.params = [];
-    this.ramTarget = 'bw';
     this.xByte = 0;
     this.y = 0;
     this.entryMode = 0x03;
+    this.customBwLut = false;
     this.xrange = [0, ((this.width + 7) >> 3) - 1];
     this.yrange = [0, this.height - 1];
     this.winXSet = false;
@@ -192,16 +203,26 @@ export class SSD168xDecoder {
   composeFrame(): Frame {
     // Use the UNION of windows set this frame (paged drivers set one partial
     // window per page); fall back to the display geometry if none was set.
-    const x0 = this.winXSet ? this.winX0 : 0;
-    const x1 = this.winXSet ? this.winX1 : ((this.width + 7) >> 3) - 1;
-    const y0 = this.winYSet ? this.winY0 : 0;
-    const y1 = this.winYSet ? this.winY1 : this.height - 1;
+    // Normalize the window bounds with min/max: a RAM range can be supplied
+    // descending (e.g. yrange=[263,0]) in an X-/Y-decrement entry mode. Taking
+    // winX0/winY0 verbatim as the low bound then collapses nh to 0 (blank frame).
+    const x0 = this.winXSet ? Math.min(this.winX0, this.winX1) : 0;
+    const x1 = this.winXSet ? Math.max(this.winX0, this.winX1) : ((this.width + 7) >> 3) - 1;
+    const y0 = this.winYSet ? Math.min(this.winY0, this.winY1) : 0;
+    const y1 = this.winYSet ? Math.max(this.winY0, this.winY1) : this.height - 1;
+    // Y-decrement entry mode (0x11 bit 1 clear) writes RAM from the high gate
+    // address downward, so the visual top row is the HIGH RAM address. Standard
+    // Y-increment panels keep the low address as the top.
+    const yTopIsHigh = (this.entryMode & 0x02) === 0;
+    // Inverted B/W polarity when the host uploaded a custom waveform LUT (0x32).
+    const bwInvert = this.customBwLut;
     const nwBytes = Math.max(0, x1 - x0 + 1);
     const nw = nwBytes * 8; // native width (px)
     const nh = Math.max(0, y1 - y0 + 1); // native height (rows)
     const native = new Uint8Array(nw * nh);
     for (let ny = 0; ny < nh; ny++) {
-      const row = (y0 + ny) * this.ramBpr + x0;
+      const srcY = yTopIsHigh ? y1 - ny : y0 + ny;
+      const row = srcY * this.ramBpr + x0;
       const outRow = ny * nw;
       for (let xb = 0; xb < nwBytes; xb++) {
         const bByte = this.bwRam[row + xb];
@@ -211,9 +232,14 @@ export class SSD168xDecoder {
           const x = base + bit;
           if (x >= nw) break;
           const mask = 0x80 >> bit;
-          const bwWhite = (bByte & mask) !== 0;
+          const bwWhite = ((bByte & mask) !== 0) !== bwInvert;
           if (this.isBwr) {
             native[outRow + x] = (rByte & mask) !== 0 ? 2 : bwWhite ? 1 : 0;
+          } else if (bwInvert) {
+            // Custom-waveform B/W panel: the image lives entirely in the 0x24
+            // plane. The 0x26 plane here is the differential "old" framebuffer,
+            // not a mirrored second mono plane, so it must not gate the result.
+            native[outRow + x] = bwWhite ? 1 : 0;
           } else {
             native[outRow + x] = bwWhite && (rByte & mask) !== 0 ? 1 : 0;
           }
@@ -286,12 +312,10 @@ export class SSD168xDecoder {
         this.winYSet = false;
         return;
       }
+      // WRITE_BLACK/RED are recognized no-ops here; handleData() routes their
+      // data bytes to the correct plane by the current opcode.
       case CMD_WRITE_BLACK_VRAM:
-        this.ramTarget = 'bw';
-        return;
       case CMD_WRITE_RED_VRAM:
-        this.ramTarget = 'red';
-        return;
       case CMD_DRIVER_OUTPUT_CTRL:
       case CMD_GATE_DRIVING_VOLTAGE:
       case CMD_SOURCE_DRIVING_VOLT:
@@ -358,6 +382,13 @@ export class SSD168xDecoder {
       this.writeRamByte(this.bwRam, byte);
     } else if (cmd === CMD_WRITE_RED_VRAM) {
       this.writeRamByte(this.redRam, byte);
+    } else if (cmd === CMD_WRITE_LUT) {
+      // The host uploaded its own B/W waveform LUT (write_luts()) rather than
+      // loading the OTP/built-in waveform. This replaces the generic bit-1=white
+      // mapping — see customBwLut / composeFrame(). Idempotent across the LUT's
+      // bytes. A preceding 0x12/RST reset clears the flag, and firmware sends
+      // the custom LUT after reset during init, so the flag reflects the panel.
+      this.customBwLut = true;
     }
     // Other commands silently buffer their parameters.
   }
@@ -375,32 +406,31 @@ export class SSD168xDecoder {
     // Auto-increment per data_entry_mode (default 0x03: X+, then Y+ at end of row).
     const xInc = (this.entryMode & 0x01) === 0x01;
     const yInc = (this.entryMode & 0x02) === 0x02;
+    // A range may be supplied DESCENDING (start > end) in an X-/Y-decrement
+    // entry mode — e.g. yrange=[263,0] means "start at 263, count down to 0".
+    // Wrap the counters between the TRUE min/max of each range; using the
+    // positional [0]/[1] as if ascending collapses every scanline onto one RAM
+    // row (the garbled / near-blank frame). For an ascending range xLo/yLo ==
+    // range[0] and xHi/yHi == range[1], so standard panels are unaffected.
+    const xLo = Math.min(this.xrange[0], this.xrange[1]);
+    const xHi = Math.max(this.xrange[0], this.xrange[1]);
+    const yLo = Math.min(this.yrange[0], this.yrange[1]);
+    const yHi = Math.max(this.yrange[0], this.yrange[1]);
     let endOfRow = false;
     if (xInc) {
-      if (this.xByte < this.xrange[1]) {
-        this.xByte += 1;
-      } else {
-        this.xByte = this.xrange[0];
-        endOfRow = true;
-      }
+      if (this.xByte < xHi) this.xByte += 1;
+      else { this.xByte = xLo; endOfRow = true; }
     } else {
-      if (this.xByte > this.xrange[0]) {
-        this.xByte -= 1;
-      } else {
-        this.xByte = this.xrange[1];
-        endOfRow = true;
-      }
+      if (this.xByte > xLo) this.xByte -= 1;
+      else { this.xByte = xHi; endOfRow = true; }
     }
     if (endOfRow) {
       // Advance Y, WRAPPING at the window boundary like the SSD168x RAM address
       // counter. Some drivers (e.g. GxEPD2_3C) write the 0x24 then the 0x26
       // plane without re-seeking the counter, relying on this wrap so the
       // second plane lands in the window.
-      if (yInc) {
-        this.y = this.y >= this.yrange[1] ? this.yrange[0] : this.y + 1;
-      } else {
-        this.y = this.y <= this.yrange[0] ? this.yrange[1] : this.y - 1;
-      }
+      if (yInc) this.y = this.y < yHi ? this.y + 1 : yLo;
+      else this.y = this.y > yLo ? this.y - 1 : yHi;
     }
   }
 }
