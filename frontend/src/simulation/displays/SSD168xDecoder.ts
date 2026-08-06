@@ -396,12 +396,16 @@ export class SSD168xDecoder {
         this.refreshedCount += 1;
         const frame = this.composeFrame();
         this.onFlush?.(frame);
-        // Start a fresh window union for the next frame's pages, and a fresh
-        // red-plane-written flag so a subsequent 1-bit-only refresh (0x24 with
-        // no 0x26) is not mis-detected as greyscale.
-        this.winXSet = false;
-        this.winYSet = false;
-        this.redWritten = false;
+        // Do NOT reset the window union or the greyscale flag here. e-paper RAM
+        // persists between refreshes: a PARTIAL refresh (BadgeOS redraws only a
+        // strip on navigation) sets a small window, and resetting the union made
+        // composeFrame emit just that strip — placed top-left with the rest
+        // black, which reads as a 90°-rotated screen with a black band. Keeping
+        // the union means it stays at the full-panel extent established by the
+        // first full refresh, so every frame composes the whole persistent RAM
+        // and partial updates land in place. Paged full refreshes (GxEPD2) still
+        // re-cover the full panel each frame, so their union is unchanged. Both
+        // are cleared only by a real RST (0x12 -> reset()).
         return;
       }
       // WRITE_BLACK/RED are recognized no-ops here; handleData() routes their
