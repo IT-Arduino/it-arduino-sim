@@ -21,12 +21,12 @@ import { AppHeader } from '../components/layout/AppHeader';
 import { triggerSaveAction } from '../lib/proSaveAction';
 import { GitHubStarBanner } from '../components/layout/GitHubStarBanner';
 import { NewsModal } from '../components/layout/NewsModal';
-import { useSimulatorStore, DEFAULT_BOARD_POSITION } from '../store/useSimulatorStore';
+import { useSimulatorStore } from '../store/useSimulatorStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useCompileLogsStore } from '../store/useCompileLogsStore';
 import { useOscilloscopeStore } from '../store/useOscilloscopeStore';
 import { useProjectStore } from '../store/useProjectStore';
-import { showConfirmDialog } from '../store/useMessageDialogStore';
+import { NewProjectDialog } from '../components/editor/NewProjectDialog';
 import { useAutoSaveProject } from '../hooks/useAutoSaveProject';
 import { registerEditorCommand } from '../lib/editorCommands';
 import { EditorMenuBar } from '../components/editor/EditorMenuBar';
@@ -42,6 +42,11 @@ const BOTTOM_PANEL_DEFAULT = 200;
 const EXPLORER_MIN = 110;
 const EXPLORER_MAX = 500;
 const EXPLORER_DEFAULT = 165;
+
+// Once per full page load: the pristine-visit starter dialog must not pop
+// again when the user closes it and later navigates away from and back to
+// /editor within the same SPA session.
+let starterDialogShownThisLoad = false;
 
 const resizeHandleStyle: React.CSSProperties = {
   height: 5,
@@ -99,6 +104,33 @@ export const EditorPage: React.FC = () => {
   // (not the empty starter board). One-shot; see utils/workspaceDraft.
   useEffect(() => {
     restoreStashedWorkspace();
+  }, []);
+
+  const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
+
+  // Pristine-visit starter dialog: a bare /editor landing still holds the
+  // hardcoded Uno + LED starter (see useSimulatorStore INITIAL_BOARD /
+  // builtin components). Offer the template picker instead of silently
+  // dropping the user into the Arduino blink. Guarded so it never fires over
+  // a loaded project/example URL, a restored login draft (both leave the
+  // stores non-pristine), or twice per page load. Declared AFTER the
+  // restoreStashedWorkspace effect — mount order is what makes the
+  // pristine check see the restored draft.
+  useEffect(() => {
+    if (starterDialogShownThisLoad) return;
+    const locale = getLocaleFromPath(window.location.pathname);
+    if (window.location.pathname !== localizedPath('/editor', locale)) return;
+    if (window.location.search) return;
+    if (useProjectStore.getState().currentProject) return;
+    const sim = useSimulatorStore.getState();
+    const pristine =
+      sim.boards.length === 1 &&
+      sim.boards[0].id === 'arduino-uno' &&
+      sim.components.length === 2 &&
+      sim.components.every((c) => c.id === 'led_builtin' || c.id === 'r_builtin');
+    if (!pristine) return;
+    starterDialogShownThisLoad = true;
+    setShowNewProjectDialog(true);
   }, []);
 
   // ── GitHub star prompt (show twice at most: 2nd visit OR after 3 min) ──────
@@ -188,40 +220,12 @@ export const EditorPage: React.FC = () => {
     triggerSaveAction();
   }, []);
 
-  const handleNewClick = useCallback(async () => {
-    const confirmed = await showConfirmDialog(
-      t('editor.fileExplorer.confirmNew.message'),
-      {
-        kind: 'error',
-        title: t('editor.fileExplorer.confirmNew.title'),
-        confirmLabel: t('editor.fileExplorer.confirmNew.confirm'),
-        cancelLabel: t('editor.fileExplorer.confirmNew.cancel'),
-        danger: true,
-      },
-    );
-    if (!confirmed) return;
-    const sim = useSimulatorStore.getState();
-    sim.boards.forEach((b) => sim.stopBoard(b.id));
-    const ids = sim.boards.map((b) => b.id);
-    ids.forEach((id) => sim.removeBoard(id));
-    sim.setComponents([]);
-    sim.setWires([]);
-    useProjectStore.getState().clearCurrentProject();
-    const newId = useSimulatorStore
-      .getState()
-      .addBoard('arduino-uno', DEFAULT_BOARD_POSITION.x, DEFAULT_BOARD_POSITION.y);
-    useSimulatorStore.getState().setActiveBoardId(newId);
-    // The workspace no longer belongs to whatever project URL we were on —
-    // leaving it would silently reload the OLD project over this fresh
-    // workspace on refresh (and via the back button). replaceState, not
-    // pushState: a back-entry pointing at the stale project URL would
-    // remount the project route and cause exactly that reload.
-    const locale = getLocaleFromPath(window.location.pathname);
-    const editorPath = localizedPath('/editor', locale);
-    if (window.location.pathname !== editorPath) {
-      window.history.replaceState(null, '', editorPath);
-    }
-  }, [t]);
+  // "New workspace" opens the starter-template dialog. Destruction moved
+  // from here into the dialog's selection handler — Cancel/ESC now leaves
+  // the current workspace untouched, so the old confirm dialog is gone.
+  const handleNewClick = useCallback(() => {
+    setShowNewProjectDialog(true);
+  }, []);
 
   // Track mobile breakpoint
   useEffect(() => {
@@ -750,6 +754,10 @@ export const EditorPage: React.FC = () => {
         />
       )}
       <NewsModal />
+      <NewProjectDialog
+        isOpen={showNewProjectDialog}
+        onClose={() => setShowNewProjectDialog(false)}
+      />
       {/* Slot reserved for the private pro overlay (e.g. agent chat panel).
           Self-hosted builds without an overlay see nothing here. */}
       <div data-velxio-slot="agent-chat" />

@@ -45,7 +45,7 @@
     },
     "fileExplorer": {
       "workspace": "ESPACIO DE TRABAJO",
-      "newWorkspace": "Nuevo espacio de trabajo (borra placas, componentes, cables y archivos)",
+      "newWorkspace": "Nuevo espacio de trabajo (elige una plantilla inicial)",
       "confirmNew": {
         "title": "¿Iniciar un nuevo espacio de trabajo?",
         "message": "Esto borra todas las placas, componentes, cables y archivos. No se puede deshacer.",
@@ -284,6 +284,13 @@
       "clear": "Limpiar salida",
       "close": "Cerrar",
       "empty": "Aún no hay salida de compilación. Haz clic en Compilar para empezar."
+    },
+    "newProject": {
+      "title": "Comienza un proyecto nuevo",
+      "subtitle": "Elige un espacio en blanco o una placa con un ejemplo Blink listo para ejecutar. Esto reemplaza todo el contenido del espacio de trabajo actual.",
+      "blankTitle": "Proyecto en blanco",
+      "blankDesc": "Espacio vacío — añade tus propias placas y componentes",
+      "cancel": "Cancelar"
     },
     "boardPicker": {
       "title": "Añadir placa"

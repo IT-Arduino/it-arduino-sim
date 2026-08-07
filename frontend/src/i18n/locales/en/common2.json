@@ -45,7 +45,7 @@
     },
     "fileExplorer": {
       "workspace": "WORKSPACE",
-      "newWorkspace": "New workspace (clears boards, components, wires and files)",
+      "newWorkspace": "New workspace (choose a starter template)",
       "confirmNew": {
         "title": "Start a new workspace?",
         "message": "This clears every board, component, wire and file. This cannot be undone.",
@@ -284,6 +284,13 @@
       "clear": "Clear output",
       "close": "Close",
       "empty": "No compilation output yet. Click Compile to start."
+    },
+    "newProject": {
+      "title": "Start a new project",
+      "subtitle": "Pick a blank workspace or a board with a ready-to-run Blink example. This replaces everything in the current workspace.",
+      "blankTitle": "Blank project",
+      "blankDesc": "Empty workspace — add your own boards and parts",
+      "cancel": "Cancel"
     },
     "boardPicker": {
       "title": "Add Board"
