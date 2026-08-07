@@ -2860,65 +2860,9 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
               </div>
 
               <div className="canvas-header-right">
-                {/* Zoom controls */}
-                <div className="zoom-controls">
-                  <button
-                    className="zoom-btn"
-                    onClick={() =>
-                      handleWheel({
-                        deltaY: 100,
-                        clientX: 0,
-                        clientY: 0,
-                        preventDefault: () => {},
-                      } as any)
-                    }
-                    title={t('editor.canvas.zoomOut')}
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                    >
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                  </button>
-                  <button
-                    className="zoom-level"
-                    onClick={handleResetView}
-                    title={t('editor.canvas.resetView')}
-                  >
-                    {Math.round(zoom * 100)}%
-                  </button>
-                  <button
-                    className="zoom-btn"
-                    onClick={() =>
-                      handleWheel({
-                        deltaY: -100,
-                        clientX: 0,
-                        clientY: 0,
-                        preventDefault: () => {},
-                      } as any)
-                    }
-                    title={t('editor.canvas.zoomIn')}
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                    >
-                      <line x1="12" y1="5" x2="12" y2="19" />
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                  </button>
-                </div>
+                {/* Zoom moved to a floating cluster on the canvas'
+                    bottom-right corner — the header gets too tight when the
+                    AI chat panel is docked. */}
 
                 {/* Component count */}
                 <span
@@ -3224,6 +3168,73 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
               }
               return null;
             })()}
+
+          {/* Floating zoom controls — pinned to the canvas' bottom-right
+              corner (they lived in the canvas header, which gets too tight
+              when the AI chat panel is docked; the corner is always free).
+              stopPropagation so a click never starts a canvas pan/selection. */}
+          <div
+            className="zoom-controls zoom-controls--floating"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="zoom-btn"
+              onClick={() =>
+                handleWheel({
+                  deltaY: 100,
+                  clientX: 0,
+                  clientY: 0,
+                  preventDefault: () => {},
+                } as any)
+              }
+              title={t('editor.canvas.zoomOut')}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              >
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+            <button
+              className="zoom-level"
+              onClick={handleResetView}
+              title={t('editor.canvas.resetView')}
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              className="zoom-btn"
+              onClick={() =>
+                handleWheel({
+                  deltaY: -100,
+                  clientX: 0,
+                  clientY: 0,
+                  preventDefault: () => {},
+                } as any)
+              }
+              title={t('editor.canvas.zoomIn')}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 

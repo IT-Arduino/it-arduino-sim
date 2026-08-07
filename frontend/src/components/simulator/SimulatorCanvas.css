@@ -264,6 +264,18 @@
   height: 28px;
 }
 
+/* Floating variant: pinned to the canvas' bottom-right corner (the header
+   got too tight once the AI chat panel docks on the right). Sits above the
+   canvas layers; dialogs/modals portal to <body> so they stay on top. */
+.zoom-controls--floating {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 60;
+  height: 32px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
 .zoom-btn {
   display: flex;
   align-items: center;
