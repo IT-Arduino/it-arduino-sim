@@ -21,6 +21,7 @@ import { InstrumentComponent } from '../components-instruments/InstrumentCompone
 import { ComponentRegistry } from '../../services/ComponentRegistry';
 import { getTabSessionId } from '../../simulation/Esp32Bridge';
 import { CameraToggle } from './CameraToggle';
+import { ComponentCameraToggles } from './ComponentCameraToggles';
 import { MicrophoneToggle } from './MicrophoneToggle';
 import { WireLayer } from './WireLayer';
 import type { SegmentHandle, WaypointHandle, AlignmentGuide } from './WireLayer';
@@ -2717,6 +2718,11 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                     }
                   />
                 )}
+
+                {/* Header toggles for COMPONENT-owned webcams (vision sensors
+                    that capture the webcam themselves — see
+                    componentCameraRegistry). Renders nothing when none. */}
+                <ComponentCameraToggles />
 
                 {/* Microphone stream toggle, for boards whose def declares an
                     on-board mic (their bridge implements setMicrophoneSource).
