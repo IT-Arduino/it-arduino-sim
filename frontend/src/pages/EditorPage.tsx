@@ -26,7 +26,10 @@ import { useEditorStore } from '../store/useEditorStore';
 import { useCompileLogsStore } from '../store/useCompileLogsStore';
 import { useOscilloscopeStore } from '../store/useOscilloscopeStore';
 import { useProjectStore } from '../store/useProjectStore';
-import { NewProjectDialog } from '../components/editor/NewProjectDialog';
+import {
+  NewProjectDialog,
+  clearWorkspaceForStarter,
+} from '../components/editor/NewProjectDialog';
 import { useAutoSaveProject } from '../hooks/useAutoSaveProject';
 import { registerEditorCommand } from '../lib/editorCommands';
 import { EditorMenuBar } from '../components/editor/EditorMenuBar';
@@ -110,12 +113,13 @@ export const EditorPage: React.FC = () => {
 
   // Pristine-visit starter dialog: a bare /editor landing still holds the
   // hardcoded Uno + LED starter (see useSimulatorStore INITIAL_BOARD /
-  // builtin components). Offer the template picker instead of silently
-  // dropping the user into the Arduino blink. Guarded so it never fires over
-  // a loaded project/example URL, a restored login draft (both leave the
-  // stores non-pristine), or twice per page load. Declared AFTER the
-  // restoreStashedWorkspace effect — mount order is what makes the
-  // pristine check see the restored draft.
+  // builtin components). Clear it and offer the template picker over an
+  // EMPTY canvas instead of silently dropping the user into the Arduino
+  // blink (cancelling the dialog leaves a blank workspace). Guarded so it
+  // never fires over a loaded project/example URL, a restored login draft
+  // (both leave the stores non-pristine), or twice per page load. Declared
+  // AFTER the restoreStashedWorkspace effect — mount order is what makes
+  // the pristine check see the restored draft.
   useEffect(() => {
     if (starterDialogShownThisLoad) return;
     const locale = getLocaleFromPath(window.location.pathname);
@@ -130,6 +134,7 @@ export const EditorPage: React.FC = () => {
       sim.components.every((c) => c.id === 'led_builtin' || c.id === 'r_builtin');
     if (!pristine) return;
     starterDialogShownThisLoad = true;
+    clearWorkspaceForStarter();
     setShowNewProjectDialog(true);
   }, []);
 

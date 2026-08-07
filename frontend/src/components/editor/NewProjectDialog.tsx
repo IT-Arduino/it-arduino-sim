@@ -1,11 +1,12 @@
 /**
  * NewProjectDialog — starter-template picker.
  *
- * Shown (a) on a pristine `/editor` visit, instead of silently dropping the
- * user into the hardcoded Arduino Uno + LED starter, and (b) from the
- * "New workspace" button / File menu entry. Offers a blank workspace plus a
- * ready-to-run Blink starter per board family (Arduino, ESP32, Seeed XIAO,
- * STM32, Raspberry Pi).
+ * Shown (a) on a pristine `/editor` visit (over an emptied canvas), and
+ * (b) from the "New workspace" button / File menu entry. Offers a blank
+ * workspace plus a ready-to-run Blink starter per board family — Arduino,
+ * ESP32 (one card per chip generation, XIAO variant preferred), STM32,
+ * Raspberry Pi — each card carrying the same circuit thumbnail the examples
+ * gallery uses (/examples-thumbs/<id>.webp, CircuitPreview fallback).
  *
  * Selecting a board loads its gallery Blink example when one exists (full
  * wiring: 220Ω resistor + LED); boards without one get a fresh board whose
@@ -31,9 +32,11 @@ import {
 } from '../../lib/proBoardRegistry';
 import { useSimulatorStore, DEFAULT_BOARD_POSITION } from '../../store/useSimulatorStore';
 import { useProjectStore } from '../../store/useProjectStore';
+import { useEditorStore } from '../../store/useEditorStore';
 import { getLocaleFromPath, localizedPath } from '../../i18n/path';
 import { loadExample } from '../../utils/loadExample';
 import type { ExampleProject } from '../../data/examples';
+import { ExampleThumbnail } from '../examples/ExampleThumbnail';
 import { trackSelectBoard } from '../../utils/analytics';
 import './NewProjectDialog.css';
 
@@ -46,13 +49,6 @@ interface NewProjectDialogProps {
 const BOARD_BLURBS: Record<string, string> = {
   'arduino-uno': '8-bit AVR, 32KB flash, 14 digital I/O',
   esp32: 'Xtensa LX6 dual-core, WiFi+BT, 38 GPIO (QEMU)',
-  'esp32-devkit-c-v4': 'ESP32 DevKit C V4, official Espressif (QEMU)',
-  'esp32-cam': 'ESP32 + 2MP camera, microSD (QEMU)',
-  'wemos-lolin32-lite': 'Compact ESP32, LiPo battery support (QEMU)',
-  'esp32-s3': 'Xtensa LX7 dual-core, WiFi+BT, AI accel (QEMU)',
-  'arduino-nano-esp32': 'Nano form-factor, ESP32-S3, RGB LED (QEMU)',
-  'esp32-c3': 'RISC-V single-core, WiFi+BLE, 22 GPIO (QEMU)',
-  'aitewinrobot-esp32c3-supermini': 'ESP32-C3 SuperMini (QEMU)',
   'xiao-esp32-s3': 'Seeed XIAO tiny form, 8MB flash+PSRAM (QEMU)',
   'xiao-esp32-c3': 'Seeed XIAO ESP32-C3 mini board (QEMU)',
   'stm32-bluepill': 'STM32F103C8 Cortex-M3, 64KB flash, 37 GPIO (QEMU)',
@@ -69,19 +65,6 @@ const BOARD_BLURBS: Record<string, string> = {
   'raspberry-pi-5': 'ARM64 Cortex-A76 quad-core + RP1 I/O, Linux/Python (QEMU)',
 };
 
-const ESP32_BOARDS: BoardKind[] = [
-  'esp32',
-  'esp32-devkit-c-v4',
-  'esp32-cam',
-  'wemos-lolin32-lite',
-  'esp32-s3',
-  'arduino-nano-esp32',
-  'esp32-c3',
-  'aitewinrobot-esp32c3-supermini',
-];
-
-const XIAO_BOARDS: BoardKind[] = ['xiao-esp32-s3', 'xiao-esp32-c3'];
-
 const STM32_BOARDS: BoardKind[] = [
   'stm32-bluepill',
   'stm32-blackpill',
@@ -93,12 +76,47 @@ const STM32_BOARDS: BoardKind[] = [
   'stm32-netduino2',
 ];
 
-const PI_BOARDS: BoardKind[] = [
-  'raspberry-pi-pico',
-  'raspberry-pi-3',
-  'raspberry-pi-4',
-  'raspberry-pi-5',
-];
+/**
+ * Starter-card thumbnail: reuse the gallery's convention-based thumbs
+ * (/examples-thumbs/<id>.webp, CircuitPreview SVG fallback). Kinds with a
+ * Blink example use that example's thumb; the rest use a captured
+ * `starter-<kind>` shot living in the same folder.
+ */
+function thumbStubFor(kind: string, label: string): ExampleProject {
+  return {
+    id: PREFERRED_BLINK_EXAMPLE[kind] ?? `starter-${kind}`,
+    title: label,
+    description: '',
+    category: 'basics',
+    difficulty: 'beginner',
+    boardType: kind,
+    code: '',
+    components: [],
+    wires: [],
+  };
+}
+
+/**
+ * Empty the whole workspace: boards, components, wires, current project and
+ * every editor file group. Removing the LAST board leaves the editor's
+ * files/activeFileId mirror pointing at the deleted group (removeBoard only
+ * re-points when another board remains), so Monaco kept showing the dead
+ * sketch — pointing the editor at a nonexistent group blanks it.
+ */
+export function clearWorkspaceForStarter(): void {
+  // currentProject FIRST — same auto-save hazard loadExample documents:
+  // mutating the stores while a saved project is still "current" lets the
+  // debounced PUT overwrite that project with the emptied content.
+  useProjectStore.getState().clearCurrentProject();
+  const sim = useSimulatorStore.getState();
+  sim.boards.forEach((b) => sim.stopBoard(b.id));
+  sim.boards.map((b) => b.id).forEach((id) => sim.removeBoard(id));
+  sim.setComponents([]);
+  sim.setWires([]);
+  const editor = useEditorStore.getState();
+  Object.keys(editor.fileGroups).forEach((g) => editor.deleteFileGroup(g));
+  editor.setActiveGroup('');
+}
 
 /**
  * Gallery Blink example per board kind, when one exists. Preferred ids first
@@ -147,16 +165,7 @@ async function findBlinkExample(kind: string): Promise<ExampleProject | undefine
  * LED (createFileGroup picks the per-board/language blink content).
  */
 async function applyStarter(kind: string | 'blank'): Promise<void> {
-  // Clear currentProject FIRST — same auto-save hazard loadExample documents:
-  // mutating the stores while a saved project is still "current" lets the
-  // debounced PUT overwrite that project with the starter's content.
-  useProjectStore.getState().clearCurrentProject();
-
-  const sim = useSimulatorStore.getState();
-  sim.boards.forEach((b) => sim.stopBoard(b.id));
-  sim.boards.map((b) => b.id).forEach((id) => sim.removeBoard(id));
-  sim.setComponents([]);
-  sim.setWires([]);
+  clearWorkspaceForStarter();
 
   if (kind !== 'blank') {
     let example: ExampleProject | undefined;
@@ -208,18 +217,37 @@ export const NewProjectDialog: React.FC<NewProjectDialogProps> = ({ isOpen, onCl
 
   const sections = useMemo(() => {
     const defs = listProBoards();
-    const overlay = (prefix: string) =>
-      defs
-        .filter((d) => d.kind.startsWith(prefix))
-        .map((d) => ({ kind: d.kind, blurb: d.description }));
-    const oss = (kinds: BoardKind[]) =>
-      kinds.map((k) => ({ kind: k as string, blurb: BOARD_BLURBS[k] ?? '' }));
+    const oss = (k: BoardKind) => ({ kind: k as string, blurb: BOARD_BLURBS[k] ?? '' });
+    // Overlay-registered kinds only exist when the private overlay mounted —
+    // an OSS build simply doesn't show those cards.
+    const pro = (k: string) => {
+      const d = defs.find((x) => x.kind === k);
+      return d ? [{ kind: d.kind, blurb: d.description }] : [];
+    };
     return [
-      { title: 'Arduino', entries: oss(['arduino-uno']) },
-      { title: 'ESP32', entries: [...oss(ESP32_BOARDS), ...overlay('esp32')] },
-      { title: 'Seeed Studio XIAO', entries: [...oss(XIAO_BOARDS), ...overlay('xiao')] },
-      { title: 'STM32', entries: oss(STM32_BOARDS) },
-      { title: 'Raspberry Pi', entries: oss(PI_BOARDS) },
+      { title: 'Arduino', entries: [oss('arduino-uno')] },
+      // One card per ESP32 chip generation, XIAO variant preferred where
+      // Seeed makes one: classic → DevKit V1, S3/C3 → XIAO, C6 → XIAO (overlay).
+      {
+        title: 'ESP32',
+        entries: [
+          oss('esp32'),
+          oss('xiao-esp32-s3'),
+          oss('xiao-esp32-c3'),
+          ...pro('xiao-esp32c6'),
+        ],
+      },
+      { title: 'STM32', entries: STM32_BOARDS.map(oss) },
+      {
+        title: 'Raspberry Pi',
+        entries: [
+          oss('raspberry-pi-pico'),
+          ...pro('xiao-rp2040'),
+          oss('raspberry-pi-3'),
+          oss('raspberry-pi-4'),
+          oss('raspberry-pi-5'),
+        ],
+      },
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proBoardsVersion]);
@@ -272,11 +300,14 @@ export const NewProjectDialog: React.FC<NewProjectDialogProps> = ({ isOpen, onCl
               className="new-project-card new-project-card-blank"
               onClick={() => handleSelect('blank')}
             >
-              <span className="new-project-card-name">
-                {t('editor.newProject.blankTitle')}
-              </span>
-              <span className="new-project-card-desc">
-                {t('editor.newProject.blankDesc')}
+              <span className="new-project-card-thumb new-project-card-thumb-blank">+</span>
+              <span className="new-project-card-info">
+                <span className="new-project-card-name">
+                  {t('editor.newProject.blankTitle')}
+                </span>
+                <span className="new-project-card-desc">
+                  {t('editor.newProject.blankDesc')}
+                </span>
               </span>
             </button>
           </div>
@@ -286,19 +317,29 @@ export const NewProjectDialog: React.FC<NewProjectDialogProps> = ({ isOpen, onCl
               <React.Fragment key={section.title}>
                 <div className="new-project-section-title">{section.title}</div>
                 <div className="new-project-grid">
-                  {section.entries.map(({ kind, blurb }) => (
-                    <button
-                      key={kind}
-                      className="new-project-card"
-                      onClick={() => handleSelect(kind)}
-                    >
-                      {isProBoardKind(kind) && <ProPill />}
-                      <span className="new-project-card-name">
-                        {BOARD_KIND_LABELS[kind as BoardKind] ?? kind}
-                      </span>
-                      <span className="new-project-card-desc">{blurb}</span>
-                    </button>
-                  ))}
+                  {section.entries.map(({ kind, blurb }) => {
+                    const label = BOARD_KIND_LABELS[kind as BoardKind] ?? kind;
+                    return (
+                      <button
+                        key={kind}
+                        className="new-project-card"
+                        onClick={() => handleSelect(kind)}
+                      >
+                        <span className="new-project-card-thumb">
+                          <ExampleThumbnail
+                            example={thumbStubFor(kind, label)}
+                            width={300}
+                            height={180}
+                          />
+                        </span>
+                        {isProBoardKind(kind) && <ProPill />}
+                        <span className="new-project-card-info">
+                          <span className="new-project-card-name">{label}</span>
+                          <span className="new-project-card-desc">{blurb}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </React.Fragment>
             ),
