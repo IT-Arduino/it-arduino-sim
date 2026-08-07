@@ -87,7 +87,12 @@ export function parseCompileResult(
         lower.includes('note:') ||
         lower.includes('in file included') ||
         lower.startsWith('using ') ||
-        lower.startsWith('libraries ')
+        lower.startsWith('libraries ') ||
+        // IDF's CMake banners for esp-insights/esp-rainmaker print
+        // "... Project commit: HEAD-HASH-NOTFOUND" to stderr when the
+        // component tree has no git metadata — build chatter, not an error,
+        // but the red error marker made users read it as one.
+        lower.includes('project commit:')
       ) {
         type = 'info';
       }
