@@ -393,7 +393,8 @@
     },
     "inspector": {
       "propertiesTab": "Properties",
-      "datasheetTab": "Datasheet"
+      "datasheetTab": "Datasheet",
+      "examplesTitle": "Example projects"
     }
   },
   "about": {

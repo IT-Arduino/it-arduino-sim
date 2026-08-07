@@ -391,7 +391,8 @@
     },
     "inspector": {
       "propertiesTab": "Propriedades",
-      "datasheetTab": "Ficha técnica"
+      "datasheetTab": "Ficha técnica",
+      "examplesTitle": "Projetos de exemplo"
     }
   },
   "about": {

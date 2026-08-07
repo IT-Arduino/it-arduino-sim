@@ -391,7 +391,8 @@
     },
     "inspector": {
       "propertiesTab": "プロパティ",
-      "datasheetTab": "データシート"
+      "datasheetTab": "データシート",
+      "examplesTitle": "サンプルプロジェクト"
     }
   },
   "about": {

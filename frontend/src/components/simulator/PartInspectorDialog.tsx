@@ -20,10 +20,17 @@
  * undo, colors and running-state gating.
  */
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { ComponentMetadata } from '../../types/component-metadata';
+import {
+  exampleProjects,
+  subscribeProExamples,
+  getProExamplesVersion,
+  type ExampleProject,
+} from '../../data/examples';
+import { stripBrandPrefix } from '../../utils/exampleToBuildNetlistInput';
 import { SdCardPanel } from './SdCardPanel';
 import type { UploadedSdFile } from '../../utils/sdCardFiles';
 import { useSimulatorStore } from '../../store/useSimulatorStore';
@@ -62,6 +69,24 @@ function isEditable(prop: any): boolean {
 /** "input" -> "Input" — the picker formats categories for display; match it. */
 function displayCategory(cat: string): string {
   return cat ? cat.charAt(0).toUpperCase() + cat.slice(1) : cat;
+}
+
+/**
+ * Gallery examples that actually use this part. The id doubles as both keys
+ * the gallery uses: a component's metadata id (examples reference it in
+ * components[].type, brand prefix stripped) and a board's kind (boardType /
+ * boardFilter / boards[].boardKind) — the board inspector passes boardKind as
+ * metadata.id, so one lookup serves both dialogs.
+ */
+function examplesForPart(id: string): ExampleProject[] {
+  return exampleProjects.filter(
+    (ex) =>
+      ex.boardType === id ||
+      ex.boardFilter === id ||
+      ex.boards?.some((b) => b.boardKind === id) ||
+      // Overlay-registered examples are cast in, so components may be absent.
+      (ex.components ?? []).some((c) => c.type === id || stripBrandPrefix(c.type) === id),
+  );
 }
 
 /**
@@ -140,6 +165,12 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
   const [previewFailed, setPreviewFailed] = useState(false);
 
   const doc = useComponentDoc(componentMetadata.id);
+
+  // Pro examples register asynchronously (dynamic overlay import): the
+  // version subscription re-derives the list the moment they land, so a
+  // dialog opened early does not miss them.
+  useSyncExternalStore(subscribeProExamples, getProExamplesVersion);
+  const partExamples = examplesForPart(componentMetadata.id);
 
   // ── Keyboard binding capture (unchanged from the old dialog) ─────────────
   const [capturingKey, setCapturingKey] = useState(false);
@@ -653,6 +684,44 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
                       <span className="pid-row-label">{p.name}</span>
                       <span className="pid-row-value">{formatValue(p)}</span>
                     </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Gallery examples that use this part — each opens the live
+                  editor (/example/:id) in a new tab, so the running project
+                  is never disturbed. */}
+              {partExamples.length > 0 && (
+                <div className="pid-examples">
+                  <div className="pid-examples-title">
+                    {t('editor.inspector.examplesTitle')}
+                  </div>
+                  {partExamples.slice(0, 8).map((ex) => (
+                    <a
+                      key={ex.id}
+                      className="pid-example-link"
+                      href={`/example/${ex.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={ex.description}
+                    >
+                      <svg
+                        width="11"
+                        height="11"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                      <span>{ex.title}</span>
+                    </a>
                   ))}
                 </div>
               )}
