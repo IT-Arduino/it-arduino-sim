@@ -392,7 +392,8 @@
     "inspector": {
       "propertiesTab": "Propriétés",
       "datasheetTab": "Fiche technique",
-      "examplesTitle": "Projets d’exemple"
+      "examplesTitle": "Projets d’exemple",
+      "productPage": "Page produit"
     }
   },
   "about": {

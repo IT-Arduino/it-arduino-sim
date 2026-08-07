@@ -392,7 +392,8 @@
     "inspector": {
       "propertiesTab": "属性",
       "datasheetTab": "数据手册",
-      "examplesTitle": "示例项目"
+      "examplesTitle": "示例项目",
+      "productPage": "产品页面"
     }
   },
   "about": {

@@ -788,11 +788,11 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
                   strokeLinejoin="round"
                   aria-hidden="true"
                 >
-                  <circle cx="9" cy="21" r="1" />
-                  <circle cx="20" cy="21" r="1" />
-                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
                 </svg>
-                Buy
+                {t('editor.inspector.productPage')}
               </a>
             </div>
           )}

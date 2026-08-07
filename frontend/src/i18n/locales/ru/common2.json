@@ -392,7 +392,8 @@
     "inspector": {
       "propertiesTab": "Свойства",
       "datasheetTab": "Спецификация",
-      "examplesTitle": "Примеры проектов"
+      "examplesTitle": "Примеры проектов",
+      "productPage": "Страница товара"
     }
   },
   "about": {
