@@ -49,7 +49,12 @@ const Toggle: React.FC<{ cam: ComponentCameraEntry }> = ({ cam }) => {
         <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
         <circle cx="12" cy="13" r="4" />
       </svg>
-      <span>{cam.label}</span>
+      {/* The button says "Camera", exactly like the board CameraToggle —
+          one header language (user feedback: "HuskyLens cam" next to the
+          ESP32-CAM's plain "Camera" read as a different thing). WHICH
+          camera it is stays in the tooltip, where it matters when a board
+          camera and a component camera coexist. */}
+      <span>Camera</span>
     </button>
   );
 };
