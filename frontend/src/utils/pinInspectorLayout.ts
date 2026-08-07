@@ -201,25 +201,56 @@ export function layoutInspectorPins(
   // opposite headers with six x values shared between them, and reading those
   // pairs as columns threw most of the board's pins into the side gutters
   // with a fan of leader lines across the art.
+  const colGroups: Array<{ idx: number[]; c: number }> = [];
   for (const g of cluster(xs)) {
     if (g.length < 3) continue;
     const gys = g.map((i) => ys[i]);
     if (Math.max(...gys) - Math.min(...gys) < TOL) continue; // a row, not a column
     if (maxGap(gys) > 0.4 * H) continue; // opposite ends of the body, not a run
-    const cx = g.reduce((s, i) => s + xs[i], 0) / g.length;
-    const e: PinEdge = cx <= W / 2 ? 'left' : 'right';
-    for (const i of g) side[i] = e;
+    colGroups.push({ idx: g, c: g.reduce((s, i) => s + xs[i], 0) / g.length });
+  }
+  // A dual-row pin header (the Pi's 40-pin GPIO, rotated into two adjacent
+  // columns) must NOT dump both lines into one gutter — 40 interleaved
+  // labels never fit one side. Printed pinout posters split such a pair:
+  // first line's labels left, second line's right, leaders crossing the art.
+  const isHeaderPair = (a: { idx: number[]; c: number }, b: { idx: number[]; c: number }) =>
+    Math.abs(a.c - b.c) <= 5 * TOL && a.idx.length + b.idx.length >= 16;
+  if (colGroups.length === 2 && isHeaderPair(colGroups[0], colGroups[1])) {
+    const [a, b] =
+      colGroups[0].c <= colGroups[1].c
+        ? [colGroups[0], colGroups[1]]
+        : [colGroups[1], colGroups[0]];
+    for (const i of a.idx) side[i] = 'left';
+    for (const i of b.idx) side[i] = 'right';
+  } else {
+    for (const g of colGroups) {
+      const e: PinEdge = g.c <= W / 2 ? 'left' : 'right';
+      for (const i of g.idx) side[i] = e;
+    }
   }
   // Then horizontal rows, for whatever is still unassigned (headers).
+  const rowGroups: Array<{ idx: number[]; c: number }> = [];
   for (const g of cluster(ys)) {
     const free = g.filter((i) => side[i] === null);
     if (free.length < 2) continue;
     const gxs = free.map((i) => xs[i]);
     if (Math.max(...gxs) - Math.min(...gxs) < TOL) continue;
     if (maxGap(gxs) > 0.4 * W) continue;
-    const cy = free.reduce((s, i) => s + ys[i], 0) / free.length;
-    const e: PinEdge = cy <= H / 2 ? 'top' : 'bottom';
-    for (const i of free) side[i] = e;
+    rowGroups.push({ idx: free, c: free.reduce((s, i) => s + ys[i], 0) / free.length });
+  }
+  // Same poster-style split for an unrotated dual-row header (top/bottom).
+  if (rowGroups.length === 2 && isHeaderPair(rowGroups[0], rowGroups[1])) {
+    const [a, b] =
+      rowGroups[0].c <= rowGroups[1].c
+        ? [rowGroups[0], rowGroups[1]]
+        : [rowGroups[1], rowGroups[0]];
+    for (const i of a.idx) side[i] = 'top';
+    for (const i of b.idx) side[i] = 'bottom';
+  } else {
+    for (const g of rowGroups) {
+      const e: PinEdge = g.c <= H / 2 ? 'top' : 'bottom';
+      for (const i of g.idx) side[i] = e;
+    }
   }
 
   const classified = pins.map((pin, i) => {

@@ -134,6 +134,12 @@ interface PartInspectorDialogProps {
  * the dialog's left column ends up a little wider than this.
  */
 const PINS_ART = 190;
+/**
+ * Taller art box used when a wide many-pin board is shown ROTATED (Mega, the
+ * Pi Linux family): its long pin rows become side columns, and the labels
+ * need vertical room — the dialog column has it to spare.
+ */
+const PINS_ART_ROTATED_H = 420;
 
 export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
   componentId,
@@ -242,41 +248,62 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
     setLayout(null);
     host.textContent = '';
 
+    type PreviewEl = HTMLElement & {
+      pinInfo?: Array<{ name: string; x: number; y: number; signals?: any[] }>;
+    };
     const tag = previewTagName || metaRef.current.tagName;
-    if (!tag || !customElements.get(tag)) {
-      // Unregistered tag (or none): the header thumbnail already shows the
+    let el: PreviewEl | null = null;
+    if (tag && customElements.get(tag)) {
+      el = document.createElement(tag) as PreviewEl;
+      // Apply the instance's properties (an LED's color/flip changes both the
+      // art and, for flip, the pinInfo itself), then the metadata defaults for
+      // whatever the instance does not carry.
+      for (const [k, v] of Object.entries({
+        ...metaRef.current.defaultValues,
+        ...componentProperties,
+      })) {
+        try {
+          (el as any)[k] = v;
+        } catch {
+          /* read-only prop on some element - ignore */
+        }
+      }
+      // Boards select their art through an ATTRIBUTE (board-kind), not a
+      // property: velxio-esp32 renders nothing until it has one.
+      for (const [k, v] of Object.entries(previewAttributes ?? {})) el!.setAttribute(k, v);
+    } else {
+      // Not a registered custom element. The Pi Linux family draws on the
+      // canvas as a plain <img> React wrapper carrying pinInfo as a JS
+      // property — so the old "unregistered tag → give up" path showed the
+      // Pi 3/4/5 inspector with NO pins at all. Clone the live canvas node
+      // instead: same art, same natural size, pins from the pinInfo prop.
+      const live = document.getElementById(componentId);
+      if (live) {
+        el = live.cloneNode(true) as HTMLElement;
+        el.removeAttribute('id');
+        // Neutralize the canvas placement so the clone lays out at its
+        // natural size inside the preview box.
+        el.style.position = 'static';
+        el.style.left = '';
+        el.style.top = '';
+      }
+    }
+    if (!el) {
+      // No element and no live node: the header thumbnail already shows the
       // art, so the preview just reports there is nothing live to mount.
       setPreviewFailed(true);
       return;
     }
-    const el = document.createElement(tag) as HTMLElement & {
-      pinInfo?: Array<{ name: string; x: number; y: number; signals?: any[] }>;
-    };
-    // Apply the instance's properties (an LED's color/flip changes both the
-    // art and, for flip, the pinInfo itself), then the metadata defaults for
-    // whatever the instance does not carry.
-    for (const [k, v] of Object.entries({
-      ...metaRef.current.defaultValues,
-      ...componentProperties,
-    })) {
-      try {
-        (el as any)[k] = v;
-      } catch {
-        /* read-only prop on some element - ignore */
-      }
-    }
-    // Boards select their art through an ATTRIBUTE (board-kind), not a
-    // property: velxio-esp32 renders nothing until it has one.
-    for (const [k, v] of Object.entries(previewAttributes ?? {})) el.setAttribute(k, v);
-    el.classList.add('pid-preview-element');
-    host.appendChild(el);
+    const pel: PreviewEl = el;
+    pel.classList.add('pid-preview-element');
+    host.appendChild(pel);
 
     let cancelled = false;
     let tries = 0;
     const measure = () => {
       if (cancelled) return;
-      const w = el.offsetWidth;
-      const h = el.offsetHeight;
+      const w = pel.offsetWidth;
+      const h = pel.offsetHeight;
       if ((w < 2 || h < 2) && tries < 12) {
         // Elements render in connectedCallback and settle a tick later —
         // same retry pattern as the canvas PinOverlay (issues #230/#232).
@@ -288,24 +315,38 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
         setPreviewFailed(true);
         return;
       }
-      const pins: InspectorPinInput[] = (el.pinInfo && el.pinInfo.length ? el.pinInfo : pinInfo) ?? [];
-      const art = PINS_ART;
-      const result = layoutInspectorPins(pins, { width: w, height: h }, {
-        maxArtWidth: art,
-        maxArtHeight: art,
+      const pins: InspectorPinInput[] =
+        (pel.pinInfo && pel.pinInfo.length ? pel.pinInfo : pinInfo) ?? [];
+      // Wide many-pin boards (Arduino Mega, the Pi Linux family) show
+      // ROTATED 90°: their pins live in long horizontal rows whose labels
+      // crowd past the art width; as side columns the labels stack
+      // vertically, where the taller art box has room.
+      const rotate = w > h * 1.25 && pins.length >= 40;
+      const layoutPins = rotate
+        ? pins.map((p) => ({ ...p, x: h - p.y, y: p.x }))
+        : pins;
+      const natural = rotate ? { width: h, height: w } : { width: w, height: h };
+      const result = layoutInspectorPins(layoutPins, natural, {
+        maxArtWidth: PINS_ART,
+        maxArtHeight: rotate ? PINS_ART_ROTATED_H : PINS_ART,
       });
-      el.style.transform = `scale(${result.scale})`;
-      el.style.transformOrigin = 'top left';
+      // translate+rotate about the top-left maps (x,y) → (h−y, x) scaled —
+      // exactly the transform applied to layoutPins above, so dots land on
+      // the rotated pads.
+      pel.style.transform = rotate
+        ? `translate(${h * result.scale}px, 0px) rotate(90deg) scale(${result.scale})`
+        : `scale(${result.scale})`;
+      pel.style.transformOrigin = 'top left';
       setLayout(result);
     };
     requestAnimationFrame(measure);
 
     // Some parts move their pins at runtime (LED flip, custom chip JSON).
     const onPinsChange = () => requestAnimationFrame(measure);
-    el.addEventListener('pininfo-change', onPinsChange);
+    pel.addEventListener('pininfo-change', onPinsChange);
     return () => {
       cancelled = true;
-      el.removeEventListener('pininfo-change', onPinsChange);
+      pel.removeEventListener('pininfo-change', onPinsChange);
       host.textContent = '';
     };
     // propsKey/pinsKey stand in for componentProperties/pinInfo: a real change

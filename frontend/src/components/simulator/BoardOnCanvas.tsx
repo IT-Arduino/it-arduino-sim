@@ -43,6 +43,11 @@ export const BOARD_SIZE: Record<string, { w: number; h: number }> = {
   // referenced GP10/GP18/etc. landed at (0,0). The render now matches
   // the boardKind name.
   'raspberry-pi-pico': { w: 105, h: 264 },
+  // Zero/1/2 render through the Pi-3 element (same 40-pin header art); the
+  // backend picks their QEMU CPU/memory profile from the boardKind.
+  'raspberry-pi-zero': { w: 250, h: 160 },
+  'raspberry-pi-1': { w: 250, h: 160 },
+  'raspberry-pi-2': { w: 250, h: 160 },
   'raspberry-pi-3': { w: 250, h: 160 }, // RaspberryPi3Element: PI_WIDTH=250 PI_HEIGHT=160
   'raspberry-pi-4': { w: 330, h: 215 }, // RaspberryPi4Element — real board photo (925×602 @ scale)
   'raspberry-pi-5': { w: 330, h: 220 }, // RaspberryPi5Element — real board photo (1024×681 @ scale)
@@ -162,6 +167,12 @@ export const BoardOnCanvas = ({
       case 'raspberry-pi-pico':
       case 'pi-pico-w':
         return <PiPicoW id={id} x={x} y={y} />;
+      // Zero/1/2 share the Pi-3's 40-pin board art (their canvas identity is
+      // the header, and the ComponentRegistry metadata reuses the same tag);
+      // only the backend QEMU profile differs per kind.
+      case 'raspberry-pi-zero':
+      case 'raspberry-pi-1':
+      case 'raspberry-pi-2':
       case 'raspberry-pi-3':
         return <RaspberryPi3 id={id} x={x} y={y} />;
       case 'raspberry-pi-4':

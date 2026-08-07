@@ -75,6 +75,9 @@ const BOARD_DESCRIPTIONS: Record<BoardKind, string> = {
   'arduino-mega': '8-bit AVR, 256KB flash, 54 digital I/O',
   'raspberry-pi-pico': 'RP2040 dual-core Cortex-M0+',
   'pi-pico-w': 'RP2040 + WiFi/BT, same emulator as Pico',
+  'raspberry-pi-zero': 'ARM Cortex-A7, 1 core / 512 MB, Linux/Python (QEMU)',
+  'raspberry-pi-1': 'Pi 1 B+, ARM Cortex-A7 profile, Linux/Python (QEMU)',
+  'raspberry-pi-2': 'Pi 2B, ARM Cortex-A7 quad-core, Linux/Python (QEMU)',
   'raspberry-pi-3': 'ARM64 Cortex-A53 quad-core, Linux/Python (QEMU)',
   'raspberry-pi-4': 'ARM64 Cortex-A72 quad-core, Linux/Python (QEMU)',
   'raspberry-pi-5': 'ARM64 Cortex-A76 quad-core + RP1 I/O, Linux/Python (QEMU)',
@@ -105,6 +108,9 @@ const ALL_BOARDS: BoardKind[] = [
   'arduino-mega',
   'raspberry-pi-pico',
   'pi-pico-w',
+  'raspberry-pi-zero',
+  'raspberry-pi-1',
+  'raspberry-pi-2',
   'raspberry-pi-3',
   'raspberry-pi-4',
   'raspberry-pi-5',
@@ -224,9 +230,16 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
       components = components.filter((c) => c.category === selectedCategory);
     }
 
+    // Registry entries that ARE boards (the injected Raspberry Pi family)
+    // must never render as component cards: the boards row above already
+    // shows every BoardKind with the real art, and adding one through the
+    // component path drops a dead canvas part instead of a running board
+    // (that is how "add a Pi 4" placed a 40-pin prop that never boots).
+    components = components.filter((c) => !(c.id in BOARD_KIND_LABELS));
+
     return components;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, selectedCategory, registry, isLoading, registryVersion]);
+  }, [searchQuery, selectedCategory, registry, isLoading, registryVersion, proBoardsVersion]);
 
 
   // Boards list: static OSS kinds + overlay-registered boards (proBoardRegistry).
@@ -726,6 +739,9 @@ const BoardCard: React.FC<BoardCardProps> = ({ kind, onSelect, hoverApi }) => {
     // natural size + CSS scale keeps its unscaled layout box, so the
     // 100px thumbnail clips it to a narrow sliver).
     if (
+      kind === 'raspberry-pi-zero' ||
+      kind === 'raspberry-pi-1' ||
+      kind === 'raspberry-pi-2' ||
       kind === 'raspberry-pi-3' ||
       kind === 'raspberry-pi-4' ||
       kind === 'raspberry-pi-5' ||
@@ -751,10 +767,15 @@ const BoardCard: React.FC<BoardCardProps> = ({ kind, onSelect, hoverApi }) => {
   }, [kind]);
 
   const reactThumbnail =
-    kind === 'raspberry-pi-3' ? (
+    // Zero/1/2 render on canvas through the Pi-3 element (same 40-pin art),
+    // so their cards reuse the same illustration.
+    kind === 'raspberry-pi-3' ||
+    kind === 'raspberry-pi-zero' ||
+    kind === 'raspberry-pi-1' ||
+    kind === 'raspberry-pi-2' ? (
       <img
         src={raspberryPi3Svg}
-        alt="Raspberry Pi 3"
+        alt={BOARD_KIND_LABELS[kind]}
         style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
       />
     ) : kind === 'raspberry-pi-4' ? (
