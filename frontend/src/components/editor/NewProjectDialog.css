@@ -208,13 +208,6 @@
      the New-workspace dialog 9000) win as they should. */
   position: absolute;
   inset: 0;
-  /* The docked agent chat reserves its width as padding-right on
-     .app-container (see the velxio-agent rules) — but an absolute layer
-     spans the padding box, so it must cede that width itself or the
-     right-most cards (and the scrollbar) land under the chat. Falls back
-     to 0 in builds without the overlay. */
-  right: var(--velxio-agent-current-width, 0px);
-  transition: right 0.12s ease;
   z-index: 90;
   overflow-y: auto;
   background:
