@@ -290,7 +290,9 @@
       "subtitle": "Elige un espacio en blanco o una placa con un ejemplo Blink listo para ejecutar. Esto reemplaza todo el contenido del espacio de trabajo actual.",
       "blankTitle": "Proyecto en blanco",
       "blankDesc": "Espacio vacío — añade tus propias placas y componentes",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "welcomeSubtitle": "Elige una placa para empezar con un ejemplo Blink listo para ejecutar, o comienza con un espacio de trabajo en blanco.",
+      "examplesLink": "O explora la galería de ejemplos"
     },
     "boardPicker": {
       "title": "Añadir placa"

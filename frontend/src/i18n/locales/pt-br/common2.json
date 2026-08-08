@@ -394,6 +394,15 @@
       "datasheetTab": "Ficha técnica",
       "examplesTitle": "Projetos de exemplo",
       "productPage": "Página do produto"
+    },
+    "newProject": {
+      "title": "Iniciar um novo projeto",
+      "subtitle": "Escolha um espaço de trabalho em branco ou uma placa com um exemplo Blink pronto para rodar. Isso substitui todo o conteúdo do espaço de trabalho atual.",
+      "blankTitle": "Projeto em branco",
+      "blankDesc": "Espaço vazio — adicione suas próprias placas e componentes",
+      "cancel": "Cancelar",
+      "welcomeSubtitle": "Escolha uma placa para começar com um exemplo Blink pronto para rodar, ou comece com um espaço de trabalho em branco.",
+      "examplesLink": "Ou navegue pela galeria de exemplos"
     }
   },
   "about": {

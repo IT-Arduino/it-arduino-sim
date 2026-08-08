@@ -394,6 +394,15 @@
       "datasheetTab": "Scheda tecnica",
       "examplesTitle": "Progetti di esempio",
       "productPage": "Pagina prodotto"
+    },
+    "newProject": {
+      "title": "Inizia un nuovo progetto",
+      "subtitle": "Scegli un'area di lavoro vuota o una scheda con un esempio Blink pronto all'uso. Questo sostituisce tutto il contenuto dell'area di lavoro attuale.",
+      "blankTitle": "Progetto vuoto",
+      "blankDesc": "Area di lavoro vuota — aggiungi le tue schede e i tuoi componenti",
+      "cancel": "Annulla",
+      "welcomeSubtitle": "Scegli una scheda per iniziare con un esempio Blink pronto all'uso, oppure parti da un'area di lavoro vuota.",
+      "examplesLink": "Oppure sfoglia la galleria di esempi"
     }
   },
   "about": {

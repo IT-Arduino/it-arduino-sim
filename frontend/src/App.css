@@ -231,6 +231,14 @@ body {
   position: relative;
 }
 
+/* Programmatic focus target (starter takeover hand-off) — not a control,
+   so neither the UA ring nor the global token ring should paint. */
+.app-container:focus,
+.app-container:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 .editor-panel {
   display: flex;
   flex-direction: row;

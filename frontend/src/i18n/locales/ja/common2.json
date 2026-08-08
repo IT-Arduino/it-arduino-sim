@@ -394,6 +394,15 @@
       "datasheetTab": "データシート",
       "examplesTitle": "サンプルプロジェクト",
       "productPage": "製品ページ"
+    },
+    "newProject": {
+      "title": "新しいプロジェクトを開始",
+      "subtitle": "空のワークスペースか、すぐに実行できるBlinkサンプル付きのボードを選んでください。現在のワークスペースの内容はすべて置き換えられます。",
+      "blankTitle": "空のプロジェクト",
+      "blankDesc": "空のワークスペース — ボードや部品を自分で追加",
+      "cancel": "キャンセル",
+      "welcomeSubtitle": "すぐに実行できるBlinkサンプル付きのボードを選ぶか、空のワークスペースから始めましょう。",
+      "examplesLink": "またはサンプルギャラリーを見る"
     }
   },
   "about": {

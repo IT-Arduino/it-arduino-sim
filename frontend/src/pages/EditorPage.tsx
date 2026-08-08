@@ -28,6 +28,7 @@ import { useOscilloscopeStore } from '../store/useOscilloscopeStore';
 import { useProjectStore } from '../store/useProjectStore';
 import {
   NewProjectDialog,
+  StarterScreen,
   clearWorkspaceForStarter,
 } from '../components/editor/NewProjectDialog';
 import { useAutoSaveProject } from '../hooks/useAutoSaveProject';
@@ -110,12 +111,15 @@ export const EditorPage: React.FC = () => {
   }, []);
 
   const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
+  // Pristine-visit takeover: the starter picker rendered IN PLACE of the
+  // editor + canvas (see StarterScreen). The modal stays for "New workspace"
+  // over existing content, where the warning and Cancel mean something.
+  const [starterTakeover, setStarterTakeover] = useState(false);
 
-  // Pristine-visit starter dialog: a bare /editor landing still holds the
+  // Pristine-visit starter picker: a bare /editor landing still holds the
   // hardcoded Uno + LED starter (see useSimulatorStore INITIAL_BOARD /
-  // builtin components). Clear it and offer the template picker over an
-  // EMPTY canvas instead of silently dropping the user into the Arduino
-  // blink (cancelling the dialog leaves a blank workspace). Guarded so it
+  // builtin components). Clear it and show the full-area picker instead of
+  // silently dropping the user into the Arduino blink. Guarded so it
   // never fires over a loaded project/example URL, a restored login draft
   // (both leave the stores non-pristine), or twice per page load. Declared
   // AFTER the restoreStashedWorkspace effect — mount order is what makes
@@ -135,8 +139,33 @@ export const EditorPage: React.FC = () => {
     if (!pristine) return;
     starterDialogShownThisLoad = true;
     clearWorkspaceForStarter();
-    setShowNewProjectDialog(true);
+    setStarterTakeover(true);
   }, []);
+
+  // The header menus stay live during the takeover (they are navigation, not
+  // workspace chrome), so a workspace can appear THROUGH them — Open
+  // project…, a drag-dropped .vlx, the File-menu starter modal. The moment
+  // boards or components exist, the picker is moot: leaving it up would hide
+  // the loaded work and its cards would silently wipe it.
+  useEffect(() => {
+    if (!starterTakeover) return;
+    const check = (st: { boards: unknown[]; components: unknown[] }) => {
+      if (st.boards.length > 0 || st.components.length > 0) setStarterTakeover(false);
+    };
+    check(useSimulatorStore.getState());
+    return useSimulatorStore.subscribe(check);
+  }, [starterTakeover]);
+
+  // When the takeover goes away the element that held focus unmounts with
+  // it; park focus on the workspace container so keyboard and screen-reader
+  // users continue from the top of what just appeared, not from <body>.
+  const takeoverWasUp = useRef(false);
+  useEffect(() => {
+    if (takeoverWasUp.current && !starterTakeover) {
+      containerRef.current?.focus({ preventScroll: true });
+    }
+    takeoverWasUp.current = starterTakeover;
+  }, [starterTakeover]);
 
   // ── GitHub star prompt (show twice at most: 2nd visit OR after 3 min) ──────
   // Three localStorage flags drive this:
@@ -521,11 +550,13 @@ export const EditorPage: React.FC = () => {
       <AppHeader
         autoSave={autoSave}
         editorMenu={!isMobile ? <EditorMenuBar /> : undefined}
-        editorToolbar={unifiedToolbar}
+        // During the pristine takeover the workspace does not exist yet, so
+        // Run/Compile/view-mode would be dead buttons — show none of them.
+        editorToolbar={starterTakeover ? undefined : unifiedToolbar}
       />
 
       {/* ── Mobile tab bar (top, above panels) ── */}
-      {isMobile && (
+      {isMobile && !starterTakeover && (
         <nav className="mobile-tab-bar">
           <button
             className={`mobile-tab-btn${mobileView === 'code' ? ' mobile-tab-btn--active' : ''}`}
@@ -571,10 +602,20 @@ export const EditorPage: React.FC = () => {
       )}
 
 
-      <div className="app-container" ref={containerRef}>
+      {/* tabIndex -1: focus parks here when the starter takeover dismisses. */}
+      <div className="app-container" ref={containerRef} tabIndex={-1}>
+        {/* Pristine-visit starter picker: an opaque layer over the (empty)
+            editor and canvas, not a modal above them. The panes stay mounted
+            underneath — Monaco and the canvas keep their real sizes, so the
+            chosen starter reveals instantly — but until a choice is made the
+            picker IS the page. Both panes are inert meanwhile: covered
+            controls must not be reachable by Tab or a screen reader. */}
+        {starterTakeover && <StarterScreen onDone={() => setStarterTakeover(false)} />}
+
         {/* ── Editor side ── */}
         <div
           className="editor-panel"
+          inert={starterTakeover || undefined}
           style={{
             width: isMobile
               ? '100%'
@@ -618,7 +659,9 @@ export const EditorPage: React.FC = () => {
             </>
           )}
 
-          {!explorerOpen && accountBlock && (
+          {/* position: fixed + z 7000 escapes the inert panel visually, so
+              during the takeover it must not render at all. */}
+          {!explorerOpen && accountBlock && !starterTakeover && (
             <div className="editor-corner-box">{accountBlock}</div>
           )}
 
@@ -706,6 +749,7 @@ export const EditorPage: React.FC = () => {
         {/* ── Simulator side ── */}
         <div
           className="simulator-panel"
+          inert={starterTakeover || undefined}
           style={{
             width: isMobile
               ? '100%'
@@ -762,6 +806,9 @@ export const EditorPage: React.FC = () => {
       <NewProjectDialog
         isOpen={showNewProjectDialog}
         onClose={() => setShowNewProjectDialog(false)}
+        // A pick through the File-menu modal ends the pristine takeover too;
+        // Cancel/Escape leaves it up (still nothing to fall back to).
+        onApplied={() => setStarterTakeover(false)}
       />
       {/* Slot reserved for the private pro overlay (e.g. agent chat panel).
           Self-hosted builds without an overlay see nothing here. */}

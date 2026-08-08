@@ -290,7 +290,9 @@
       "subtitle": "Pick a blank workspace or a board with a ready-to-run Blink example. This replaces everything in the current workspace.",
       "blankTitle": "Blank project",
       "blankDesc": "Empty workspace — add your own boards and parts",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "welcomeSubtitle": "Pick a board to start with a ready-to-run Blink example, or begin with a blank workspace.",
+      "examplesLink": "Or browse the examples gallery"
     },
     "boardPicker": {
       "title": "Add Board"
