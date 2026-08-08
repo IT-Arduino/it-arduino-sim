@@ -394,15 +394,6 @@
       "datasheetTab": "Fiche technique",
       "examplesTitle": "Projets d’exemple",
       "productPage": "Page produit"
-    },
-    "newProject": {
-      "title": "Démarrer un nouveau projet",
-      "subtitle": "Choisissez un espace de travail vide ou une carte avec un exemple Blink prêt à l'emploi. Ceci remplace tout le contenu de l'espace de travail actuel.",
-      "blankTitle": "Projet vierge",
-      "blankDesc": "Espace vide — ajoutez vos propres cartes et composants",
-      "cancel": "Annuler",
-      "welcomeSubtitle": "Choisissez une carte avec un exemple Blink prêt à l'emploi, ou commencez avec un espace de travail vide.",
-      "examplesLink": "Ou parcourez la galerie d'exemples"
     }
   },
   "about": {

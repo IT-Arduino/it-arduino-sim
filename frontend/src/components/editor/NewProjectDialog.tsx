@@ -1,21 +1,12 @@
 /**
- * Starter-template picker, in two shells around one card grid:
+ * NewProjectDialog — starter-template picker.
  *
- * - `StarterScreen` — a full-area takeover that REPLACES the editor and
- *   canvas on a pristine `/editor` visit. A modal there dims an interface
- *   that is empty anyway and offers a Cancel whose only destination is a
- *   dead workspace; the picker IS the pristine state, so it gets the whole
- *   content area, no veil and no escape hatch to nowhere. (The examples
- *   gallery link is the secondary path out.)
- * - `NewProjectDialog` — the modal, kept for "New workspace" over EXISTING
- *   work, where dimming the user's circuit, the replace-everything warning
- *   and Cancel all genuinely matter.
- *
- * Both offer a blank workspace plus a ready-to-run Blink starter per board
- * family — Arduino, ESP32 (one card per chip generation, XIAO variant
- * preferred), STM32, Raspberry Pi — each card carrying the same circuit
- * thumbnail the examples gallery uses (/examples-thumbs/<id>.webp,
- * CircuitPreview fallback).
+ * Shown (a) on a pristine `/editor` visit (over an emptied canvas), and
+ * (b) from the "New workspace" button / File menu entry. Offers a blank
+ * workspace plus a ready-to-run Blink starter per board family — Arduino,
+ * ESP32 (one card per chip generation, XIAO variant preferred), STM32,
+ * Raspberry Pi — each card carrying the same circuit thumbnail the examples
+ * gallery uses (/examples-thumbs/<id>.webp, CircuitPreview fallback).
  *
  * Selecting a board loads its gallery Blink example when one exists (full
  * wiring: 220Ω resistor + LED); boards without one get a fresh board whose
@@ -23,9 +14,8 @@
  * Raspberry Pi) carry the same PRO pill as the component picker and go
  * through the same `boardGateDecision` seam before anything is created.
  */
-import React, { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import React, { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { BoardKind } from '../../types/board';
 import { BOARD_KIND_LABELS } from '../../types/board';
@@ -53,10 +43,6 @@ import './NewProjectDialog.css';
 interface NewProjectDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Fired after a starter was actually applied (blank included) — NOT on
-   *  Cancel/Escape and NOT on a pro-gate block. The pristine takeover
-   *  listens so a pick made through the File-menu modal dismisses it too. */
-  onApplied?: () => void;
 }
 
 /** Card blurbs (same voice as the component picker's board descriptions). */
@@ -220,16 +206,18 @@ const ProPill: React.FC = () => (
   </span>
 );
 
-/** Board sections, re-rendered when the pro overlay registers late (the
- *  @pro import is dynamic) — same contract as the component picker. */
-function useStarterSections() {
+export const NewProjectDialog: React.FC<NewProjectDialogProps> = ({ isOpen, onClose }) => {
+  const { t } = useTranslation();
+
+  // Late-overlay registrations (the @pro import is dynamic) must re-render an
+  // already-mounted dialog — same contract as the component picker.
   const proBoardsVersion = useSyncExternalStore(
     subscribeProBoards,
     getProBoardsVersion,
     getProBoardsVersion,
   );
 
-  return useMemo(() => {
+  const sections = useMemo(() => {
     const defs = listProBoards();
     const oss = (k: BoardKind) => ({ kind: k as string, blurb: BOARD_BLURBS[k] ?? '' });
     // Overlay-registered kinds only exist when the private overlay mounted —
@@ -265,106 +253,6 @@ function useStarterSections() {
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proBoardsVersion]);
-}
-
-/**
- * Pick a starter: gate, track, apply. `onPicked` fires only when a starter
- * really gets applied; a pro-gated pick fires `onBlocked` instead and
- * prompts the upgrade modal. The two shells differ there: the modal closes
- * under the prompt (its workspace is still visible behind it), the takeover
- * STAYS — dismissing it would strand the user on an empty workspace with
- * nothing but the prompt.
- */
-function chooseStarter(
-  kind: string | 'blank',
-  onPicked: () => void,
-  onBlocked: () => void,
-) {
-  if (kind !== 'blank' && boardGateDecision(kind as BoardKind) === 'block') {
-    onBlocked();
-    triggerProUpgradePrompt(proBoardFeatureName(kind));
-    return;
-  }
-  if (kind !== 'blank') trackSelectBoard(kind);
-  onPicked();
-  applyStarter(kind).catch((err) => {
-    // eslint-disable-next-line no-console
-    console.warn('[editor] starter template failed to load:', err);
-  });
-}
-
-/** The shared card grid: blank card first, then the board families.
- *  `sectionHeading` keeps the heading outline legal in both shells: the
- *  full-page screen runs h1 → h2, the modal h3 → h4. */
-const StarterCards: React.FC<{
-  onSelect: (kind: string | 'blank') => void;
-  sectionHeading: 'h2' | 'h4';
-}> = ({ onSelect, sectionHeading }) => {
-  const { t } = useTranslation();
-  const sections = useStarterSections();
-  const SectionHeading = sectionHeading;
-
-  return (
-    <>
-      <div className="new-project-grid">
-        <button
-          className="new-project-card new-project-card-blank"
-          onClick={() => onSelect('blank')}
-        >
-          <span className="new-project-card-thumb new-project-card-thumb-blank">+</span>
-          <span className="new-project-card-info">
-            <span className="new-project-card-name">
-              {t('editor.newProject.blankTitle')}
-            </span>
-            <span className="new-project-card-desc">
-              {t('editor.newProject.blankDesc')}
-            </span>
-          </span>
-        </button>
-      </div>
-
-      {sections.map((section) =>
-        section.entries.length === 0 ? null : (
-          <React.Fragment key={section.title}>
-            <SectionHeading className="new-project-section-title">{section.title}</SectionHeading>
-            <div className="new-project-grid">
-              {section.entries.map(({ kind, blurb }) => {
-                const label = BOARD_KIND_LABELS[kind as BoardKind] ?? kind;
-                return (
-                  <button
-                    key={kind}
-                    className="new-project-card"
-                    onClick={() => onSelect(kind)}
-                  >
-                    <span className="new-project-card-thumb">
-                      <ExampleThumbnail
-                        example={thumbStubFor(kind, label)}
-                        width={300}
-                        height={180}
-                      />
-                    </span>
-                    {isProBoardKind(kind) && <ProPill />}
-                    <span className="new-project-card-info">
-                      <span className="new-project-card-name">{label}</span>
-                      <span className="new-project-card-desc">{blurb}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </React.Fragment>
-        ),
-      )}
-    </>
-  );
-};
-
-export const NewProjectDialog: React.FC<NewProjectDialogProps> = ({
-  isOpen,
-  onClose,
-  onApplied,
-}) => {
-  const { t } = useTranslation();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -377,6 +265,22 @@ export const NewProjectDialog: React.FC<NewProjectDialogProps> = ({
 
   if (!isOpen) return null;
 
+  const handleSelect = (kind: string | 'blank') => {
+    if (kind !== 'blank' && boardGateDecision(kind as BoardKind) === 'block') {
+      // Same gate as adding the board from the picker: close, prompt, create
+      // nothing. The overlay's upgrade modal takes over from here.
+      onClose();
+      triggerProUpgradePrompt(proBoardFeatureName(kind));
+      return;
+    }
+    if (kind !== 'blank') trackSelectBoard(kind);
+    onClose();
+    applyStarter(kind).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.warn('[editor] starter template failed to load:', err);
+    });
+  };
+
   // Portal to <body>: escape the canvas subtree so no ancestor stacking
   // context can pin the dialog below floating panels (e.g. the AI chat).
   return createPortal(
@@ -385,30 +289,63 @@ export const NewProjectDialog: React.FC<NewProjectDialogProps> = ({
         className="new-project-dialog"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="new-project-title"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="new-project-head">
-          <h3 id="new-project-title" className="new-project-title">
-            {t('editor.newProject.title')}
-          </h3>
+          <h3 className="new-project-title">{t('editor.newProject.title')}</h3>
           <p className="new-project-sub">{t('editor.newProject.subtitle')}</p>
         </div>
 
         <div className="new-project-body">
-          <StarterCards
-            sectionHeading="h4"
-            onSelect={(kind) =>
-              chooseStarter(
-                kind,
-                () => {
-                  onClose();
-                  onApplied?.();
-                },
-                onClose,
-              )
-            }
-          />
+          <div className="new-project-grid">
+            <button
+              className="new-project-card new-project-card-blank"
+              onClick={() => handleSelect('blank')}
+            >
+              <span className="new-project-card-thumb new-project-card-thumb-blank">+</span>
+              <span className="new-project-card-info">
+                <span className="new-project-card-name">
+                  {t('editor.newProject.blankTitle')}
+                </span>
+                <span className="new-project-card-desc">
+                  {t('editor.newProject.blankDesc')}
+                </span>
+              </span>
+            </button>
+          </div>
+
+          {sections.map((section) =>
+            section.entries.length === 0 ? null : (
+              <React.Fragment key={section.title}>
+                <div className="new-project-section-title">{section.title}</div>
+                <div className="new-project-grid">
+                  {section.entries.map(({ kind, blurb }) => {
+                    const label = BOARD_KIND_LABELS[kind as BoardKind] ?? kind;
+                    return (
+                      <button
+                        key={kind}
+                        className="new-project-card"
+                        onClick={() => handleSelect(kind)}
+                      >
+                        <span className="new-project-card-thumb">
+                          <ExampleThumbnail
+                            example={thumbStubFor(kind, label)}
+                            width={300}
+                            height={180}
+                          />
+                        </span>
+                        {isProBoardKind(kind) && <ProPill />}
+                        <span className="new-project-card-info">
+                          <span className="new-project-card-name">{label}</span>
+                          <span className="new-project-card-desc">{blurb}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </React.Fragment>
+            ),
+          )}
         </div>
 
         <div className="new-project-foot">
@@ -419,52 +356,5 @@ export const NewProjectDialog: React.FC<NewProjectDialogProps> = ({
       </div>
     </div>,
     document.body,
-  );
-};
-
-/**
- * Full-area starter picker for the pristine `/editor` visit. Rendered IN
- * PLACE of the editor + canvas (not over them): before the first choice
- * those panes are empty surfaces, and a modal there means a veil over
- * nothing and a Cancel that strands newcomers on a dead workspace. Not a
- * dialog — a screen: no veil, no Cancel, Escape does nothing. The examples
- * gallery link is the one secondary path, for people who came to browse
- * rather than build.
- */
-export const StarterScreen: React.FC<{ onDone: () => void }> = ({ onDone }) => {
-  const { t } = useTranslation();
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  const locale = getLocaleFromPath(window.location.pathname);
-
-  // Move focus to the heading so keyboard and screen-reader users start at
-  // the top of the new surface (the page swapped under them without a
-  // navigation). tabIndex={-1} keeps it out of the tab order afterwards.
-  useEffect(() => {
-    headingRef.current?.focus({ preventScroll: true });
-  }, []);
-
-  return (
-    <main className="starter-screen" aria-labelledby="starter-screen-title">
-      <div className="starter-screen-inner">
-        <header className="starter-screen-head">
-          <h1 id="starter-screen-title" ref={headingRef} tabIndex={-1}>
-            {t('editor.newProject.title')}
-          </h1>
-          <p className="starter-screen-sub">
-            {t(
-              'editor.newProject.welcomeSubtitle',
-              'Pick a board to start with a ready-to-run Blink example, or begin with a blank workspace.',
-            )}{' '}
-            <Link className="starter-screen-examples" to={localizedPath('/examples', locale)}>
-              {t('editor.newProject.examplesLink', 'Or browse the examples gallery')} →
-            </Link>
-          </p>
-        </header>
-        <StarterCards
-          sectionHeading="h2"
-          onSelect={(kind) => chooseStarter(kind, onDone, () => {})}
-        />
-      </div>
-    </main>
   );
 };

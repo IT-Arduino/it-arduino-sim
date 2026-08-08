@@ -394,15 +394,6 @@
       "datasheetTab": "Datenblatt",
       "examplesTitle": "Beispielprojekte",
       "productPage": "Produktseite"
-    },
-    "newProject": {
-      "title": "Neues Projekt starten",
-      "subtitle": "Wählen Sie einen leeren Arbeitsbereich oder ein Board mit einem lauffähigen Blink-Beispiel. Dies ersetzt den gesamten Inhalt des aktuellen Arbeitsbereichs.",
-      "blankTitle": "Leeres Projekt",
-      "blankDesc": "Leerer Arbeitsbereich — fügen Sie eigene Boards und Bauteile hinzu",
-      "cancel": "Abbrechen",
-      "welcomeSubtitle": "Wählen Sie ein Board mit einem lauffähigen Blink-Beispiel oder beginnen Sie mit einem leeren Arbeitsbereich.",
-      "examplesLink": "Oder stöbern Sie in der Beispiel-Galerie"
     }
   },
   "about": {

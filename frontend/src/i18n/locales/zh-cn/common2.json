@@ -394,15 +394,6 @@
       "datasheetTab": "数据手册",
       "examplesTitle": "示例项目",
       "productPage": "产品页面"
-    },
-    "newProject": {
-      "title": "开始新项目",
-      "subtitle": "选择空白工作区，或选择一块带有可直接运行的 Blink 示例的开发板。这将替换当前工作区的全部内容。",
-      "blankTitle": "空白项目",
-      "blankDesc": "空工作区 — 自行添加开发板和元件",
-      "cancel": "取消",
-      "welcomeSubtitle": "选择一块开发板，从可直接运行的 Blink 示例开始，或从空白工作区开始。",
-      "examplesLink": "或浏览示例库"
     }
   },
   "about": {
