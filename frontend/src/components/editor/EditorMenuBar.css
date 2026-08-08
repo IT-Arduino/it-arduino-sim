@@ -84,6 +84,18 @@
   margin: 4px 6px;
 }
 
+/* Small uppercase section header inside a menu (the Account menu groups
+   the pro items and the Language list under one trigger). */
+.emb-section-label {
+  padding: 6px 12px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #8a8f98;
+  user-select: none;
+}
+
 /* Same PRO pill the old toolbar overflow used (tb-overflow-pro) — users
    should know an item is premium BEFORE clicking, not via a surprise
    upgrade prompt. */

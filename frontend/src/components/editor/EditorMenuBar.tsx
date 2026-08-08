@@ -52,7 +52,7 @@ const SITE = import.meta.env.VITE_PRO_BUILD ? '' : 'https://velxio.dev';
 
 export const EditorMenuBar: React.FC = () => {
   const { t } = useTranslation();
-  const [open, setOpen] = useState<'file' | 'edit' | 'view' | 'lang' | 'help' | null>(null);
+  const [open, setOpen] = useState<'file' | 'edit' | 'view' | 'account' | 'help' | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Re-render when owners (un)register their commands.
@@ -180,7 +180,7 @@ export const EditorMenuBar: React.FC = () => {
     </button>
   );
 
-  const menu = (which: 'file' | 'edit' | 'view' | 'lang' | 'help', label: string, items: Item[]): React.ReactNode => (
+  const menu = (which: 'file' | 'edit' | 'view' | 'account' | 'help', label: string, items: Item[]): React.ReactNode => (
     <div className="emb-root" key={which}>
       <button
         className={`emb-trigger${open === which ? ' emb-trigger-open' : ''}`}
@@ -222,8 +222,25 @@ export const EditorMenuBar: React.FC = () => {
               <div className="emb-separator" />
             </>
           )}
-          {which === 'lang' && (
+          {which === 'account' && (
             <>
+              {/* Pro account items (PRO badge, Subscribe / Manage
+                  subscription, licenses, history, replays, Privacy) mount
+                  here via the SAME user-menu slot the bottom-left account
+                  dropdown uses — one overlay renderer, two hosts. Clicking
+                  any of them closes this menu (they navigate or open their
+                  own modal). Empty in OSS builds. */}
+              <div
+                data-velxio-slot="user-menu"
+                style={{ display: 'contents' }}
+                onClick={() => setOpen(null)}
+              />
+              <div className="emb-separator" />
+              {/* Language moved in here from its own top-level menu — the
+                  menubar was one trigger too wide once the AI chat docks. */}
+              <div className="emb-section-label">
+                {t('editor.menu.language', 'Language')}
+              </div>
               {LOCALES.map((loc) => (
                 <button
                   key={loc}
@@ -293,7 +310,7 @@ export const EditorMenuBar: React.FC = () => {
       {menu('file', t('editor.menu.file', 'File'), fileItems)}
       {menu('edit', t('editor.menu.edit', 'Edit'), editItems)}
       {menu('view', t('editor.menu.view', 'View'), viewItems)}
-      {menu('lang', t('editor.menu.language', 'Language'), [])}
+      {menu('account', t('editor.menu.account', 'Account'), [])}
       {menu('help', t('editor.menu.help', 'Help'), helpItems)}
     </div>
   );
