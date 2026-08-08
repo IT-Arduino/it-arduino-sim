@@ -102,6 +102,34 @@ const BOARD_DESCRIPTIONS: Record<BoardKind, string> = {
   attiny85: '8-bit AVR, 8KB flash, 6 GPIO (browser)',
 };
 
+/**
+ * Maker-first category order for the picker grid and the category filter.
+ * Velxio's audience is hobbyist-heavy: everyday digital parts (sensors,
+ * LEDs/outputs, displays, buttons) lead, while diodes/resistors/capacitors
+ * ('passive'), transistors/op-amps/instruments ('analog') and logic gates
+ * sink to the end of the list.
+ */
+const CATEGORY_ORDER: string[] = [
+  'sensors',
+  'output',
+  'displays',
+  'input',
+  'motors',
+  'communication',
+  'electromech',
+  'boards',
+  'other',
+  'passive',
+  'analog',
+  'logic',
+];
+
+function categoryRank(category: string): number {
+  const i = CATEGORY_ORDER.indexOf(category);
+  // Unknown/future categories land before the passive tail, not after it.
+  return i === -1 ? CATEGORY_ORDER.indexOf('other') : i;
+}
+
 const ALL_BOARDS: BoardKind[] = [
   'arduino-uno',
   'arduino-nano',
@@ -237,6 +265,14 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
     // (that is how "add a Pi 4" placed a 40-pin prop that never boots).
     components = components.filter((c) => !(c.id in BOARD_KIND_LABELS));
 
+    // Maker-first ordering: most users reach for a sensor, an LED or a
+    // display far more often than a bare transistor or a 74HC gate, so
+    // passives / analog / logic sink to the end. Array.sort is stable —
+    // the registry's own order is preserved within each category.
+    components = [...components].sort(
+      (a, b) => categoryRank(a.category) - categoryRank(b.category),
+    );
+
     return components;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, selectedCategory, registry, isLoading, registryVersion, proBoardsVersion]);
@@ -263,10 +299,12 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registry, isLoading, searchQuery, selectedCategory, registryVersion, proBoardsVersion]);
 
-  // Get available categories
+  // Get available categories — same maker-first order as the grid.
   const categories = useMemo(() => {
     if (isLoading) return [];
-    return registry.getCategories();
+    return [...registry.getCategories()].sort(
+      (a, b) => categoryRank(a) - categoryRank(b),
+    );
   }, [registry, isLoading]);
 
   // Handle ESC key to close modal
