@@ -421,14 +421,34 @@ class Esp32BridgeShim {
    * find the device.  ProtocolParts calls this on the ESP32 path
    * alongside the existing `registerSensor` + `addI2CTransactionListener`.
    */
+  /** Sync-attached part devices, kept so a bridge REBUILD can adopt them.
+   *  The overlay loads async: a deep-linked example attaches its parts to the
+   *  shim wired around the stock QEMU bridge (whose attachSyncI2cDevice is
+   *  missing — a silent no-op), and only then does the overlay's factory
+   *  rebuild the board. Without this record the part's device existed
+   *  nowhere: the C6 gesture example booted with an EMPTY engine I2C bus and
+   *  arduino's i2c-ng driver failed every transaction (ESP_ERR_INVALID_STATE)
+   *  — whether it broke depended on a chunk-load race the pro bundle's growth
+   *  turned into a sure loss. */
+  private syncI2cParts = new Map<number, I2CDevice>();
+
   addI2CDevice(device: I2CDevice, _bus: 0 | 1 = 0): void {
     this.i2cBusInstance.addDevice(device);
+    this.syncI2cParts.set(device.address, device);
     // An in-browser JS-emulator substitute bridge (velxio-prod overlay) plugs
     // the part's real device model straight onto the engine's synchronous I2C
     // bus, so the firmware's own reads hit it (sensors answer, displays
     // render). The QEMU WebSocket bridge has no such method — reads there are
     // served by the backend slave from registerSensor — so this is a no-op.
     (this.bridge as { attachSyncI2cDevice?: (d: I2CDevice) => void }).attachSyncI2cDevice?.(device);
+  }
+
+  /** A rebuilt board gets a fresh shim; the parts on the canvas do NOT
+   *  re-attach (their closures hold the old shim), so the new shim re-plays
+   *  everything the old one had. Runs through addI2CDevice so the new bridge
+   *  (a pre-connect-buffering Delegating bridge) hears about each device. */
+  adoptPartsFrom(prev: Esp32BridgeShim): void {
+    for (const dev of prev.syncI2cParts.values()) this.addI2CDevice(dev);
   }
 
   /**
@@ -477,6 +497,7 @@ class Esp32BridgeShim {
   /** Remove a previously-registered virtual device. */
   removeI2CDevice(addr: number, _bus: 0 | 1 = 0): void {
     this.i2cBusInstance.removeDevice(addr);
+    this.syncI2cParts.delete(addr);
     (this.bridge as { detachSyncI2cDevice?: (a: number) => void }).detachSyncI2cDevice?.(addr);
   }
 
@@ -1332,6 +1353,13 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
     const existingShim = simulatorMap.get(id) as any;
     if (existingShim?.clearAllProxies) {
       try { existingShim.clearAllProxies(); } catch { /* ignore */ }
+    }
+    // The parts on the canvas attached their I2C device models to the OLD
+    // shim (their attach closures hold it) and will not re-attach for a
+    // bridge rebuild — carry them over, or the rebuilt engine boots with an
+    // empty I2C bus and every Wire transaction fails.
+    if (existingShim instanceof Esp32BridgeShim) {
+      try { shim.adoptPartsFrom(existingShim); } catch { /* ignore */ }
     }
     simulatorMap.set(id, shim);
     // The Interconnect's serial fan-out wraps the INSTANCE's
