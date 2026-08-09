@@ -24,7 +24,8 @@ import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { PropertyDescriptor } from '../types/component-metadata';
-import { loadDoc, type ComponentDoc } from './componentDocs';
+import { loadDoc, productPageHref, type ComponentDoc } from './componentDocs';
+import { trackProductPageClick } from '../utils/analytics';
 import './ComponentInfoPanel.css';
 
 export interface PanelData {
@@ -168,7 +169,13 @@ export const ComponentInfoBody: React.FC<{
 
       {buyHref && (
         <div className="cip-footer">
-          <a className="cip-buy" href={buyHref} target="_blank" rel="noopener noreferrer">
+          <a
+            className="cip-buy"
+            href={productPageHref(buyHref, data.id)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackProductPageClick(data.id, doc?.brand, buyHref)}
+          >
             <svg
               width="14"
               height="14"

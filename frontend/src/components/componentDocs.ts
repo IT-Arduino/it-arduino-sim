@@ -57,6 +57,25 @@ export function registerComponentDoc(id: string, raw: string): void {
 }
 
 /**
+ * Decorate a datasheet Buy/Product-page URL with UTM attribution so the
+ * vendor sees the referral came from Velxio. `componentId` lands in
+ * utm_content so partner dashboards can tell WHICH part drove the visit.
+ * Existing query params on the vendor URL are preserved.
+ */
+export function productPageHref(url: string, componentId: string): string {
+  try {
+    const u = new URL(url);
+    u.searchParams.set('utm_source', 'velxio');
+    u.searchParams.set('utm_medium', 'simulator');
+    u.searchParams.set('utm_campaign', 'datasheet');
+    u.searchParams.set('utm_content', componentId);
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+/**
  * Split an optional `---`-delimited front-matter block off the top of a
  * Markdown string. Only a leading block counts, so table separators
  * (`| --- |`) and thematic breaks inside the body are never mistaken for it.

@@ -48,6 +48,8 @@ import {
   safeHref,
   type PanelData,
 } from '../ComponentInfoPanel';
+import { productPageHref } from '../componentDocs';
+import { trackProductPageClick } from '../../utils/analytics';
 import {
   layoutInspectorPins,
   type InspectorPinInput,
@@ -813,10 +815,13 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
             <div className="pid-actions-right">
               <a
                 className="pid-buy-button"
-                href={buyHref}
+                href={productPageHref(buyHref, componentMetadata.id)}
                 target="_blank"
                 rel="noopener noreferrer"
                 title={buyHref}
+                onClick={() =>
+                  trackProductPageClick(componentMetadata.id, doc?.brand, buyHref)
+                }
               >
                 <svg
                   width="14"
