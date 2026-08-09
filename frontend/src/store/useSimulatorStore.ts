@@ -1107,6 +1107,14 @@ interface SimulatorState {
   updateComponentState: (id: string, state: boolean) => void;
   handleComponentEvent: (componentId: string, eventName: string, data?: unknown) => void;
   setComponents: (components: Component[]) => void;
+  /**
+   * Bumped on every BULK canvas replacement (setComponents / setWires —
+   * project load, example load, .vlx/wokwi import, clear). Lets observers
+   * that diff `components`/`wires` between updates (overlay telemetry)
+   * tell hydration apart from a user deliberately adding one part: bulk
+   * loads are not usage signal.
+   */
+  hydrationSeq: number;
 
   // ── Wires ───────────────────────────────────────────────────────────────
   wires: Wire[];
@@ -2895,6 +2903,8 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
       },
     ],
 
+    hydrationSeq: 0,
+
     wires: [
       // Pin 13 → resistor pin 1 (current-limiting side).
       {
@@ -3037,7 +3047,12 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
     setComponents: (components) => {
       // Bulk replacement (project load / clear) — any pending undo/redo
       // would point at component IDs that no longer exist after this.
-      set({ components, history: [], historyIndex: -1 });
+      set((state) => ({
+        components,
+        history: [],
+        historyIndex: -1,
+        hydrationSeq: state.hydrationSeq + 1,
+      }));
     },
 
     addWire: (wire) => set((state) => ({ wires: [...state.wires, wire] })),
@@ -3056,13 +3071,14 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
     setSelectedWire: (wireId) => set({ selectedWireId: wireId }),
 
     setWires: (wires) =>
-      set({
+      set((state) => ({
         // Ensure every wire has waypoints (backwards-compatible with saved projects)
         wires: wires.map((w) => ({ waypoints: [], ...w })),
         // Bulk replacement clears history for the same reason as setComponents.
         history: [],
         historyIndex: -1,
-      }),
+        hydrationSeq: state.hydrationSeq + 1,
+      })),
 
     startWireCreation: (endpoint, color) =>
       set({
