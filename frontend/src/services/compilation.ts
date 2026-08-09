@@ -27,6 +27,10 @@ export interface CompileExtras {
   // Who triggered the compile — 'agent' when the AI assistant's tool did.
   // Threads through to backend metrics; omitted = manual user action.
   initiatedBy?: 'agent';
+  // The editor's BoardKind — analytics only. Distinct boards can share one
+  // FQBN (Pimoroni RP2350 boards all compile as rpipico2); the kind is the
+  // only identifier that tells them apart in the metrics.
+  boardKind?: string;
 }
 
 export interface CompileResult {
@@ -122,6 +126,7 @@ export async function compileCode(
         project_id: projectId ?? null,
         board_options,
         spiffs_files,
+        board_kind: extras?.boardKind ?? null,
         libraries,
         language: extras?.language ?? null,
         initiated_by: extras?.initiatedBy ?? null,

@@ -234,6 +234,7 @@ export const EditorToolbar = ({
       void reportRunEvent({
         project_id: currentProject?.id ?? null,
         board_fqbn: fqbn ?? null,
+        board_kind: boardKind ?? null,
         engine: engine ?? null,
       });
     },
@@ -571,6 +572,7 @@ export const EditorToolbar = ({
         {
           boardOptions: activeBoard?.boardOptions,
           spiffsFiles: activeBoard?.spiffsFiles,
+          boardKind: kind ?? undefined,
           // P2.4 — THIS board's declared manifest (compile scope). Per-board so
           // two boards can use different libraries without clashing.
           libraries: activeBoard?.libraries?.length ? activeBoard.libraries : null,
@@ -1077,7 +1079,7 @@ export const EditorToolbar = ({
               })),
             ]);
           },
-          { boardOptions: board.boardOptions, spiffsFiles: board.spiffsFiles, libraries: board.libraries?.length ? board.libraries : null, language: board.languageMode === 'espidf' ? 'espidf' : undefined },
+          { boardOptions: board.boardOptions, spiffsFiles: board.spiffsFiles, boardKind: board.boardKind, libraries: board.libraries?.length ? board.libraries : null, language: board.languageMode === 'espidf' ? 'espidf' : undefined },
         );
 
         const resultLogs = parseCompileResult(result, label, boardTarget, lastStreamedLen > 0);

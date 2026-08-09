@@ -43,6 +43,7 @@ import {
   ONLINE_ONLY_BOARD_ADS,
   ONLINE_ONLY_COMPONENT_ADS,
   ONLINE_EDITOR_URL,
+  isOnlineOnlyAdSuppressed,
   type OnlineOnlyBoardAd,
   type OnlineOnlyComponentAd,
 } from '../lib/onlineOnlyBoards';
@@ -293,6 +294,7 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
     return ONLINE_ONLY_COMPONENT_ADS.filter(
       (ad) =>
         !registry.getById(ad.id) &&
+        !isOnlineOnlyAdSuppressed(ad.id) &&
         (selectedCategory === 'all' || ad.category === selectedCategory) &&
         (!q || ad.label.toLowerCase().includes(q)),
     );
@@ -858,7 +860,10 @@ const BoardCard: React.FC<BoardCardProps> = ({ kind, onSelect, hoverApi }) => {
 // Hidden automatically in any build that registers the real BoardKind.
 /** Recomputed on access (not module load): overlay board registration patches
  *  BOARD_KIND_LABELS at mount, which must hide the corresponding ad. */
-const visibleBoardAds = () => ONLINE_ONLY_BOARD_ADS.filter((ad) => !(ad.id in BOARD_KIND_LABELS));
+const visibleBoardAds = () =>
+  ONLINE_ONLY_BOARD_ADS.filter(
+    (ad) => !(ad.id in BOARD_KIND_LABELS) && !isOnlineOnlyAdSuppressed(ad.id),
+  );
 
 /** Teal "ONLINE" pill: the board runs (free) in the hosted editor. */
 const OnlineBadge: React.FC = () => (

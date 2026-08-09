@@ -25,6 +25,27 @@ export interface OnlineOnlyBoardAd {
 /** Where the ad cards send the user. */
 export const ONLINE_EDITOR_URL = 'https://velxio.com';
 
+/**
+ * Ad suppression — the hosted overlay's escape hatch.
+ *
+ * The "ad disappears when the real thing registers" contract breaks down in
+ * the hosted build itself: an item the overlay knows about but chose NOT to
+ * register (launch embargo) must not fall back to an ad card that says
+ * "available in the online editor" — the user is already IN the online
+ * editor. The overlay calls this once at mount with every id it manages;
+ * items it registers replace their ad anyway, items it embargoes simply
+ * vanish. Pure OSS builds never call it, so ads behave exactly as before.
+ */
+const suppressedAdIds = new Set<string>();
+
+export function suppressOnlineOnlyAds(ids: string[]): void {
+  for (const id of ids) suppressedAdIds.add(id);
+}
+
+export function isOnlineOnlyAdSuppressed(id: string): boolean {
+  return suppressedAdIds.has(id);
+}
+
 export const ONLINE_ONLY_BOARD_ADS: OnlineOnlyBoardAd[] = [
   {
     id: 'esp32-c6',
