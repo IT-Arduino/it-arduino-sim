@@ -24,7 +24,7 @@ import { reportRunEvent } from '../../services/metricsService';
 import { useProjectStore } from '../../store/useProjectStore';
 import { LibraryManagerModal } from '../simulator/LibraryManagerModal';
 import { InstallLibrariesModal } from '../simulator/InstallLibrariesModal';
-import { parseCompileResult } from '../../utils/compilationLogger';
+import { parseCompileResult, isNoiseBuildLine } from '../../utils/compilationLogger';
 import type { CompilationLog, CompileTarget } from '../../utils/compilationLogger';
 import { exportToWokwiZip } from '../../utils/wokwiZip';
 import { importProjectFile, PROJECT_FILE_ACCEPT } from '../../utils/importProject';
@@ -551,7 +551,9 @@ export const EditorToolbar = ({
           if (stdout.length <= lastStreamedLen) return;
           const delta = stdout.slice(lastStreamedLen);
           lastStreamedLen = stdout.length;
-          const newLines = delta.split('\n').filter((s) => s.trim());
+          const newLines = delta
+            .split('\n')
+            .filter((s) => s.trim() && !isNoiseBuildLine(s));
           if (!newLines.length) return;
           const now = new Date();
           setCompileLogs((prev: CompilationLog[]) => [
@@ -581,8 +583,9 @@ export const EditorToolbar = ({
       // After the build settles, append the structured analysis on top of
       // the live stream — parseCompileResult highlights FAILED blocks and
       // tags compiler errors with type='error', which the console uses for
-      // colour + the auto-switch-to-errors filter.
-      const resultLogs = parseCompileResult(result, boardLabel, boardTarget);
+      // colour + the auto-switch-to-errors filter. streamedLive tells it not
+      // to reprint the stdout the stream above already showed.
+      const resultLogs = parseCompileResult(result, boardLabel, boardTarget, lastStreamedLen > 0);
       setCompileLogs((prev: CompilationLog[]) => [...prev, ...resultLogs]);
 
       if (result.success) {
@@ -1057,7 +1060,9 @@ export const EditorToolbar = ({
             if (stdout.length <= lastStreamedLen) return;
             const delta = stdout.slice(lastStreamedLen);
             lastStreamedLen = stdout.length;
-            const newLines = delta.split('\n').filter((s) => s.trim());
+            const newLines = delta
+            .split('\n')
+            .filter((s) => s.trim() && !isNoiseBuildLine(s));
             if (!newLines.length) return;
             const now = new Date();
             setCompileLogs((prev: CompilationLog[]) => [
@@ -1074,7 +1079,7 @@ export const EditorToolbar = ({
           { boardOptions: board.boardOptions, spiffsFiles: board.spiffsFiles, libraries: board.libraries?.length ? board.libraries : null, language: board.languageMode === 'espidf' ? 'espidf' : undefined },
         );
 
-        const resultLogs = parseCompileResult(result, label, boardTarget);
+        const resultLogs = parseCompileResult(result, label, boardTarget, lastStreamedLen > 0);
         setCompileLogs((prev: CompilationLog[]) => [...prev, ...resultLogs]);
 
         if (result.success) {
