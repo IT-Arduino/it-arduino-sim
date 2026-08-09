@@ -12,6 +12,9 @@
  *     news posts embed screenshots/demos, so viewers' browsers DO fetch
  *     remote media from the posts — documented in the OSS README next
  *     to the VELXIO_NEWS opt-out.
+ *   - A bare image URL (autolinked by GFM, link text == href) renders
+ *     as the image itself — authors paste screenshot URLs without
+ *     knowing the ![](…) syntax. An explicit [label](…png) stays a link.
  *   - All links open in a new tab (the modal sits on top of the editor;
  *     navigating away would lose workspace state).
  */
@@ -19,6 +22,13 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+function isImageHref(href: string): boolean {
+  return (
+    /^https?:\/\//i.test(href) &&
+    /\.(png|jpe?g|gif|webp|avif|svg)(?=$|[?#])/i.test(href)
+  );
+}
 
 function youTubeId(href: string): string | null {
   const m = href.match(
@@ -60,9 +70,9 @@ export function NewsMarkdown({ children }: { children: string }) {
       remarkPlugins={[remarkGfm]}
       components={{
         a: ({ href, children: kids }) => {
+          const text = Array.isArray(kids) ? kids.join('') : String(kids ?? '');
           const id = href ? youTubeId(href) : null;
           if (id) {
-            const text = Array.isArray(kids) ? kids.join('') : String(kids ?? '');
             return (
               <>
                 <YouTubePreview id={id} />
@@ -72,10 +82,16 @@ export function NewsMarkdown({ children }: { children: string }) {
               </>
             );
           }
+          if (href && isImageHref(href) && (!text || text === href)) {
+            return <img src={href} alt="" loading="lazy" />;
+          }
           return (
             <a href={href} target="_blank" rel="noreferrer">{kids}</a>
           );
         },
+        img: ({ src, alt }) => (
+          <img src={typeof src === 'string' ? src : undefined} alt={alt ?? ''} loading="lazy" />
+        ),
       }}
     >
       {children}
