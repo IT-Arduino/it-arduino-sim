@@ -14,6 +14,8 @@ export interface RunEventPayload {
   board_fqbn?: string | null;
   /** Editor BoardKind — disambiguates boards that share an FQBN (analytics). */
   board_kind?: string | null;
+  /** Gallery example the workspace was loaded from (analytics). */
+  example_id?: string | null;
   /** Which engine took this run — 'instant' (browser) or 'linux' (guest).
    *  Absent for boards where the question doesn't apply. */
   engine?: 'instant' | 'linux' | null;

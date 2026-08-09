@@ -114,6 +114,8 @@ export async function loadExample(
   // sees null as projectId during every subsequent simulator/editor change,
   // so no PUT goes out.
   useProjectStore.getState().clearCurrentProject();
+  // Analytics context: compiles/runs from this workspace stamp the example id.
+  useProjectStore.getState().setCurrentExampleId(example.id);
 
   // P2.4 — this example's declared manifest (compile scope) is assigned to each
   // board it creates at the END of this function (the boards don't exist yet).

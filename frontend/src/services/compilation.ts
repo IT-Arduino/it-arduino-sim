@@ -31,6 +31,9 @@ export interface CompileExtras {
   // FQBN (Pimoroni RP2350 boards all compile as rpipico2); the kind is the
   // only identifier that tells them apart in the metrics.
   boardKind?: string;
+  // Gallery example the workspace was loaded from — analytics only
+  // ("which examples get compiled most"). Null/omitted outside examples.
+  exampleId?: string | null;
 }
 
 export interface CompileResult {
@@ -127,6 +130,7 @@ export async function compileCode(
         board_options,
         spiffs_files,
         board_kind: extras?.boardKind ?? null,
+        example_id: extras?.exampleId ?? null,
         libraries,
         language: extras?.language ?? null,
         initiated_by: extras?.initiatedBy ?? null,
