@@ -446,42 +446,41 @@ export const DynamicComponent: React.FC<DynamicComponentProps> = ({
       }
       return false;
     };
-    // Wires resolve through the same pinInfo. The canvas re-derives wire
-    // endpoints on load-settle timers (100/300/500ms), but an overlay-defined
-    // custom element can upgrade LATER than the last timer — its chunk is
-    // large — and then every wire to it stays snapped to the part's corner
-    // until something moves. Recalculate when the tag actually defines,
-    // however late that is (resolves immediately when already defined).
-    let cancelled = false;
-    customElements
-      .whenDefined(metadata.tagName)
-      .then(() => {
-        requestAnimationFrame(() => {
-          if (cancelled) return;
-          try {
-            useSimulatorStore.getState().recalculateAllWirePositions();
-          } catch {
-            // headless tests
-          }
-        });
-      })
-      .catch(() => {
-        // invalid tag name: nothing will ever mount, nothing to recalc
-      });
+    // Wires resolve through the same pinInfo, and the canvas' load-settle
+    // timers (100/300/500ms) can ALL fire before this element is findable —
+    // an overlay-defined custom element upgrades when its (large) chunk
+    // lands, and on the example route the wires themselves are stored after
+    // further awaits. So: the first time THIS part's pinInfo is actually
+    // readable from the DOM, re-derive every wire endpoint. Measured on
+    // staging: without this, all four wires to the part sat on its corner
+    // until the user nudged something.
+    const tryWires = () => {
+      try {
+        const el = document.getElementById(id) as (HTMLElement & { pinInfo?: unknown[] }) | null;
+        if (el && Array.isArray(el.pinInfo) && el.pinInfo.length > 0) {
+          useSimulatorStore.getState().recalculateAllWirePositions();
+          return true;
+        }
+      } catch {
+        // headless tests
+      }
+      return false;
+    };
 
-    if (tryReseat()) {
-      return () => {
-        cancelled = true;
-      };
-    }
-    // Same cadence as the pinInfo-ready poll above: the custom element may
-    // upgrade a few frames after React commits.
+    const reseated = tryReseat();
+    const wired = tryWires();
+    if (reseated && wired) return;
+    // Poll until both settle. 10s, not 2s: the overlay chunk that defines
+    // the element can take that long on a slow connection, and giving up
+    // early is exactly the corner-wire bug again.
+    let done = { reseat: reseated, wires: wired };
     const interval = setInterval(() => {
-      if (tryReseat()) clearInterval(interval);
+      if (!done.reseat) done.reseat = tryReseat();
+      if (!done.wires) done.wires = tryWires();
+      if (done.reseat && done.wires) clearInterval(interval);
     }, 100);
-    const timeout = setTimeout(() => clearInterval(interval), 2000);
+    const timeout = setTimeout(() => clearInterval(interval), 10000);
     return () => {
-      cancelled = true;
       clearInterval(interval);
       clearTimeout(timeout);
     };

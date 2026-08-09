@@ -2287,6 +2287,21 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
     return () => timers.forEach((t) => clearTimeout(t));
   }, [components, recalculateAllWirePositions]);
 
+  // A wire endpoint still at (0,0) was STORED after every timer above had
+  // already fired — the example loader writes wires with zeroed endpoints
+  // behind several awaits (library installs), so on that route the timers
+  // race and lose. One deferred recalc converges it; recalc writes real
+  // coordinates (a pin position, or the part-corner fallback), so this
+  // effect self-quiesces instead of looping.
+  useEffect(() => {
+    const unresolved = wires.some(
+      (w) => (w.start.x === 0 && w.start.y === 0) || (w.end.x === 0 && w.end.y === 0),
+    );
+    if (!unresolved) return;
+    const t = setTimeout(() => recalculateAllWirePositions(), 150);
+    return () => clearTimeout(t);
+  }, [wires, recalculateAllWirePositions]);
+
   // Auto-pan/zoom to keep the board and all components visible after a project
   // import/load. We track the previous component count and only re-center when
   // the count jumps (indicating the user loaded a new circuit, not just added
