@@ -1406,6 +1406,21 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         try { old.disconnect(); } catch { /* ignore */ }
       }
       wireEsp32Board(boardId, board.boardKind, pm);
+      // A deep-linked overlay board is created BEFORE the overlay registers
+      // its kinds, so isEsp32Kind() was false at addBoard time and the board
+      // was wired as a generic AVR. Parts attach their device models against
+      // the flat `simulator` field — if it still holds that placeholder, the
+      // whole part layer (I2C devices included) is talking to a simulator
+      // nobody will ever run: the C6 gesture example booted with an empty
+      // engine I2C bus and every Wire transaction died. Re-sync the flat
+      // field so DynamicComponent's [simulator] effect re-attaches every
+      // part against the rebuilt shim.
+      if (get().activeBoardId === boardId) {
+        set({
+          simulator: (simulatorMap.get(boardId) ?? null) as never,
+          pinManager: pinManagerMap.get(boardId) ?? legacyPinManager,
+        });
+      }
       return true;
     },
 
