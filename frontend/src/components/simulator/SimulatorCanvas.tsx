@@ -23,6 +23,7 @@ import { getTabSessionId } from '../../simulation/Esp32Bridge';
 import { CameraToggle } from './CameraToggle';
 import { ComponentCameraToggles } from './ComponentCameraToggles';
 import { MicrophoneToggle } from './MicrophoneToggle';
+import { BoardSensorControls } from './BoardSensorControls';
 import { WireLayer } from './WireLayer';
 import type { SegmentHandle, WaypointHandle, AlignmentGuide } from './WireLayer';
 import { ElectricalOverlay } from '../analog-ui/ElectricalOverlay';
@@ -2748,6 +2749,24 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                   getProBoard(activeBoard.boardKind)?.builtInMicrophone === true && (
                     <MicrophoneToggle boardId={activeBoard.id} />
                   )}
+
+                {/* Tilt pad + battery slider, for boards whose def declares an
+                    IMU or a battery gauge. Purely simulation inputs: the
+                    emulated parts are faithful but static without them (an
+                    untouched IMU reports the board flat on a table forever). */}
+                {activeBoard &&
+                  (() => {
+                    const def = getProBoard(activeBoard.boardKind);
+                    const imu = def?.builtInImu === true;
+                    const battery = def?.builtInBattery === true;
+                    return imu || battery ? (
+                      <BoardSensorControls
+                        boardId={activeBoard.id}
+                        showImu={imu}
+                        showBattery={battery}
+                      />
+                    ) : null;
+                  })()}
 
                 {/* WiFi status indicator + IoT-gateway launcher (ESP32 + Pico W) */}
                 {activeBoard &&

@@ -8,14 +8,15 @@
  *   - status:         'idle' | 'requesting' | 'streaming' | 'denied' | 'error'.
  *
  * The transport is the bridge's setMicrophoneSource(fn) seam: the engine's
- * I2S RX fill pulls one signed 16-bit sample per call at 16 kHz. Boards whose
- * bridge lacks the seam (QEMU path, non-audio bridges) are reported as an
- * error instead of pretending to stream.
+ * I2S RX fill pulls one signed 16-bit sample per call, passing the rate the
+ * guest programmed. Boards whose bridge lacks the seam (QEMU path, non-audio
+ * bridges) are reported as an error instead of pretending to stream.
  *
  * Implementation notes:
  *   - Capture runs at the AudioContext's native rate (typically 48 kHz) and
  *     is decimated to 16 kHz by fractional stepping — the emulated PDM mic is
- *     a level-meter-grade source, not a hi-fi path.
+ *     a level-meter-grade source, not a hi-fi path. The reader then resamples
+ *     that ring to whatever rate the sketch asked for.
  *   - The engine paces its pulls in SIMULATED cpu cycles, so during the boot
  *     boost it can consume up to 4x faster than real time. A 2 s ring buffer
  *     absorbs jitter; underflow reads as silence (0), overflow drops the
@@ -44,7 +45,9 @@ const MIC_HZ = 16_000;
 const RING_CAPACITY = MIC_HZ * 2;
 
 interface MicBridge {
-  setMicrophoneSource?: (s: (() => number) | null) => void;
+  /** The source is called once per sample and is handed the rate the guest
+   *  configured, so it can resample the captured audio to match. */
+  setMicrophoneSource?: (s: ((hz?: number) => number) | null) => void;
 }
 
 export function useMicrophoneStream(): UseMicrophoneStreamResult {
@@ -156,11 +159,22 @@ export function useMicrophoneStream(): UseMicrophoneStreamResult {
       // output buffer stays zeroed, so nothing is audible.
       processor.connect(ctx.destination);
 
-      const sourceFn = () => {
+      // How much of the CAPTURED stream one guest sample covers. The ring is
+      // written at MIC_HZ, so a sketch recording at 8 kHz must consume two
+      // captured samples per read or its audio plays back at half speed, and
+      // one at 44.1 kHz consumes less than one (zero-order hold). The engine
+      // passes the rate it decoded from the guest's own clock registers.
+      let readFrac = 0;
+      const sourceFn = (hz?: number) => {
         if (count === 0) return 0; // starved: emulation pulling ahead of real time
         const s = ring[readPos];
-        readPos = (readPos + 1) % RING_CAPACITY;
-        count--;
+        readFrac += hz && hz > 0 ? MIC_HZ / hz : 1;
+        const advance = Math.floor(readFrac);
+        readFrac -= advance;
+        for (let k = 0; k < advance && count > 0; k++) {
+          readPos = (readPos + 1) % RING_CAPACITY;
+          count--;
+        }
         return s;
       };
       bridge.setMicrophoneSource(sourceFn);

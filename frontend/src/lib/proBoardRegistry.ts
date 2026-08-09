@@ -105,6 +105,13 @@ export interface ProBoardDef {
    *  setMicrophoneSource (I2S RX sample injection): shows the canvas-header
    *  Mic toggle that streams the computer's microphone into it. */
   builtInMicrophone?: boolean;
+  /** Board carries an IMU whose bridge implements setImuAcceleration /
+   *  setImuGyro: shows the canvas-header tilt pad. Without it the emulated
+   *  part faithfully reports the board lying flat for the whole run. */
+  builtInImu?: boolean;
+  /** Board reads a battery through its bridge (setBatteryVoltage): shows the
+   *  canvas-header charge slider, so low-battery code paths can be reached. */
+  builtInBattery?: boolean;
   /** Built-in peripheral attachment for a RUNNING board (LCD decoder onto the
    *  element's own canvas, speaker, on-board button/keyboard event forwarding).
    *  Called shortly after run start with the board's DOM element plus its
