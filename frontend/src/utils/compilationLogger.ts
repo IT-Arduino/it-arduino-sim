@@ -46,28 +46,6 @@ export function isNoiseBuildLine(line: string): boolean {
   return NOISE_LINE_PATTERNS.some((re) => re.test(stripped));
 }
 
-/** Lines of result.stdout past `streamedLen` — the tail that lands between
- *  the last live-status poll and job completion, which the polling loop never
- *  delivers (esptool output + the binary-size summary usually live there).
- *  Skipped when the backend's live buffer hit its 256 KB tail-trim cap: past
- *  that point buffer offsets no longer line up with the full stdout, and a
- *  slightly short log beats a misaligned one. */
-export function tailAfterStream(
-  stdout: string | undefined,
-  streamedLen: number,
-  target?: CompileTarget,
-): CompilationLog[] {
-  const BUFFER_CAP = 262_144;
-  if (!stdout || streamedLen <= 0 || streamedLen >= BUFFER_CAP) return [];
-  if (stdout.length <= streamedLen) return [];
-  const now = new Date();
-  return stdout
-    .slice(streamedLen)
-    .split('\n')
-    .filter((s) => s.trim() && !isNoiseBuildLine(s))
-    .map((message) => ({ timestamp: now, type: 'info' as const, message, target }));
-}
-
 export function parseCompileResult(
   result: CompileResult,
   board: string,

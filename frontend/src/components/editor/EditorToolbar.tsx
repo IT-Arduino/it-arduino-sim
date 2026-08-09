@@ -24,7 +24,7 @@ import { reportRunEvent } from '../../services/metricsService';
 import { useProjectStore } from '../../store/useProjectStore';
 import { LibraryManagerModal } from '../simulator/LibraryManagerModal';
 import { InstallLibrariesModal } from '../simulator/InstallLibrariesModal';
-import { parseCompileResult, isNoiseBuildLine, tailAfterStream } from '../../utils/compilationLogger';
+import { parseCompileResult, isNoiseBuildLine } from '../../utils/compilationLogger';
 import type { CompilationLog, CompileTarget } from '../../utils/compilationLogger';
 import { exportToWokwiZip } from '../../utils/wokwiZip';
 import { importProjectFile, PROJECT_FILE_ACCEPT } from '../../utils/importProject';
@@ -580,14 +580,14 @@ export const EditorToolbar = ({
         },
       );
 
-      // After the build settles, flush the stdout tail the polling loop never
-      // delivered, then append the structured analysis — parseCompileResult
-      // highlights FAILED blocks and tags compiler errors with type='error',
-      // which the console uses for colour + the auto-switch-to-errors filter.
-      // streamedLive tells it not to reprint the stdout shown above.
-      const tailLogs = tailAfterStream(result.stdout, lastStreamedLen, boardTarget);
+      // After the build settles, append the structured analysis on top of
+      // the live stream — parseCompileResult highlights FAILED blocks and
+      // tags compiler errors with type='error', which the console uses for
+      // colour + the auto-switch-to-errors filter. streamedLive tells it not
+      // to reprint the stdout the stream (final 'done' flush included)
+      // already showed.
       const resultLogs = parseCompileResult(result, boardLabel, boardTarget, lastStreamedLen > 0);
-      setCompileLogs((prev: CompilationLog[]) => [...prev, ...tailLogs, ...resultLogs]);
+      setCompileLogs((prev: CompilationLog[]) => [...prev, ...resultLogs]);
 
       if (result.success) {
         const program = result.hex_content ?? result.binary_content ?? null;
@@ -1080,9 +1080,8 @@ export const EditorToolbar = ({
           { boardOptions: board.boardOptions, spiffsFiles: board.spiffsFiles, libraries: board.libraries?.length ? board.libraries : null, language: board.languageMode === 'espidf' ? 'espidf' : undefined },
         );
 
-        const tailLogs = tailAfterStream(result.stdout, lastStreamedLen, boardTarget);
         const resultLogs = parseCompileResult(result, label, boardTarget, lastStreamedLen > 0);
-        setCompileLogs((prev: CompilationLog[]) => [...prev, ...tailLogs, ...resultLogs]);
+        setCompileLogs((prev: CompilationLog[]) => [...prev, ...resultLogs]);
 
         if (result.success) {
           const program = result.hex_content ?? result.binary_content ?? null;
