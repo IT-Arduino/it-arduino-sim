@@ -446,7 +446,34 @@ export const DynamicComponent: React.FC<DynamicComponentProps> = ({
       }
       return false;
     };
-    if (tryReseat()) return;
+    // Wires resolve through the same pinInfo. The canvas re-derives wire
+    // endpoints on load-settle timers (100/300/500ms), but an overlay-defined
+    // custom element can upgrade LATER than the last timer — its chunk is
+    // large — and then every wire to it stays snapped to the part's corner
+    // until something moves. Recalculate when the tag actually defines,
+    // however late that is (resolves immediately when already defined).
+    let cancelled = false;
+    customElements
+      .whenDefined(metadata.tagName)
+      .then(() => {
+        requestAnimationFrame(() => {
+          if (cancelled) return;
+          try {
+            useSimulatorStore.getState().recalculateAllWirePositions();
+          } catch {
+            // headless tests
+          }
+        });
+      })
+      .catch(() => {
+        // invalid tag name: nothing will ever mount, nothing to recalc
+      });
+
+    if (tryReseat()) {
+      return () => {
+        cancelled = true;
+      };
+    }
     // Same cadence as the pinInfo-ready poll above: the custom element may
     // upgrade a few frames after React commits.
     const interval = setInterval(() => {
@@ -454,6 +481,7 @@ export const DynamicComponent: React.FC<DynamicComponentProps> = ({
     }, 100);
     const timeout = setTimeout(() => clearInterval(interval), 2000);
     return () => {
+      cancelled = true;
       clearInterval(interval);
       clearTimeout(timeout);
     };
