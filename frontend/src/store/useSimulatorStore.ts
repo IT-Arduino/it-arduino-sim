@@ -2042,6 +2042,7 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
           // debugs a connection they didn't make.
           const networkStub = wifiOn ? [
             'import network as _vlx_net',
+            'import time as _vlx_time',
             '_VLX_SSIDS = ("Velxio-GUEST", "PICSimLabWifi", "Espressif", "MasseyWifi")',
             'class _VlxWLAN:',
             '    def __init__(self, *a, **k):',
@@ -2053,6 +2054,23 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
             '        if ssid is None:',
             '            return self._w.connect()',
             '        return self._w.connect(ssid, key, **kw)',
+            // The sleepy poll pair. The canonical connect idiom is
+            // `while not wlan.isconnected(): pass` — a pure Python busy-wait.
+            // The emulated CPU only fast-forwards through WAITI idles, so a
+            // busy-wait pins the sim at real execution speed (~2% of the
+            // chip) and the handshake that costs ~1.5M instructions under a
+            // sleepy loop costs ~194M under a busy one — measured; it reads
+            // as "WiFi hangs". Sleeping 20ms per unanswered poll turns the
+            // user's busy loop into an idle loop without touching their code.
+            '    def isconnected(self):',
+            '        ok = self._w.isconnected()',
+            '        if not ok:',
+            '            _vlx_time.sleep_ms(20)',
+            '        return ok',
+            '    def status(self, *a):',
+            '        st = self._w.status(*a)',
+            '        _vlx_time.sleep_ms(20)',
+            '        return st',
             '    def __getattr__(self, n):',
             '        return getattr(self._w, n)',
             'class _VlxNetwork:',
