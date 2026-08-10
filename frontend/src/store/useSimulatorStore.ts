@@ -1972,10 +1972,23 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
             return `with open(${path},'w') as _f:\n    _f.write(${lit})`;
           });
 
-          // Does this run get a real NIC? Must match what startBoard()
-          // will decide, because that is what actually attaches the
-          // device — see sketchUsesWifi().
-          const wifiOn = board.hasWifi ?? sketchUsesWifi(files);
+          // Does this run get a real, WORKING network driver? Two gates:
+          //  - the sketch must want WiFi (must match what startBoard()
+          //    decides, because that is what attaches the NIC device —
+          //    see sketchUsesWifi()), and
+          //  - the backend must be able to serve MicroPython's esp_wifi
+          //    blob. The QEMU worker can (issue #262 was reproduced and
+          //    fixed there). An overlay bridge that routes MicroPython to
+          //    an in-browser engine declares `micropythonWifiSupported =
+          //    false` until the engine models what that blob touches —
+          //    handing it the real driver today stalls esp_wifi_init with
+          //    no output at all, which is strictly worse than the stub.
+          //    Absent property (plain OSS bridge) means supported.
+          const bridgeMpyWifi = (
+            esp32Bridge as { micropythonWifiSupported?: boolean }
+          ).micropythonWifiSupported;
+          const wifiOn =
+            (board.hasWifi ?? sketchUsesWifi(files)) && bridgeMpyWifi !== false;
 
           // WiFi compat shim: replace `network`, `ntptime`, `urequests`
           // with smart stubs BEFORE user main.py imports them.
