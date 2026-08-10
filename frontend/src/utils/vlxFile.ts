@@ -54,6 +54,8 @@ export interface VlxPayload {
     languageMode?: string;
     serialBaudRate?: number;
     sdFiles?: Array<{ name: string; contentB64: string }>;
+    /** Declared library manifest (compile scope). Absent in old files. */
+    libraries?: string[];
   }>;
   fileGroups: Record<string, Array<{ name: string; content: string }>>;
   /** EMPTY folders per group (folders holding files exist via name prefixes).
@@ -77,6 +79,10 @@ function serialisableBoard(b: BoardInstance) {
     // Built-in SD slot uploads (XIAO Sense etc.) travel with the project,
     // exactly like a microsd-card component's properties.sdFiles do.
     sdFiles: b.sdFiles,
+    // The declared manifest must survive the .vlx round-trip: dropping it
+    // silently reverted re-imported projects to scan-all resolution
+    // (2026-08 library-contamination investigation).
+    libraries: b.libraries,
   };
 }
 
