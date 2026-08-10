@@ -963,6 +963,34 @@ function isEsp32Kind(kind: BoardKind): boolean {
   return getProBoard(kind)?.esp32Family !== undefined;
 }
 
+/**
+ * Does this sketch need the emulated WiFi NIC?
+ *
+ * Single source of truth for two callers that must agree: startBoard(),
+ * which decides whether QEMU gets `-nic` at all, and
+ * loadMicroPythonProgram(), which decides whether to shadow `network`
+ * with the offline stub. Disagreement between them is precisely the
+ * failure reported in #262 — a real driver with no device behind it, or
+ * a stub in front of a device that works.
+ *
+ * Arduino is detected from its includes; MicroPython from its import
+ * forms. `from network import WLAN` is listed because omitting it left
+ * hasWifi false for a sketch that genuinely uses WiFi, and the board
+ * then hung for ~26s on a peripheral that was never attached.
+ */
+export function sketchUsesWifi(files: Array<{ content: string }>): boolean {
+  return files.some(
+    (f) =>
+      f.content.includes('#include <WiFi.h>') ||
+      f.content.includes('#include <esp_wifi.h>') ||
+      f.content.includes('#include "WiFi.h"') ||
+      f.content.includes('WiFi.begin(') ||
+      /import\s+network\b/.test(f.content) ||
+      /from\s+network\s+import\b/.test(f.content) ||
+      /network\.WLAN/.test(f.content),
+  );
+}
+
 function isRiscVEsp32Kind(kind: BoardKind): boolean {
   const fam = getProBoard(kind)?.esp32Family;
   return ESP32_RISCV_KINDS.has(kind) || fam === 'esp32-c3' || fam === 'esp32-c6';
@@ -1944,13 +1972,33 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
             return `with open(${path},'w') as _f:\n    _f.write(${lit})`;
           });
 
+          // Does this run get a real NIC? Must match what startBoard()
+          // will decide, because that is what actually attaches the
+          // device — see sketchUsesWifi().
+          const wifiOn = board.hasWifi ?? sketchUsesWifi(files);
+
           // WiFi compat shim: replace `network`, `ntptime`, `urequests`
-          // with smart stubs BEFORE user main.py imports them. The
-          // picsimlab QEMU fork's esp32_wifi NIC emulation is sufficient
-          // for Arduino's lightweight WiFi.h but not for MicroPython's
-          // full esp_wifi_init path — calling `network.WLAN(STA_IF)`
-          // hangs forever waiting for peripheral status bits QEMU never
-          // sets, tripping the FreeRTOS task watchdog after ~26s.
+          // with smart stubs BEFORE user main.py imports them.
+          //
+          // `network` is stubbed ONLY when no NIC is attached. With one
+          // attached the real driver works (DHCP on 192.168.4.x, DNS,
+          // outbound TCP), and shadowing it made MicroPython WiFi look
+          // permanently broken while Arduino worked on the same board:
+          // scan() returned [], ifconfig() reported QEMU's SLIRP
+          // defaults, and sockets raised EHOSTUNREACH — issue #262.
+          //
+          // Without a NIC the stub still earns its place. The picsimlab
+          // QEMU fork's esp32_wifi emulation is enough for Arduino's
+          // lightweight WiFi.h but not for MicroPython's full
+          // esp_wifi_init path: `network.WLAN(STA_IF)` then hangs
+          // forever waiting for peripheral status bits QEMU never sets,
+          // tripping the FreeRTOS task watchdog after ~26s. Deleting the
+          // stub outright would trade a working-but-fake network for a
+          // hung board, so it stays as the offline fallback.
+          //
+          // ntptime and urequests are stubbed unconditionally: they back
+          // the gallery examples' clocks and weather panels, which have
+          // no emulated internet to reach either way.
           //
           // Smart stub behaviour (so examples like smart-ui-eyes WORK
           // end-to-end, not just degrade gracefully):
@@ -1967,14 +2015,7 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
           //                        useful data instead of "API Error".
           const now = new Date();
           const fakeWeatherCity = 'Simulator City';
-          const wifiStub = [
-            'import sys',
-            'import json as _json',
-            'try:',
-            '    import machine as _machine',
-            'except ImportError:',
-            '    _machine = None',
-            '',
+          const networkStub = wifiOn ? [] : [
             'class _StubWLAN:',
             '    def __init__(self, *a, **k):',
             '        self._calls = 0',
@@ -1993,6 +2034,17 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
             '    AP_IF = 1',
             '    WLAN = _StubWLAN',
             'sys.modules["network"] = _StubNetwork()',
+          ];
+
+          const wifiStub = [
+            'import sys',
+            'import json as _json',
+            'try:',
+            '    import machine as _machine',
+            'except ImportError:',
+            '    _machine = None',
+            '',
+            ...networkStub,
             '',
             '# ntptime: pre-load RTC with host UTC so localtime() works.',
             `_VLX_BOOT_UTC = (${now.getUTCFullYear()}, ${now.getUTCMonth() + 1}, ${now.getUTCDate()}, ${now.getUTCDay() || 7}, ${now.getUTCHours()}, ${now.getUTCMinutes()}, ${now.getUTCSeconds()}, 0)`,
@@ -2089,10 +2141,18 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
       // Stop any running simulation
       if (board.running) get().stopBoard(boardId);
 
-      // Clear compiled program since language changed
+      // Clear compiled program since language changed. hasWifi goes with
+      // it: it is a property of the compiled sketch, not of the board, and
+      // only arduino-cli sets it. Keeping the old value meant a board that
+      // had been compiled as Arduino carried that verdict into a later
+      // MicroPython run, where the source-scanning fallback never fires
+      // (it only runs when hasWifi is undefined) — so a MicroPython WiFi
+      // sketch on a reused board silently got no NIC at all (#262).
       set((s) => ({
         boards: s.boards.map((b) =>
-          b.id === boardId ? { ...b, languageMode: mode, compiledProgram: null } : b,
+          b.id === boardId
+            ? { ...b, languageMode: mode, compiledProgram: null, hasWifi: undefined }
+            : b,
         ),
       }));
 
@@ -2282,19 +2342,9 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
             const editorState = useEditorStore.getState();
             const rawFiles = editorState.fileGroups[board.activeFileGroupId];
             const boardFiles = rawFiles && rawFiles.length > 0 ? rawFiles : editorState.files;
-            hasWifi = boardFiles.some(
-              (f) =>
-                f.content.includes('#include <WiFi.h>') ||
-                f.content.includes('#include <esp_wifi.h>') ||
-                f.content.includes('#include "WiFi.h"') ||
-                f.content.includes('WiFi.begin(') ||
-                // MicroPython patterns — without these the WiFi NIC is never
-                // passed to QEMU, and `network.WLAN(STA_IF)` hangs forever
-                // trying to init a peripheral that doesn't exist, eventually
-                // tripping the FreeRTOS task watchdog (TG1WDT_SYS_RESET).
-                /import\s+network\b/.test(f.content) ||
-                /network\.WLAN/.test(f.content),
-            );
+            // Shared with loadMicroPythonProgram's stub decision — the two
+            // must not disagree about whether a NIC exists.
+            hasWifi = sketchUsesWifi(boardFiles);
           }
           esp32Bridge.wifiEnabled = hasWifi;
 
