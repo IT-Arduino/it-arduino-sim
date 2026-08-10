@@ -2015,7 +2015,41 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
           //                        useful data instead of "API Error".
           const now = new Date();
           const fakeWeatherCity = 'Simulator City';
-          const networkStub = wifiOn ? [] : [
+          // With a NIC attached: the REAL driver, behind a thin proxy that
+          // rewrites unknown SSIDs to the emulated AP. The emulated radio
+          // (QEMU esp32_wifi_ap.c and the esp32*js engines both) announces
+          // exactly four networks; a sketch that connects to its author's
+          // home SSID would scan, find nothing, and busy-wait on
+          // isconnected() forever — which is what every gallery example
+          // that ships a made-up SSID would do. Redirecting to
+          // Velxio-GUEST keeps those sketches on the REAL stack (DHCP on
+          // 192.168.4.x, DNS, outbound TCP through SLIRP) instead of
+          // reviving the fake stub for them. Known SSIDs pass through
+          // untouched, and the rewrite is announced on serial so nobody
+          // debugs a connection they didn't make.
+          const networkStub = wifiOn ? [
+            'import network as _vlx_net',
+            '_VLX_SSIDS = ("Velxio-GUEST", "PICSimLabWifi", "Espressif", "MasseyWifi")',
+            'class _VlxWLAN:',
+            '    def __init__(self, *a, **k):',
+            '        self._w = _vlx_net.WLAN(*a, **k)',
+            '    def connect(self, ssid=None, key=None, **kw):',
+            '        if ssid is not None and ssid not in _VLX_SSIDS:',
+            '            print("[velxio] SSID %r is not part of the emulated network; connecting to \'Velxio-GUEST\' instead" % ssid)',
+            '            ssid, key = "Velxio-GUEST", ""',
+            '        if ssid is None:',
+            '            return self._w.connect()',
+            '        return self._w.connect(ssid, key, **kw)',
+            '    def __getattr__(self, n):',
+            '        return getattr(self._w, n)',
+            'class _VlxNetwork:',
+            '    STA_IF = _vlx_net.STA_IF',
+            '    AP_IF = _vlx_net.AP_IF',
+            '    WLAN = _VlxWLAN',
+            '    def __getattr__(self, n):',
+            '        return getattr(_vlx_net, n)',
+            'sys.modules["network"] = _VlxNetwork()',
+          ] : [
             'class _StubWLAN:',
             '    def __init__(self, *a, **k):',
             '        self._calls = 0',
