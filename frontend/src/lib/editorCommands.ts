@@ -25,6 +25,12 @@ export type EditorCommandId =
   | 'project.exportBom'
   | 'project.exportScreenshot'
   | 'file.new'
+  // Account-scoped, registered ONLY by the pro overlay and only in the
+  // matching session state (myProjects when signed in, login when not).
+  // OSS has no auth at all, so both stay unregistered here and the menu
+  // hides them outright — see `optional` in EditorMenuBar.
+  | 'account.myProjects'
+  | 'account.login'
   | 'project.share'
   | 'project.githubSync'
   | 'firmware.upload'
