@@ -158,6 +158,14 @@ export const EditorMenuBar: React.FC = () => {
   ];
 
   const helpItems: Item[] = [
+    // Only present once a post has been delivered — the announcement is a
+    // toast now, and this is how it stays reachable after it retires.
+    {
+      kind: 'command',
+      id: 'help.whatsNew',
+      label: t('news.kicker', "What's new"),
+      optional: true,
+    },
     { kind: 'link', href: `${SITE}/docs`, label: t('header.nav.documentation', 'Documentation') },
     { kind: 'link', href: '/examples', label: t('header.nav.examples', 'Examples') },
     { kind: 'link', href: `${SITE}/pricing`, label: t('header.nav.pricing', 'Pricing') },

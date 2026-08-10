@@ -31,6 +31,10 @@ export type EditorCommandId =
   // hides them outright — see `optional` in EditorMenuBar.
   | 'account.myProjects'
   | 'account.login'
+  // Re-opens the last delivered "What's new" post. Registered by
+  // NewsAnnouncer once a post has actually arrived, so the Help row is
+  // absent while there is nothing to re-read.
+  | 'help.whatsNew'
   | 'project.share'
   | 'project.githubSync'
   | 'firmware.upload'
