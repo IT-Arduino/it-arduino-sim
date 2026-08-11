@@ -43,7 +43,7 @@ export const FlashModal = ({ board, fqbn, onClose }: Props) => {
   // calls aren't accumulating stale array copies.
   const logRef = useRef<string[]>([]);
   // Web Serial mode: the pro overlay's flasher handles this board in
-  // this browser. Decided once — the impl is installed at mount time.
+  // this browser (the impl is installed before any modal can open).
   const isWebMode = !isTauri() && webFlashAvailable(board.boardKind);
   // Abort handle for an in-flight web flash (closing the modal cancels).
   const abortRef = useRef<AbortController | null>(null);
