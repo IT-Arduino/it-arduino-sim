@@ -623,6 +623,10 @@ export const DynamicComponent: React.FC<DynamicComponentProps> = ({
     // Set initial properties
     Object.entries(properties).forEach(([key, value]) => {
       try {
+        // Same guard as the property-sync effect above: the persisted
+        // imageData string must never replace the element's live ImageData
+        // (it crashes wokwi-elements' firstUpdated on mount).
+        if (key === 'imageData' && !(value instanceof ImageData)) return;
         (element as any)[key] = value;
       } catch (error) {
         console.warn(`Failed to set initial property ${key}:`, error);
