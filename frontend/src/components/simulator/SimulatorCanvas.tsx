@@ -79,6 +79,7 @@ import {
 } from '../../lib/proBoardGate';
 import { FlashModal } from './FlashModal';
 import { isTauri as isTauriRuntimeFn } from '../../desktop/tauriBridge';
+import { webFlashAvailable } from '../../lib/proWebFlash';
 import { isEsp32Family } from '../../types/boardOptions';
 import { BoardOptionsModal } from './BoardOptionsModal';
 import { useOscilloscopeStore } from '../../store/useOscilloscopeStore';
@@ -3442,8 +3443,10 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
               },
             });
           }
-          // Flashing needs USB serial, which only the desktop shell has.
-          if (isTauriRuntime) {
+          // Flashing needs USB serial: the desktop shell always has it;
+          // on the web the pro overlay may install a Web Serial flasher
+          // for this board kind (no-op in pure OSS builds).
+          if (isTauriRuntime || webFlashAvailable(board.boardKind)) {
             actions.push({
               id: 'flash',
               label: t('editor.canvas.flashToBoard'),
@@ -3666,7 +3669,8 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
 
       {/* Hardware flash modal — opens from board context menu when
           the user has compiled the sketch + clicks "Flash to real
-          board". Only present in Tauri (web hides the menu item). */}
+          board". Present in Tauri, and on the web when the pro
+          overlay installed a Web Serial flasher for the board kind. */}
       {flashModalFor &&
         (() => {
           const b = boards.find((x) => x.id === flashModalFor);

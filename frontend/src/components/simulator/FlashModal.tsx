@@ -7,17 +7,21 @@
  *   2. Triggering the flash (streams arduino-cli output live)
  *   3. Showing success / error with the option to retry
  *
- * Pure desktop concern: web has no access to local serial ports
- * without WebSerial which is a separate sprint. The board context
- * menu hides the entry entirely in web builds; if the modal IS
- * mounted in web (defensive), it shows a "requires Velxio Desktop"
- * fallback.
+ * Two backends:
+ *   - Desktop (Tauri): enumerates ports via the sidecar and streams
+ *     arduino-cli output over SSE.
+ *   - Web: if the pro overlay installed a Web Serial flasher for this
+ *     board kind (see `lib/proWebFlash.ts`), the browser's own port
+ *     picker replaces the dropdown — the modal opens on a single
+ *     "Connect & Flash" button. Without an overlay (pure OSS web
+ *     build), it shows the "requires Velxio Desktop" fallback.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BoardInstance } from '../../store/useSimulatorStore';
 import { isTauri, listSerialPorts, type SerialPortInfo } from '../../desktop/tauriBridge';
 import { streamFlash, type FlashEvent } from '../../services/flashService';
+import { getWebFlashImpl, webFlashAvailable } from '../../lib/proWebFlash';
 
 interface Props {
   board: BoardInstance;
@@ -28,6 +32,7 @@ interface Props {
 type ModalState =
   | { kind: 'loading-ports' }
   | { kind: 'picking'; ports: SerialPortInfo[]; selectedPath: string | null }
+  | { kind: 'web-ready' }
   | { kind: 'flashing'; port: string; log: string[]; progress: number }
   | { kind: 'success'; port: string; elapsedMs: number; log: string[] }
   | { kind: 'error'; port: string | null; message: string; log: string[] };
@@ -37,18 +42,29 @@ export const FlashModal = ({ board, fqbn, onClose }: Props) => {
   // Keep the latest log in a ref so the flash generator's setState
   // calls aren't accumulating stale array copies.
   const logRef = useRef<string[]>([]);
+  // Web Serial mode: the pro overlay's flasher handles this board in
+  // this browser. Decided once — the impl is installed at mount time.
+  const isWebMode = !isTauri() && webFlashAvailable(board.boardKind);
+  // Abort handle for an in-flight web flash (closing the modal cancels).
+  const abortRef = useRef<AbortController | null>(null);
 
-  // ── Initial port enumeration ─────────────────────────────────────
+  // ── Initial state: enumerate ports (desktop) or arm the web flow ──
   useEffect(() => {
     if (!isTauri()) {
-      setState({
-        kind: 'error',
-        port: null,
-        message:
-          'Hardware flashing requires Velxio Desktop. The web app cannot ' +
-          'access local USB serial ports.',
-        log: [],
-      });
+      // Web Serial's requestPort() must run from a user gesture, so the
+      // web flow can't start here — it waits on "Connect & Flash".
+      setState(
+        isWebMode
+          ? { kind: 'web-ready' }
+          : {
+              kind: 'error',
+              port: null,
+              message:
+                'Hardware flashing requires Velxio Desktop. The web app cannot ' +
+                'access local USB serial ports.',
+              log: [],
+            },
+      );
       return;
     }
     let cancelled = false;
@@ -64,7 +80,7 @@ export const FlashModal = ({ board, fqbn, onClose }: Props) => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isWebMode]);
 
   const refreshPorts = useCallback(async () => {
     setState({ kind: 'loading-ports' });
@@ -146,6 +162,70 @@ export const FlashModal = ({ board, fqbn, onClose }: Props) => {
     [board.compiledProgram, board.id, fqbn],
   );
 
+  // ── Trigger a Web Serial flash (pro overlay backend) ─────────────
+  const doWebFlash = useCallback(async () => {
+    const impl = getWebFlashImpl();
+    if (!impl) return;
+    if (!board.compiledProgram) {
+      setState({
+        kind: 'error',
+        port: null,
+        message:
+          'No compiled program for this board. Compile the sketch first ' +
+          '(Compile button in the toolbar).',
+        log: [],
+      });
+      return;
+    }
+    logRef.current = [];
+    setState({ kind: 'flashing', port: 'Web Serial', log: [], progress: 0 });
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    try {
+      const result = await impl.flash({
+        boardId: board.id,
+        boardKind: board.boardKind,
+        binaryBase64: board.compiledProgram,
+        signal: ctrl.signal,
+        onProgress: (p) => {
+          if (p.line) {
+            logRef.current = [...logRef.current, p.line];
+          }
+          setState((prev) => {
+            if (prev.kind !== 'flashing') return prev;
+            return {
+              ...prev,
+              log: logRef.current,
+              // Seam reports 0-100; the bar renders 0-1 like the SSE path.
+              progress: p.phase === 'writing' ? p.pct / 100 : prev.progress,
+            };
+          });
+        },
+      });
+      setState({
+        kind: 'success',
+        port: result.chipName,
+        elapsedMs: result.elapsedMs,
+        log: [...logRef.current],
+      });
+    } catch (err) {
+      if (ctrl.signal.aborted) return; // user cancelled — modal is closing
+      setState({
+        kind: 'error',
+        port: null,
+        message: err instanceof Error ? err.message : String(err),
+        log: [...logRef.current],
+      });
+    } finally {
+      abortRef.current = null;
+    }
+  }, [board.compiledProgram, board.id, board.boardKind]);
+
+  const handleClose = useCallback(() => {
+    abortRef.current?.abort();
+    onClose();
+  }, [onClose]);
+
   // ── Render ──────────────────────────────────────────────────────
   const boardLabel = board.boardKind;
 
@@ -186,7 +266,7 @@ export const FlashModal = ({ board, fqbn, onClose }: Props) => {
           </h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             style={closeBtnStyle}
             aria-label="Close"
           >
@@ -211,14 +291,25 @@ export const FlashModal = ({ board, fqbn, onClose }: Props) => {
           />
         )}
 
+        {state.kind === 'web-ready' && (
+          <WebReadyView board={board} onFlash={() => void doWebFlash()} />
+        )}
+
         {(state.kind === 'flashing' ||
           state.kind === 'success' ||
           state.kind === 'error') && (
           <ProgressView
             state={state}
-            onRetry={() => state.port && void doFlash(state.port)}
-            onClose={onClose}
-            onBackToPicker={() => void refreshPorts()}
+            webMode={isWebMode}
+            onRetry={() =>
+              isWebMode
+                ? void doWebFlash()
+                : state.port && void doFlash(state.port)
+            }
+            onClose={handleClose}
+            onBackToPicker={() =>
+              isWebMode ? setState({ kind: 'web-ready' }) : void refreshPorts()
+            }
           />
         )}
       </div>
@@ -305,6 +396,48 @@ const PickerView = ({ board, ports, selected, onSelect, onRefresh, onFlash }: Pi
   );
 };
 
+// ── Web Serial subview ──────────────────────────────────────────────
+
+interface WebReadyProps {
+  board: BoardInstance;
+  onFlash: () => void;
+}
+
+const WebReadyView = ({ board, onFlash }: WebReadyProps) => {
+  const hasCompiled = !!board.compiledProgram;
+  return (
+    <div>
+      <div style={{ padding: 16, background: '#0c0c11', borderRadius: 4, marginBottom: 12 }}>
+        <div style={{ color: '#aaa', fontSize: 13, marginBottom: 8 }}>
+          Flash over USB, right from the browser.
+        </div>
+        <div style={{ color: '#777', fontSize: 12, lineHeight: 1.5 }}>
+          Plug the board in via USB and click Connect &amp; Flash — your
+          browser will ask which serial port to use. Close any other
+          program using the port (serial monitors, IDEs) first.
+        </div>
+      </div>
+
+      {!hasCompiled && (
+        <div style={{ padding: 10, background: '#3a2e1a', color: '#ffb84d', borderRadius: 4, fontSize: 12, marginBottom: 12 }}>
+          No compiled program for this board yet. Click Compile in the toolbar first.
+        </div>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button
+          type="button"
+          disabled={!hasCompiled}
+          onClick={onFlash}
+          style={{ ...primaryBtnStyle, opacity: hasCompiled ? 1 : 0.5 }}
+        >
+          Connect &amp; Flash
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // ── Progress / success / error subview ──────────────────────────────
 
 interface ProgressProps {
@@ -312,12 +445,14 @@ interface ProgressProps {
     | { kind: 'flashing'; port: string; log: string[]; progress: number }
     | { kind: 'success'; port: string; elapsedMs: number; log: string[] }
     | { kind: 'error'; port: string | null; message: string; log: string[] };
+  /** Web Serial backend: closing cancels the flash and there is no port picker. */
+  webMode: boolean;
   onRetry: () => void;
   onClose: () => void;
   onBackToPicker: () => void;
 }
 
-const ProgressView = ({ state, onRetry, onClose, onBackToPicker }: ProgressProps) => {
+const ProgressView = ({ state, webMode, onRetry, onClose, onBackToPicker }: ProgressProps) => {
   const logRef = useRef<HTMLPreElement | null>(null);
   // Auto-scroll the log to the bottom as new lines come in.
   useEffect(() => {
@@ -387,7 +522,7 @@ const ProgressView = ({ state, onRetry, onClose, onBackToPicker }: ProgressProps
           </span>
         ) : (
           <button type="button" onClick={onBackToPicker} style={secondaryBtnStyle}>
-            Pick another port
+            {webMode ? 'Start over' : 'Pick another port'}
           </button>
         )}
         <div style={{ display: 'flex', gap: 8 }}>
@@ -397,7 +532,7 @@ const ProgressView = ({ state, onRetry, onClose, onBackToPicker }: ProgressProps
             </button>
           )}
           <button type="button" onClick={onClose} style={secondaryBtnStyle}>
-            {state.kind === 'flashing' ? 'Hide' : 'Close'}
+            {state.kind === 'flashing' ? (webMode ? 'Cancel' : 'Hide') : 'Close'}
           </button>
         </div>
       </div>
