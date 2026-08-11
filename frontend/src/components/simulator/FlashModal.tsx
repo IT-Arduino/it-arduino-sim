@@ -404,7 +404,10 @@ interface WebReadyProps {
 }
 
 const WebReadyView = ({ board, onFlash }: WebReadyProps) => {
-  const hasCompiled = !!board.compiledProgram;
+  // MicroPython boards carry the 'micropython-loaded' sentinel instead of
+  // a flash image — nothing to write. Arduino/ESP-IDF sketches only.
+  const isMpy = board.languageMode === 'micropython';
+  const hasCompiled = !!board.compiledProgram && !isMpy;
   return (
     <div>
       <div style={{ padding: 16, background: '#0c0c11', borderRadius: 4, marginBottom: 12 }}>
@@ -418,7 +421,14 @@ const WebReadyView = ({ board, onFlash }: WebReadyProps) => {
         </div>
       </div>
 
-      {!hasCompiled && (
+      {isMpy && (
+        <div style={{ padding: 10, background: '#3a2e1a', color: '#ffb84d', borderRadius: 4, fontSize: 12, marginBottom: 12 }}>
+          MicroPython projects cannot be flashed to a real board yet — only
+          compiled Arduino/ESP-IDF sketches.
+        </div>
+      )}
+
+      {!board.compiledProgram && !isMpy && (
         <div style={{ padding: 10, background: '#3a2e1a', color: '#ffb84d', borderRadius: 4, fontSize: 12, marginBottom: 12 }}>
           No compiled program for this board yet. Click Compile in the toolbar first.
         </div>

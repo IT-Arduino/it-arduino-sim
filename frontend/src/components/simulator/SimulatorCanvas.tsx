@@ -3447,13 +3447,19 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
           // on the web the pro overlay may install a Web Serial flasher
           // for this board kind (no-op in pure OSS builds).
           if (isTauriRuntime || webFlashAvailable(board.boardKind)) {
+            // MicroPython boards don't compile to a flash image — the store
+            // keeps the 'micropython-loaded' sentinel, which no flasher can
+            // write. Arduino/ESP-IDF sketches only.
+            const isMpy = board.languageMode === 'micropython';
             actions.push({
               id: 'flash',
               label: t('editor.canvas.flashToBoard'),
-              disabled: !board.compiledProgram,
-              title: board.compiledProgram
-                ? 'Flash the compiled sketch to a real USB-attached board'
-                : 'Compile the sketch first',
+              disabled: !board.compiledProgram || isMpy,
+              title: isMpy
+                ? 'MicroPython projects cannot be flashed yet — Arduino sketches only'
+                : board.compiledProgram
+                  ? 'Flash the compiled sketch to a real USB-attached board'
+                  : 'Compile the sketch first',
               onSelect: () => {
                 setFlashModalFor(boardContextMenu.boardId);
                 setBoardContextMenu(null);
