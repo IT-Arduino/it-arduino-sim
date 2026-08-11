@@ -18,8 +18,8 @@
  */
 
 export interface WebFlashProgress {
-  phase: 'connecting' | 'erasing' | 'writing' | 'resetting';
-  /** 0-100, meaningful during 'writing'. */
+  phase: 'connecting' | 'erasing' | 'writing' | 'uploading' | 'resetting';
+  /** 0-100, meaningful during 'writing' and 'uploading'. */
   pct: number;
   /** Optional log line to append to the modal's console. */
   line?: string;
@@ -32,6 +32,21 @@ export interface WebFlashRequest {
   binaryBase64: string;
   onProgress: (p: WebFlashProgress) => void;
   /** Aborting disconnects the transport; the chip stays recoverable. */
+  signal: AbortSignal;
+}
+
+/** A workspace source file, as the editor stores it. */
+export interface WebFlashFile {
+  name: string;
+  content: string;
+}
+
+export interface MicroPythonFlashRequest {
+  boardId: string;
+  boardKind: string;
+  /** The project's files; .py files are written to the board's filesystem. */
+  files: WebFlashFile[];
+  onProgress: (p: WebFlashProgress) => void;
   signal: AbortSignal;
 }
 
@@ -52,6 +67,13 @@ export interface WebFlashImpl {
    * with an Error whose message is user-presentable.
    */
   flash(req: WebFlashRequest): Promise<WebFlashResult>;
+  /**
+   * MicroPython path: install the MicroPython firmware if the board
+   * doesn't answer as a REPL, then upload the project's .py files over
+   * raw REPL and soft-reset so main.py runs. Optional — absent means
+   * MicroPython projects can't be flashed and the UI says so.
+   */
+  flashMicroPython?(req: MicroPythonFlashRequest): Promise<WebFlashResult>;
 }
 
 let _impl: WebFlashImpl | null = null;
@@ -80,4 +102,14 @@ export function webFlashAvailable(boardKind: string): boolean {
     console.warn('[oss] web-flash impl threw in available():', err);
     return false;
   }
+}
+
+/**
+ * Whether MicroPython projects on `boardKind` can be flashed here:
+ * the installed impl must support the board AND implement the
+ * MicroPython path.
+ */
+export function webFlashMpyAvailable(boardKind: string): boolean {
+  if (!_impl?.flashMicroPython) return false;
+  return webFlashAvailable(boardKind);
 }

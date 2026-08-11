@@ -21,7 +21,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BoardInstance } from '../../store/useSimulatorStore';
 import { isTauri, listSerialPorts, type SerialPortInfo } from '../../desktop/tauriBridge';
 import { streamFlash, type FlashEvent } from '../../services/flashService';
-import { getWebFlashImpl, webFlashAvailable } from '../../lib/proWebFlash';
+import {
+  getWebFlashImpl,
+  webFlashAvailable,
+  webFlashMpyAvailable,
+} from '../../lib/proWebFlash';
+import { useEditorStore } from '../../store/useEditorStore';
 
 interface Props {
   board: BoardInstance;
@@ -45,6 +50,9 @@ export const FlashModal = ({ board, fqbn, onClose }: Props) => {
   // Web Serial mode: the pro overlay's flasher handles this board in
   // this browser (the impl is installed before any modal can open).
   const isWebMode = !isTauri() && webFlashAvailable(board.boardKind);
+  // MicroPython projects use the firmware-install + raw-REPL upload path.
+  const isMpy = board.languageMode === 'micropython';
+  const mpyWebOk = isMpy && !isTauri() && webFlashMpyAvailable(board.boardKind);
   // Abort handle for an in-flight web flash (closing the modal cancels).
   const abortRef = useRef<AbortController | null>(null);
 
@@ -166,7 +174,7 @@ export const FlashModal = ({ board, fqbn, onClose }: Props) => {
   const doWebFlash = useCallback(async () => {
     const impl = getWebFlashImpl();
     if (!impl) return;
-    if (!board.compiledProgram) {
+    if (!isMpy && !board.compiledProgram) {
       setState({
         kind: 'error',
         port: null,
@@ -181,27 +189,45 @@ export const FlashModal = ({ board, fqbn, onClose }: Props) => {
     setState({ kind: 'flashing', port: 'Web Serial', log: [], progress: 0 });
     const ctrl = new AbortController();
     abortRef.current = ctrl;
-    try {
-      const result = await impl.flash({
-        boardId: board.id,
-        boardKind: board.boardKind,
-        binaryBase64: board.compiledProgram,
-        signal: ctrl.signal,
-        onProgress: (p) => {
-          if (p.line) {
-            logRef.current = [...logRef.current, p.line];
-          }
-          setState((prev) => {
-            if (prev.kind !== 'flashing') return prev;
-            return {
-              ...prev,
-              log: logRef.current,
-              // Seam reports 0-100; the bar renders 0-1 like the SSE path.
-              progress: p.phase === 'writing' ? p.pct / 100 : prev.progress,
-            };
-          });
-        },
+    const onProgress = (p: { phase: string; pct: number; line?: string }) => {
+      if (p.line) {
+        logRef.current = [...logRef.current, p.line];
+      }
+      setState((prev) => {
+        if (prev.kind !== 'flashing') return prev;
+        return {
+          ...prev,
+          log: logRef.current,
+          // Seam reports 0-100; the bar renders 0-1 like the SSE path.
+          progress:
+            p.phase === 'writing' || p.phase === 'uploading'
+              ? p.pct / 100
+              : prev.progress,
+        };
       });
+    };
+    try {
+      const result =
+        isMpy && impl.flashMicroPython
+          ? await impl.flashMicroPython({
+              boardId: board.id,
+              boardKind: board.boardKind,
+              // Same file collection as the MicroPython Run path
+              // (EditorToolbar): the board's workspace group.
+              files: useEditorStore
+                .getState()
+                .getGroupFiles(board.activeFileGroupId)
+                .map((f) => ({ name: f.name, content: f.content })),
+              signal: ctrl.signal,
+              onProgress,
+            })
+          : await impl.flash({
+              boardId: board.id,
+              boardKind: board.boardKind,
+              binaryBase64: board.compiledProgram ?? '',
+              signal: ctrl.signal,
+              onProgress,
+            });
       setState({
         kind: 'success',
         port: result.chipName,
@@ -219,7 +245,7 @@ export const FlashModal = ({ board, fqbn, onClose }: Props) => {
     } finally {
       abortRef.current = null;
     }
-  }, [board.compiledProgram, board.id, board.boardKind]);
+  }, [board.compiledProgram, board.id, board.boardKind, board.activeFileGroupId, isMpy]);
 
   const handleClose = useCallback(() => {
     abortRef.current?.abort();
@@ -292,7 +318,11 @@ export const FlashModal = ({ board, fqbn, onClose }: Props) => {
         )}
 
         {state.kind === 'web-ready' && (
-          <WebReadyView board={board} onFlash={() => void doWebFlash()} />
+          <WebReadyView
+            board={board}
+            mpyWebOk={mpyWebOk}
+            onFlash={() => void doWebFlash()}
+          />
         )}
 
         {(state.kind === 'flashing' ||
@@ -400,14 +430,17 @@ const PickerView = ({ board, ports, selected, onSelect, onRefresh, onFlash }: Pi
 
 interface WebReadyProps {
   board: BoardInstance;
+  /** MicroPython path available (overlay implements firmware+upload). */
+  mpyWebOk: boolean;
   onFlash: () => void;
 }
 
-const WebReadyView = ({ board, onFlash }: WebReadyProps) => {
+const WebReadyView = ({ board, mpyWebOk, onFlash }: WebReadyProps) => {
   // MicroPython boards carry the 'micropython-loaded' sentinel instead of
-  // a flash image — nothing to write. Arduino/ESP-IDF sketches only.
+  // a flash image — they flash only via the overlay's MicroPython path
+  // (firmware install + raw-REPL file upload), which needs no compile.
   const isMpy = board.languageMode === 'micropython';
-  const hasCompiled = !!board.compiledProgram && !isMpy;
+  const canFlash = isMpy ? mpyWebOk : !!board.compiledProgram;
   return (
     <div>
       <div style={{ padding: 16, background: '#0c0c11', borderRadius: 4, marginBottom: 12 }}>
@@ -418,13 +451,20 @@ const WebReadyView = ({ board, onFlash }: WebReadyProps) => {
           Plug the board in via USB and click Connect &amp; Flash — your
           browser will ask which serial port to use. Close any other
           program using the port (serial monitors, IDEs) first.
+          {isMpy && mpyWebOk && (
+            <>
+              {' '}This MicroPython project flashes in two steps: the
+              MicroPython firmware is installed first if the board doesn't
+              have it (about a minute), then your .py files are uploaded
+              and the board reboots into main.py.
+            </>
+          )}
         </div>
       </div>
 
-      {isMpy && (
+      {isMpy && !mpyWebOk && (
         <div style={{ padding: 10, background: '#3a2e1a', color: '#ffb84d', borderRadius: 4, fontSize: 12, marginBottom: 12 }}>
-          MicroPython projects cannot be flashed to a real board yet — only
-          compiled Arduino/ESP-IDF sketches.
+          MicroPython projects cannot be flashed to a real board from here.
         </div>
       )}
 
@@ -437,9 +477,9 @@ const WebReadyView = ({ board, onFlash }: WebReadyProps) => {
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button
           type="button"
-          disabled={!hasCompiled}
+          disabled={!canFlash}
           onClick={onFlash}
-          style={{ ...primaryBtnStyle, opacity: hasCompiled ? 1 : 0.5 }}
+          style={{ ...primaryBtnStyle, opacity: canFlash ? 1 : 0.5 }}
         >
           Connect &amp; Flash
         </button>

@@ -79,7 +79,7 @@ import {
 } from '../../lib/proBoardGate';
 import { FlashModal } from './FlashModal';
 import { isTauri as isTauriRuntimeFn } from '../../desktop/tauriBridge';
-import { webFlashAvailable } from '../../lib/proWebFlash';
+import { webFlashAvailable, webFlashMpyAvailable } from '../../lib/proWebFlash';
 import { isEsp32Family } from '../../types/boardOptions';
 import { BoardOptionsModal } from './BoardOptionsModal';
 import { useOscilloscopeStore } from '../../store/useOscilloscopeStore';
@@ -3448,15 +3448,21 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
           // for this board kind (no-op in pure OSS builds).
           if (isTauriRuntime || webFlashAvailable(board.boardKind)) {
             // MicroPython boards don't compile to a flash image — the store
-            // keeps the 'micropython-loaded' sentinel, which no flasher can
-            // write. Arduino/ESP-IDF sketches only.
+            // keeps the 'micropython-loaded' sentinel. They flash only when
+            // the overlay implements the MicroPython path (firmware install
+            // + raw-REPL file upload); no compile step is required there,
+            // the workspace files are always available.
             const isMpy = board.languageMode === 'micropython';
+            const mpyWebOk =
+              isMpy && !isTauriRuntime && webFlashMpyAvailable(board.boardKind);
             actions.push({
               id: 'flash',
               label: t('editor.canvas.flashToBoard'),
-              disabled: !board.compiledProgram || isMpy,
+              disabled: isMpy ? !mpyWebOk : !board.compiledProgram,
               title: isMpy
-                ? 'MicroPython projects cannot be flashed yet — Arduino sketches only'
+                ? mpyWebOk
+                  ? 'Install MicroPython (if needed) and upload this project to a real USB-attached board'
+                  : 'MicroPython projects cannot be flashed from here — Arduino sketches only'
                 : board.compiledProgram
                   ? 'Flash the compiled sketch to a real USB-attached board'
                   : 'Compile the sketch first',

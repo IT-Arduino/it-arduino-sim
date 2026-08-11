@@ -7,6 +7,7 @@ import {
   getWebFlashImpl,
   installWebFlashImpl,
   webFlashAvailable,
+  webFlashMpyAvailable,
   type WebFlashImpl,
 } from '../lib/proWebFlash';
 
@@ -37,6 +38,18 @@ describe('proWebFlash seam', () => {
     expect(webFlashAvailable('esp32')).toBe(true);
     installWebFlashImpl(null);
     expect(webFlashAvailable('esp32')).toBe(false);
+  });
+
+  it('MicroPython availability requires the optional method AND board support', () => {
+    expect(webFlashMpyAvailable('esp32')).toBe(false); // no impl
+    installWebFlashImpl(fakeImpl((kind) => kind === 'esp32'));
+    expect(webFlashMpyAvailable('esp32')).toBe(false); // impl without flashMicroPython
+    installWebFlashImpl({
+      ...fakeImpl((kind) => kind === 'esp32'),
+      flashMicroPython: vi.fn(),
+    });
+    expect(webFlashMpyAvailable('esp32')).toBe(true);
+    expect(webFlashMpyAvailable('arduino-uno')).toBe(false); // unsupported board
   });
 
   it('swallows a throwing available() instead of breaking the menu', () => {
