@@ -382,6 +382,11 @@ export const DynamicComponent: React.FC<DynamicComponentProps> = ({
 
     Object.entries(properties).forEach(([key, value]) => {
       try {
+        // Display framebuffers round-trip through saved projects as strings
+        // ('' — the generated metadata lists imageData as a text prop).
+        // Assigning that string clobbers the element's live ImageData and
+        // crashes wokwi-elements' firstUpdated (putImageData TypeError).
+        if (key === 'imageData' && !(value instanceof ImageData)) return;
         let coerced: any = value;
         if (typeof value === 'string') {
           const def = metadata.defaultValues?.[key];
