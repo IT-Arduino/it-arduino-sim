@@ -602,6 +602,9 @@ class Blynk(BlynkProtocol):
     def connect(self):
         print('Connecting to %s:%d...' % (self.server, self.port))
         s = socket.socket()
+        # Velxio patch: bound the blocking connect so an unreachable cloud
+        # raises OSError instead of freezing the sketch forever.
+        s.settimeout(10)
         s.connect(socket.getaddrinfo(self.server, self.port)[0][-1])
         try:
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -694,9 +697,9 @@ print("WiFi Connected:", sta_if.ifconfig())
 
 # Blynk Init
 # ── Velxio adaptation ──────────────────────────────────────────────────────────────────
-# A plain socket.connect() to blynk.cloud blocks forever when the emulated
-# network cannot reach the internet, freezing the whole demo. Probe with a
-# short timeout first and fall back to an offline no-op Blynk object.
+# The vendored BlynkLib bounds its connect() with a timeout (Velxio patch),
+# so an unreachable cloud raises OSError here instead of freezing the demo;
+# fall back to an offline no-op Blynk object in that case.
 class _OfflineBlynk:
     def on(self, *_a, **_k):
         def _deco(f):
@@ -707,20 +710,12 @@ class _OfflineBlynk:
     def virtual_write(self, *_a):
         pass
 
-def _blynk_cloud_reachable(host="blynk.cloud", port=80, timeout_s=5):
-    import socket
-    try:
-        ai = socket.getaddrinfo(host, port)[0][-1]
-        s = socket.socket()
-        s.settimeout(timeout_s)
-        s.connect(ai)
-        s.close()
-        return True
-    except OSError as e:
-        print("Blynk Cloud unreachable, running offline:", e)
-        return False
 
-blynk = BlynkLib.Blynk(AUTH, insecure=True) if _blynk_cloud_reachable() else _OfflineBlynk()
+try:
+    blynk = BlynkLib.Blynk(AUTH, insecure=True)
+except OSError as e:
+    print("Blynk Cloud unreachable, running offline:", e)
+    blynk = _OfflineBlynk()
 
 # Main Loop
 timer = 0
@@ -1013,6 +1008,9 @@ class Blynk(BlynkProtocol):
     def connect(self):
         print('Connecting to %s:%d...' % (self.server, self.port))
         s = socket.socket()
+        # Velxio patch: bound the blocking connect so an unreachable cloud
+        # raises OSError instead of freezing the sketch forever.
+        s.settimeout(10)
         s.connect(socket.getaddrinfo(self.server, self.port)[0][-1])
         try:
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -1082,9 +1080,9 @@ print("WiFi Connected:", sta_if.ifconfig())
 
 # -------- BLYNK INIT --------
 # ── Velxio adaptation ──────────────────────────────────────────────────────────────────
-# A plain socket.connect() to blynk.cloud blocks forever when the emulated
-# network cannot reach the internet, freezing the whole demo. Probe with a
-# short timeout first and fall back to an offline no-op Blynk object.
+# The vendored BlynkLib bounds its connect() with a timeout (Velxio patch),
+# so an unreachable cloud raises OSError here instead of freezing the demo;
+# fall back to an offline no-op Blynk object in that case.
 class _OfflineBlynk:
     def on(self, *_a, **_k):
         def _deco(f):
@@ -1095,20 +1093,12 @@ class _OfflineBlynk:
     def virtual_write(self, *_a):
         pass
 
-def _blynk_cloud_reachable(host="blynk.cloud", port=80, timeout_s=5):
-    import socket
-    try:
-        ai = socket.getaddrinfo(host, port)[0][-1]
-        s = socket.socket()
-        s.settimeout(timeout_s)
-        s.connect(ai)
-        s.close()
-        return True
-    except OSError as e:
-        print("Blynk Cloud unreachable, running offline:", e)
-        return False
 
-blynk = BlynkLib.Blynk(auth, insecure=True) if _blynk_cloud_reachable() else _OfflineBlynk()
+try:
+    blynk = BlynkLib.Blynk(auth, insecure=True)
+except OSError as e:
+    print("Blynk Cloud unreachable, running offline:", e)
+    blynk = _OfflineBlynk()
 
 # -------- VIRTUAL PIN V1 --------
 @blynk.on("V1")
@@ -1364,6 +1354,9 @@ class Blynk(BlynkProtocol):
     def connect(self):
         print('Connecting to %s:%d...' % (self.server, self.port))
         s = socket.socket()
+        # Velxio patch: bound the blocking connect so an unreachable cloud
+        # raises OSError instead of freezing the sketch forever.
+        s.settimeout(10)
         s.connect(socket.getaddrinfo(self.server, self.port)[0][-1])
         try:
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -1433,9 +1426,9 @@ print("WiFi Connected:", wifi.ifconfig())
 
 # -------- BLYNK INIT --------
 # ── Velxio adaptation ──────────────────────────────────────────────────────────────────
-# A plain socket.connect() to blynk.cloud blocks forever when the emulated
-# network cannot reach the internet, freezing the whole demo. Probe with a
-# short timeout first and fall back to an offline no-op Blynk object.
+# The vendored BlynkLib bounds its connect() with a timeout (Velxio patch),
+# so an unreachable cloud raises OSError here instead of freezing the demo;
+# fall back to an offline no-op Blynk object in that case.
 class _OfflineBlynk:
     def on(self, *_a, **_k):
         def _deco(f):
@@ -1446,20 +1439,12 @@ class _OfflineBlynk:
     def virtual_write(self, *_a):
         pass
 
-def _blynk_cloud_reachable(host="blynk.cloud", port=80, timeout_s=5):
-    import socket
-    try:
-        ai = socket.getaddrinfo(host, port)[0][-1]
-        s = socket.socket()
-        s.settimeout(timeout_s)
-        s.connect(ai)
-        s.close()
-        return True
-    except OSError as e:
-        print("Blynk Cloud unreachable, running offline:", e)
-        return False
 
-blynk = BlynkLib.Blynk(auth, insecure=True) if _blynk_cloud_reachable() else _OfflineBlynk()
+try:
+    blynk = BlynkLib.Blynk(auth, insecure=True)
+except OSError as e:
+    print("Blynk Cloud unreachable, running offline:", e)
+    blynk = _OfflineBlynk()
 
 # -------- BUTTON ON V1 --------
 @blynk.on("V1")
@@ -2850,6 +2835,9 @@ class Blynk(BlynkProtocol):
     def connect(self):
         print('Connecting to %s:%d...' % (self.server, self.port))
         s = socket.socket()
+        # Velxio patch: bound the blocking connect so an unreachable cloud
+        # raises OSError instead of freezing the sketch forever.
+        s.settimeout(10)
         s.connect(socket.getaddrinfo(self.server, self.port)[0][-1])
         try:
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -2912,13 +2900,16 @@ class BMP180:
 
     def __init__(self, i2c):
         self._i2c = i2c
-        addrs = i2c.scan()
-        if 0x76 in addrs:
-            self._addr = 0x76
-        elif 0x77 in addrs:
-            self._addr = 0x77
-        else:
-            self._addr = 0x76  # sensor not found yet — use the default
+        # Probe the two possible addresses directly instead of i2c.scan():
+        # a full-bus scan stalls on Velxio's in-browser ESP32 engine.
+        self._addr = 0x76
+        for addr in (0x76, 0x77):
+            try:
+                self._i2c.readfrom_mem(addr, 0xD0, 1)  # chip-id register
+                self._addr = addr
+                break
+            except OSError:
+                pass
         # BMP280 trimming coefficients live at 0x88..0x9F
         buf = self._i2c.readfrom_mem(self._addr, 0x88, 24)
         (self._T1, self._T2, self._T3,
@@ -3004,29 +2995,21 @@ while not sta_if.isconnected():
 print("Connected to Wi-Fi:", sta_if.ifconfig())
 
 # ── Velxio adaptation ──────────────────────────────────────────────────
-# A plain socket.connect() to blynk.cloud blocks forever when the emulated
-# network cannot reach the internet, freezing the whole demo. Probe with a
-# short timeout first and fall back to an offline no-op Blynk object.
+# The vendored BlynkLib bounds its connect() with a timeout (Velxio patch),
+# so an unreachable cloud raises OSError here instead of freezing the demo;
+# fall back to an offline no-op Blynk object in that case.
 class _OfflineBlynk:
     def run(self):
         pass
     def virtual_write(self, *_a):
         pass
 
-def _blynk_cloud_reachable(host="blynk.cloud", port=80, timeout_s=5):
-    import socket
-    try:
-        ai = socket.getaddrinfo(host, port)[0][-1]
-        s = socket.socket()
-        s.settimeout(timeout_s)
-        s.connect(ai)
-        s.close()
-        return True
-    except OSError as e:
-        print("Blynk Cloud unreachable, running offline:", e)
-        return False
 
-blynk = BlynkLib.Blynk(auth, insecure=True) if _blynk_cloud_reachable() else _OfflineBlynk()
+try:
+    blynk = BlynkLib.Blynk(auth, insecure=True)
+except OSError as e:
+    print("Blynk Cloud unreachable, running offline:", e)
+    blynk = _OfflineBlynk()
 
 # -------- BMP180 I2C --------
 # The simulator emulates the ESP32's hardware I2C controller, so use
@@ -3299,6 +3282,9 @@ class Blynk(BlynkProtocol):
     def connect(self):
         print('Connecting to %s:%d...' % (self.server, self.port))
         s = socket.socket()
+        # Velxio patch: bound the blocking connect so an unreachable cloud
+        # raises OSError instead of freezing the sketch forever.
+        s.settimeout(10)
         s.connect(socket.getaddrinfo(self.server, self.port)[0][-1])
         try:
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -3412,9 +3398,9 @@ print("WiFi Connected:", sta_if.ifconfig())
 
 # ─── Blynk Init ──────────────────────────────────────────────
 # ── Velxio adaptation ──────────────────────────────────────────────────────────────────
-# A plain socket.connect() to blynk.cloud blocks forever when the emulated
-# network cannot reach the internet, freezing the whole demo. Probe with a
-# short timeout first and fall back to an offline no-op Blynk object.
+# The vendored BlynkLib bounds its connect() with a timeout (Velxio patch),
+# so an unreachable cloud raises OSError here instead of freezing the demo;
+# fall back to an offline no-op Blynk object in that case.
 class _OfflineBlynk:
     def on(self, *_a, **_k):
         def _deco(f):
@@ -3425,20 +3411,12 @@ class _OfflineBlynk:
     def virtual_write(self, *_a):
         pass
 
-def _blynk_cloud_reachable(host="blynk.cloud", port=80, timeout_s=5):
-    import socket
-    try:
-        ai = socket.getaddrinfo(host, port)[0][-1]
-        s = socket.socket()
-        s.settimeout(timeout_s)
-        s.connect(ai)
-        s.close()
-        return True
-    except OSError as e:
-        print("Blynk Cloud unreachable, running offline:", e)
-        return False
 
-blynk = BlynkLib.Blynk(AUTH, insecure=True) if _blynk_cloud_reachable() else _OfflineBlynk()
+try:
+    blynk = BlynkLib.Blynk(AUTH, insecure=True)
+except OSError as e:
+    print("Blynk Cloud unreachable, running offline:", e)
+    blynk = _OfflineBlynk()
 
 # ─── Blynk Switch Handlers ───────────────────────────────────
 @blynk.on("V3")
@@ -4237,6 +4215,9 @@ class Blynk(BlynkProtocol):
     def connect(self):
         print('Connecting to %s:%d...' % (self.server, self.port))
         s = socket.socket()
+        # Velxio patch: bound the blocking connect so an unreachable cloud
+        # raises OSError instead of freezing the sketch forever.
+        s.settimeout(10)
         s.connect(socket.getaddrinfo(self.server, self.port)[0][-1])
         try:
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -4328,9 +4309,9 @@ if wifi.isconnected():
 
 # 📲 Blynk init
 # ── Velxio adaptation ──────────────────────────────────────────────────────────────────
-# A plain socket.connect() to blynk.cloud blocks forever when the emulated
-# network cannot reach the internet, freezing the whole demo. Probe with a
-# short timeout first and fall back to an offline no-op Blynk object.
+# The vendored BlynkLib bounds its connect() with a timeout (Velxio patch),
+# so an unreachable cloud raises OSError here instead of freezing the demo;
+# fall back to an offline no-op Blynk object in that case.
 class _OfflineBlynk:
     def on(self, *_a, **_k):
         def _deco(f):
@@ -4341,20 +4322,12 @@ class _OfflineBlynk:
     def virtual_write(self, *_a):
         pass
 
-def _blynk_cloud_reachable(host="blynk.cloud", port=80, timeout_s=5):
-    import socket
-    try:
-        ai = socket.getaddrinfo(host, port)[0][-1]
-        s = socket.socket()
-        s.settimeout(timeout_s)
-        s.connect(ai)
-        s.close()
-        return True
-    except OSError as e:
-        print("Blynk Cloud unreachable, running offline:", e)
-        return False
 
-blynk = BlynkLib.Blynk(BLYNK_AUTH, insecure=True) if _blynk_cloud_reachable() else _OfflineBlynk()
+try:
+    blynk = BlynkLib.Blynk(BLYNK_AUTH, insecure=True)
+except OSError as e:
+    print("Blynk Cloud unreachable, running offline:", e)
+    blynk = _OfflineBlynk()
 
 # 🔘 Manual Pump Control (V1)
 @blynk.on("V1")
@@ -7381,6 +7354,9 @@ class Blynk(BlynkProtocol):
     def connect(self):
         print('Connecting to %s:%d...' % (self.server, self.port))
         s = socket.socket()
+        # Velxio patch: bound the blocking connect so an unreachable cloud
+        # raises OSError instead of freezing the sketch forever.
+        s.settimeout(10)
         s.connect(socket.getaddrinfo(self.server, self.port)[0][-1])
         try:
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -7453,9 +7429,9 @@ print("Connected to Wi-Fi:", sta_if.ifconfig()) # Print the Wi-Fi connection det
 
 # Initialize Blynk Connection
 # ── Velxio adaptation ──────────────────────────────────────────────────────────────────
-# A plain socket.connect() to blynk.cloud blocks forever when the emulated
-# network cannot reach the internet, freezing the whole demo. Probe with a
-# short timeout first and fall back to an offline no-op Blynk object.
+# The vendored BlynkLib bounds its connect() with a timeout (Velxio patch),
+# so an unreachable cloud raises OSError here instead of freezing the demo;
+# fall back to an offline no-op Blynk object in that case.
 class _OfflineBlynk:
     def on(self, *_a, **_k):
         def _deco(f):
@@ -7466,20 +7442,12 @@ class _OfflineBlynk:
     def virtual_write(self, *_a):
         pass
 
-def _blynk_cloud_reachable(host="blynk.cloud", port=80, timeout_s=5):
-    import socket
-    try:
-        ai = socket.getaddrinfo(host, port)[0][-1]
-        s = socket.socket()
-        s.settimeout(timeout_s)
-        s.connect(ai)
-        s.close()
-        return True
-    except OSError as e:
-        print("Blynk Cloud unreachable, running offline:", e)
-        return False
 
-blynk = BlynkLib.Blynk(auth, insecure=True) if _blynk_cloud_reachable() else _OfflineBlynk()
+try:
+    blynk = BlynkLib.Blynk(auth, insecure=True)
+except OSError as e:
+    print("Blynk Cloud unreachable, running offline:", e)
+    blynk = _OfflineBlynk()
 
 # Create LED Object
 led1=Pin(16, Pin.OUT) # Initialize LED 1 on pin 16 (D0), set as output
