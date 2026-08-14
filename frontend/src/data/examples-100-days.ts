@@ -693,7 +693,34 @@ while not sta_if.isconnected():
 print("WiFi Connected:", sta_if.ifconfig())
 
 # Blynk Init
-blynk = BlynkLib.Blynk(AUTH, insecure=True)
+# ── Velxio adaptation ──────────────────────────────────────────────────────────────────
+# A plain socket.connect() to blynk.cloud blocks forever when the emulated
+# network cannot reach the internet, freezing the whole demo. Probe with a
+# short timeout first and fall back to an offline no-op Blynk object.
+class _OfflineBlynk:
+    def on(self, *_a, **_k):
+        def _deco(f):
+            return f
+        return _deco
+    def run(self):
+        pass
+    def virtual_write(self, *_a):
+        pass
+
+def _blynk_cloud_reachable(host="blynk.cloud", port=80, timeout_s=5):
+    import socket
+    try:
+        ai = socket.getaddrinfo(host, port)[0][-1]
+        s = socket.socket()
+        s.settimeout(timeout_s)
+        s.connect(ai)
+        s.close()
+        return True
+    except OSError as e:
+        print("Blynk Cloud unreachable, running offline:", e)
+        return False
+
+blynk = BlynkLib.Blynk(AUTH, insecure=True) if _blynk_cloud_reachable() else _OfflineBlynk()
 
 # Main Loop
 timer = 0
@@ -758,7 +785,7 @@ while True:
     description: "Blynk Based IoT Relay Control (MicroPython) on Raspberry Pi Pico W (MicroPython) \u2014 uses Blynk, Blynk Cloud, Wi-Fi. From Kritish Mohapatra's 100 Days of IoT series: https://github.com/kritishmohapatra/100_Days_100_IoT_Projects",
     category: "communication",
     difficulty: "advanced",
-    boardType: "raspberry-pi-pico",
+    boardType: "pi-pico-w",
     languageMode: 'micropython',
     files: [
       { name: "BlynkLib.py", content: `# Copyright (c) 2015-2019 Volodymyr Shymanskyy. See the file LICENSE for copying permission.
@@ -1054,7 +1081,34 @@ while not sta_if.isconnected():
 print("WiFi Connected:", sta_if.ifconfig())
 
 # -------- BLYNK INIT --------
-blynk = BlynkLib.Blynk(auth, insecure=True)
+# ── Velxio adaptation ──────────────────────────────────────────────────────────────────
+# A plain socket.connect() to blynk.cloud blocks forever when the emulated
+# network cannot reach the internet, freezing the whole demo. Probe with a
+# short timeout first and fall back to an offline no-op Blynk object.
+class _OfflineBlynk:
+    def on(self, *_a, **_k):
+        def _deco(f):
+            return f
+        return _deco
+    def run(self):
+        pass
+    def virtual_write(self, *_a):
+        pass
+
+def _blynk_cloud_reachable(host="blynk.cloud", port=80, timeout_s=5):
+    import socket
+    try:
+        ai = socket.getaddrinfo(host, port)[0][-1]
+        s = socket.socket()
+        s.settimeout(timeout_s)
+        s.connect(ai)
+        s.close()
+        return True
+    except OSError as e:
+        print("Blynk Cloud unreachable, running offline:", e)
+        return False
+
+blynk = BlynkLib.Blynk(auth, insecure=True) if _blynk_cloud_reachable() else _OfflineBlynk()
 
 # -------- VIRTUAL PIN V1 --------
 @blynk.on("V1")
@@ -1074,7 +1128,7 @@ while True:
     code: '',
     components: [],
     wires: [],
-    tags: ["100-days", "blynk", "blynk_cloud", "micropython", "raspberry-pi-pico", "rp2040", "wifi"],
+    tags: ["100-days", "blynk", "blynk_cloud", "micropython", "pi-pico-w", "pico-w", "wifi"],
   },
   {
     id: "100d-blynk-controlled-dc-brushless-fan",
@@ -1378,7 +1432,34 @@ while not wifi.isconnected():
 print("WiFi Connected:", wifi.ifconfig())
 
 # -------- BLYNK INIT --------
-blynk = BlynkLib.Blynk(auth, insecure=True)
+# ── Velxio adaptation ──────────────────────────────────────────────────────────────────
+# A plain socket.connect() to blynk.cloud blocks forever when the emulated
+# network cannot reach the internet, freezing the whole demo. Probe with a
+# short timeout first and fall back to an offline no-op Blynk object.
+class _OfflineBlynk:
+    def on(self, *_a, **_k):
+        def _deco(f):
+            return f
+        return _deco
+    def run(self):
+        pass
+    def virtual_write(self, *_a):
+        pass
+
+def _blynk_cloud_reachable(host="blynk.cloud", port=80, timeout_s=5):
+    import socket
+    try:
+        ai = socket.getaddrinfo(host, port)[0][-1]
+        s = socket.socket()
+        s.settimeout(timeout_s)
+        s.connect(ai)
+        s.close()
+        return True
+    except OSError as e:
+        print("Blynk Cloud unreachable, running offline:", e)
+        return False
+
+blynk = BlynkLib.Blynk(auth, insecure=True) if _blynk_cloud_reachable() else _OfflineBlynk()
 
 # -------- BUTTON ON V1 --------
 @blynk.on("V1")
@@ -1565,7 +1646,7 @@ import socket
 import dht
 
 # DHT11 sensor setup
-sensor = dht.DHT11(machine.Pin(4)) # GPIO4 connected
+sensor = dht.DHT22(machine.Pin(4)) # GPIO4 — Velxio emulates the DHT22 waveform (use DHT11 on real hw)
 
 # Wi-Fi credentials
 SSID = "kritish"
@@ -1688,8 +1769,8 @@ while True:
         time.sleep(10)` },
     ],
     code: '',
-    components: [],
-    wires: [],
+    components: [{"type": "wokwi-dht22", "id": "dweb-dht1", "x": 440, "y": 200, "properties": {"temperature": "28", "humidity": "65"}}],
+    wires: [{"id": "dweb-dht-vcc", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "dweb-dht1", "pinName": "VCC"}, "color": "#ff4444"}, {"id": "dweb-dht-gnd", "start": {"componentId": "arduino-uno", "pinName": "GND"}, "end": {"componentId": "dweb-dht1", "pinName": "GND"}, "color": "#000000"}, {"id": "dweb-dht-data", "start": {"componentId": "arduino-uno", "pinName": "4"}, "end": {"componentId": "dweb-dht1", "pinName": "SDA"}, "color": "#22cc66"}],
     tags: ["100-days", "dht", "esp32", "micropython", "wifi"],
   },
   {
@@ -2117,7 +2198,7 @@ while True:
     boardType: "esp32",
     languageMode: 'micropython',
     files: [
-      { name: "main.py", content: `from machine import Pin, SoftI2C
+      { name: "main.py", content: `from machine import Pin, I2C
 import ssd1306
 from time import sleep, localtime, time
 import network, ntptime
@@ -2133,7 +2214,8 @@ OWM_API_KEY = "key"
 CITY = "city"
 
 # ================= HARDWARE =================
-i2c = SoftI2C(scl=Pin(22), sda=Pin(21))
+# Velxio decodes the hardware I2C controller only (no bit-banged buses)
+i2c = I2C(0, scl=Pin(22), sda=Pin(21))
 oled = ssd1306.SSD1306_I2C(128, 64, i2c)
 
 touch_next = Pin(14, Pin.IN) 
@@ -2452,8 +2534,8 @@ class SSD1306_SPI(SSD1306):
 ` },
     ],
     code: '',
-    components: [],
-    wires: [],
+    components: [{"type": "wokwi-ssd1306", "id": "eyes-oled1", "x": 420, "y": 60, "properties": {}}, {"type": "wokwi-pushbutton", "id": "eyes-btn-next", "x": 420, "y": 260, "properties": {"color": "blue"}}, {"type": "wokwi-pushbutton", "id": "eyes-btn-sel", "x": 540, "y": 260, "properties": {"color": "green"}}],
+    wires: [{"id": "eyes-oled-vcc", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "eyes-oled1", "pinName": "3V3"}, "color": "#ff4444"}, {"id": "eyes-oled-gnd", "start": {"componentId": "arduino-uno", "pinName": "GND"}, "end": {"componentId": "eyes-oled1", "pinName": "GND"}, "color": "#000000"}, {"id": "eyes-oled-sda", "start": {"componentId": "arduino-uno", "pinName": "21"}, "end": {"componentId": "eyes-oled1", "pinName": "DATA"}, "color": "#22aaff"}, {"id": "eyes-oled-scl", "start": {"componentId": "arduino-uno", "pinName": "22"}, "end": {"componentId": "eyes-oled1", "pinName": "CLK"}, "color": "#ff8800"}, {"id": "eyes-btn-next-pin", "start": {"componentId": "arduino-uno", "pinName": "14"}, "end": {"componentId": "eyes-btn-next", "pinName": "1.l"}, "color": "#22aaff"}, {"id": "eyes-btn-next-vcc", "start": {"componentId": "eyes-btn-next", "pinName": "2.l"}, "end": {"componentId": "arduino-uno", "pinName": "3V3"}, "color": "#ff4444"}, {"id": "eyes-btn-sel-pin", "start": {"componentId": "arduino-uno", "pinName": "27"}, "end": {"componentId": "eyes-btn-sel", "pinName": "1.l"}, "color": "#22aaff"}, {"id": "eyes-btn-sel-vcc", "start": {"componentId": "eyes-btn-sel", "pinName": "2.l"}, "end": {"componentId": "arduino-uno", "pinName": "3V3"}, "color": "#ff4444"}],
     tags: ["100-days", "esp32", "i2c_oled", "micropython", "wifi"],
   },
   {
@@ -2921,12 +3003,30 @@ while not sta_if.isconnected():
 
 print("Connected to Wi-Fi:", sta_if.ifconfig())
 
-# Start Blynk (optional — skipped gracefully when the cloud is unreachable)
-try:
-    blynk = BlynkLib.Blynk(auth, insecure=True)
-except Exception as e:
-    print("Blynk Cloud unreachable, running offline:", e)
-    blynk = None
+# ── Velxio adaptation ──────────────────────────────────────────────────
+# A plain socket.connect() to blynk.cloud blocks forever when the emulated
+# network cannot reach the internet, freezing the whole demo. Probe with a
+# short timeout first and fall back to an offline no-op Blynk object.
+class _OfflineBlynk:
+    def run(self):
+        pass
+    def virtual_write(self, *_a):
+        pass
+
+def _blynk_cloud_reachable(host="blynk.cloud", port=80, timeout_s=5):
+    import socket
+    try:
+        ai = socket.getaddrinfo(host, port)[0][-1]
+        s = socket.socket()
+        s.settimeout(timeout_s)
+        s.connect(ai)
+        s.close()
+        return True
+    except OSError as e:
+        print("Blynk Cloud unreachable, running offline:", e)
+        return False
+
+blynk = BlynkLib.Blynk(auth, insecure=True) if _blynk_cloud_reachable() else _OfflineBlynk()
 
 # -------- BMP180 I2C --------
 # The simulator emulates the ESP32's hardware I2C controller, so use
@@ -2948,15 +3048,14 @@ while True:
     print("----------------------")
 
     # Send to Blynk
-    if blynk:
-        try:
-            blynk.run()
-            blynk.virtual_write(0, temp)       # V0 Temperature
-            blynk.virtual_write(1, pressure)   # V1 Pressure
-            blynk.virtual_write(2, altitude)   # V2 Altitude
-        except Exception as e:
-            print("Blynk error, continuing offline:", e)
-            blynk = None
+    try:
+        blynk.run()
+        blynk.virtual_write(0, temp)       # V0 Temperature
+        blynk.virtual_write(1, pressure)   # V1 Pressure
+        blynk.virtual_write(2, altitude)   # V2 Altitude
+    except Exception as e:
+        print("Blynk error, continuing offline:", e)
+        blynk = _OfflineBlynk()
 
     sleep(2)
 ` },
@@ -3312,7 +3411,34 @@ while not sta_if.isconnected():
 print("WiFi Connected:", sta_if.ifconfig())
 
 # ─── Blynk Init ──────────────────────────────────────────────
-blynk = BlynkLib.Blynk(AUTH, insecure=True)
+# ── Velxio adaptation ──────────────────────────────────────────────────────────────────
+# A plain socket.connect() to blynk.cloud blocks forever when the emulated
+# network cannot reach the internet, freezing the whole demo. Probe with a
+# short timeout first and fall back to an offline no-op Blynk object.
+class _OfflineBlynk:
+    def on(self, *_a, **_k):
+        def _deco(f):
+            return f
+        return _deco
+    def run(self):
+        pass
+    def virtual_write(self, *_a):
+        pass
+
+def _blynk_cloud_reachable(host="blynk.cloud", port=80, timeout_s=5):
+    import socket
+    try:
+        ai = socket.getaddrinfo(host, port)[0][-1]
+        s = socket.socket()
+        s.settimeout(timeout_s)
+        s.connect(ai)
+        s.close()
+        return True
+    except OSError as e:
+        print("Blynk Cloud unreachable, running offline:", e)
+        return False
+
+blynk = BlynkLib.Blynk(AUTH, insecure=True) if _blynk_cloud_reachable() else _OfflineBlynk()
 
 # ─── Blynk Switch Handlers ───────────────────────────────────
 @blynk.on("V3")
@@ -3631,6 +3757,12 @@ while True:
         blynk.virtual_write(6, round(pt, 1))
 
 ` },
+      { name: "main.py", content: `# Velxio entry point — the project ships two standalone variants:
+#   dsm_code1_csv.py       — smart metering with CSV serial output (runs here)
+#   dsm_code2_peakshift.py — peak-shift automation variant (open it and copy
+#                            its contents over this import to try it instead)
+import dsm_code1_csv
+` },
     ],
     code: '',
     components: [],
@@ -3667,7 +3799,7 @@ BASE_URL = "http://api.thingspeak.com/update"
 # --------------------------a
 # Sensors Setup
 # --------------------------
-d = dht.DHT11(Pin(2))     # D2 = GPIO4
+d = dht.DHT22(Pin(2))     # Velxio emulates the DHT22 waveform (use DHT11 on real hw)
 ldr = ADC(0)              # A0 pin for LDR
 
 # --------------------------
@@ -3710,8 +3842,8 @@ while True:
 ` },
     ],
     code: '',
-    components: [],
-    wires: [],
+    components: [{"type": "wokwi-dht22", "id": "env-dht1", "x": 440, "y": 200, "properties": {"temperature": "28", "humidity": "65"}}],
+    wires: [{"id": "env-dht-vcc", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "env-dht1", "pinName": "VCC"}, "color": "#ff4444"}, {"id": "env-dht-gnd", "start": {"componentId": "arduino-uno", "pinName": "GND"}, "end": {"componentId": "env-dht1", "pinName": "GND"}, "color": "#000000"}, {"id": "env-dht-data", "start": {"componentId": "arduino-uno", "pinName": "2"}, "end": {"componentId": "env-dht1", "pinName": "SDA"}, "color": "#22cc66"}],
     tags: ["100-days", "dht", "esp32", "ldr", "micropython", "thingspeak", "wifi"],
   },
   {
@@ -3720,7 +3852,7 @@ while True:
     description: "IoT Relay Control Web Server (Raspberry Pi Pico 2W) on Raspberry Pi Pico W (MicroPython) \u2014 uses Wi-Fi. From Kritish Mohapatra's 100 Days of IoT series: https://github.com/kritishmohapatra/100_Days_100_IoT_Projects",
     category: "communication",
     difficulty: "intermediate",
-    boardType: "raspberry-pi-pico",
+    boardType: "pi-pico-w",
     languageMode: 'micropython',
     files: [
       { name: "main.py", content: `import network
@@ -3869,7 +4001,7 @@ while True:
     code: '',
     components: [],
     wires: [],
-    tags: ["100-days", "micropython", "pico-w", "raspberry-pi-pico", "wifi"],
+    tags: ["100-days", "micropython", "pi-pico-w", "pico-w", "wifi"],
   },
   {
     id: "100d-iot-smart-irrigation-system",
@@ -4195,7 +4327,34 @@ if wifi.isconnected():
     print("\\nWiFi OK:", wifi.ifconfig())
 
 # 📲 Blynk init
-blynk = BlynkLib.Blynk(BLYNK_AUTH, insecure=True)
+# ── Velxio adaptation ──────────────────────────────────────────────────────────────────
+# A plain socket.connect() to blynk.cloud blocks forever when the emulated
+# network cannot reach the internet, freezing the whole demo. Probe with a
+# short timeout first and fall back to an offline no-op Blynk object.
+class _OfflineBlynk:
+    def on(self, *_a, **_k):
+        def _deco(f):
+            return f
+        return _deco
+    def run(self):
+        pass
+    def virtual_write(self, *_a):
+        pass
+
+def _blynk_cloud_reachable(host="blynk.cloud", port=80, timeout_s=5):
+    import socket
+    try:
+        ai = socket.getaddrinfo(host, port)[0][-1]
+        s = socket.socket()
+        s.settimeout(timeout_s)
+        s.connect(ai)
+        s.close()
+        return True
+    except OSError as e:
+        print("Blynk Cloud unreachable, running offline:", e)
+        return False
+
+blynk = BlynkLib.Blynk(BLYNK_AUTH, insecure=True) if _blynk_cloud_reachable() else _OfflineBlynk()
 
 # 🔘 Manual Pump Control (V1)
 @blynk.on("V1")
@@ -4284,7 +4443,7 @@ while True:
   {
     id: "100d-joystick-direction-display-with-oled",
     title: "Joystick Direction Display with OLED",
-    description: "Joystick Direction Display with OLED on Raspberry Pi Pico W (MicroPython) \u2014 uses OLED. From Kritish Mohapatra's 100 Days of IoT series: https://github.com/kritishmohapatra/100_Days_100_IoT_Projects",
+    description: "Joystick Direction Display with OLED on Raspberry Pi Pico (MicroPython) \u2014 uses OLED. From Kritish Mohapatra's 100 Days of IoT series: https://github.com/kritishmohapatra/100_Days_100_IoT_Projects",
     category: "displays",
     difficulty: "intermediate",
     boardType: "raspberry-pi-pico",
@@ -4511,8 +4670,8 @@ class SSD1306_SPI(SSD1306):
         self.cs(1)` },
     ],
     code: '',
-    components: [],
-    wires: [],
+    components: [{"type": "wokwi-ssd1306", "id": "joy-oled1", "x": 420, "y": 60, "properties": {}}, {"type": "wokwi-analog-joystick", "id": "joy-stick1", "x": 440, "y": 240, "properties": {}}],
+    wires: [{"id": "joy-oled-vcc", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "joy-oled1", "pinName": "3V3"}, "color": "#ff4444"}, {"id": "joy-oled-gnd", "start": {"componentId": "arduino-uno", "pinName": "GND"}, "end": {"componentId": "joy-oled1", "pinName": "GND"}, "color": "#000000"}, {"id": "joy-oled-sda", "start": {"componentId": "arduino-uno", "pinName": "GP0"}, "end": {"componentId": "joy-oled1", "pinName": "DATA"}, "color": "#22aaff"}, {"id": "joy-oled-scl", "start": {"componentId": "arduino-uno", "pinName": "GP1"}, "end": {"componentId": "joy-oled1", "pinName": "CLK"}, "color": "#ff8800"}, {"id": "joy-vcc", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "joy-stick1", "pinName": "VCC"}, "color": "#ff4444"}, {"id": "joy-gnd", "start": {"componentId": "arduino-uno", "pinName": "GND.1"}, "end": {"componentId": "joy-stick1", "pinName": "GND"}, "color": "#000000"}, {"id": "joy-horz", "start": {"componentId": "arduino-uno", "pinName": "GP26"}, "end": {"componentId": "joy-stick1", "pinName": "HORZ"}, "color": "#22cc66"}, {"id": "joy-vert", "start": {"componentId": "arduino-uno", "pinName": "GP27"}, "end": {"componentId": "joy-stick1", "pinName": "VERT"}, "color": "#22aaff"}, {"id": "joy-sel", "start": {"componentId": "arduino-uno", "pinName": "GP15"}, "end": {"componentId": "joy-stick1", "pinName": "SEL"}, "color": "#ff8800"}],
     tags: ["100-days", "i2c_oled", "micropython", "raspberry-pi-pico", "rp2040"],
   },
   {
@@ -4662,12 +4821,13 @@ import ntptime
 import urequests
 import ssd1306
 import utime
-from machine import Pin, SoftI2C
+from machine import Pin, I2C
 
 last_weather_time = 0
 weather_temp = 0
 
-i2c = SoftI2C(sda=Pin(5), scl=Pin(6), freq=100000)
+# Velxio decodes the hardware I2C controller only (no bit-banged buses)
+i2c = I2C(0, sda=Pin(5), scl=Pin(6), freq=100000)
 oled=ssd1306.SSD1306_I2C(128, 64, i2c)
 
 ssid="ssid"
@@ -4730,11 +4890,14 @@ def show_time():
 
 def get_weather():
     url = "http://api.openweathermap.org/data/2.5/weather?q=Bhubaneswar,IN&appid={}&units=metric".format(API_KEY)
-    r = urequests.get(url)
-    data = r.json()
-    r.close()
-    temp = data["main"]["temp"]
-    return temp
+    try:
+        r = urequests.get(url)
+        data = r.json()
+        r.close()
+        return data["main"]["temp"]
+    except Exception as e:
+        print("Weather fetch failed (offline?):", e)
+        return weather_temp  # keep the last known value
 def show_logo():
     oled.fill(0)
     oled.fill_rect(0, 0, 32, 32, 1)
@@ -4915,8 +5078,8 @@ class SSD1306_SPI(SSD1306):
 ` },
     ],
     code: '',
-    components: [],
-    wires: [],
+    components: [{"type": "wokwi-ssd1306", "id": "watch-oled1", "x": 420, "y": 60, "properties": {}}],
+    wires: [{"id": "watch-oled-vcc", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "watch-oled1", "pinName": "3V3"}, "color": "#ff4444"}, {"id": "watch-oled-gnd", "start": {"componentId": "arduino-uno", "pinName": "GND"}, "end": {"componentId": "watch-oled1", "pinName": "GND"}, "color": "#000000"}, {"id": "watch-oled-sda", "start": {"componentId": "arduino-uno", "pinName": "5"}, "end": {"componentId": "watch-oled1", "pinName": "DATA"}, "color": "#22aaff"}, {"id": "watch-oled-scl", "start": {"componentId": "arduino-uno", "pinName": "6"}, "end": {"componentId": "watch-oled1", "pinName": "CLK"}, "color": "#ff8800"}],
     tags: ["100-days", "esp32", "i2c_oled", "micropython", "wifi"],
   },
   {
@@ -5103,7 +5266,7 @@ class Matrix8x8:
     description: "OTA Update Pico2W on Raspberry Pi Pico W (MicroPython) \u2014 uses OTA, Wi-Fi. From Kritish Mohapatra's 100 Days of IoT series: https://github.com/kritishmohapatra/100_Days_100_IoT_Projects",
     category: "communication",
     difficulty: "advanced",
-    boardType: "raspberry-pi-pico",
+    boardType: "pi-pico-w",
     languageMode: 'micropython',
     files: [
       { name: "boot.py", content: `# boot.py - Runs automatically every time Pico starts
@@ -5199,7 +5362,7 @@ def check_and_update():
     code: '',
     components: [],
     wires: [],
-    tags: ["100-days", "micropython", "ota", "raspberry-pi-pico", "rp2040", "wifi"],
+    tags: ["100-days", "micropython", "ota", "pi-pico-w", "pico-w", "wifi"],
   },
   {
     id: "100d-pir-motion-detector-using-raspberry-pi-pico-2w-and-micropython",
@@ -5207,7 +5370,7 @@ def check_and_update():
     description: "PIR Motion Detector using Raspberry Pi Pico 2W & MicroPython on Raspberry Pi Pico W (MicroPython). From Kritish Mohapatra's 100 Days of IoT series: https://github.com/kritishmohapatra/100_Days_100_IoT_Projects",
     category: "basics",
     difficulty: "beginner",
-    boardType: "raspberry-pi-pico",
+    boardType: "pi-pico-w",
     languageMode: 'micropython',
     files: [
       { name: "main.py", content: `from machine import Pin
@@ -5231,7 +5394,7 @@ while True:
     code: '',
     components: [],
     wires: [],
-    tags: ["100-days", "micropython", "pico-w", "raspberry-pi-pico"],
+    tags: ["100-days", "micropython", "pi-pico-w", "pico-w"],
   },
   {
     id: "100d-password-lock-system-using-esp32",
@@ -5619,8 +5782,8 @@ while True:
 ` },
     ],
     code: '',
-    components: [],
-    wires: [],
+    components: [{"type": "wokwi-lcd1602-i2c", "id": "lock-lcd1", "x": 400, "y": 40, "properties": {}}, {"type": "wokwi-membrane-keypad", "id": "lock-pad1", "x": 420, "y": 200, "properties": {}}, {"type": "wokwi-resistor", "id": "lock-rl5", "x": 700, "y": 60, "properties": {"value": "220"}}, {"type": "wokwi-led", "id": "lock-led5", "x": 700, "y": 150, "properties": {"color": "green"}}, {"type": "wokwi-resistor", "id": "lock-rl4", "x": 780, "y": 60, "properties": {"value": "220"}}, {"type": "wokwi-led", "id": "lock-led4", "x": 780, "y": 150, "properties": {"color": "red"}}],
+    wires: [{"id": "lock-lcd-vcc", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "lock-lcd1", "pinName": "VCC"}, "color": "#ff4444"}, {"id": "lock-lcd-gnd", "start": {"componentId": "arduino-uno", "pinName": "GND"}, "end": {"componentId": "lock-lcd1", "pinName": "GND"}, "color": "#000000"}, {"id": "lock-lcd-sda", "start": {"componentId": "arduino-uno", "pinName": "21"}, "end": {"componentId": "lock-lcd1", "pinName": "SDA"}, "color": "#22aaff"}, {"id": "lock-lcd-scl", "start": {"componentId": "arduino-uno", "pinName": "22"}, "end": {"componentId": "lock-lcd1", "pinName": "SCL"}, "color": "#ff8800"}, {"id": "lock-r1", "start": {"componentId": "arduino-uno", "pinName": "13"}, "end": {"componentId": "lock-pad1", "pinName": "R1"}, "color": "#cc44cc"}, {"id": "lock-r2", "start": {"componentId": "arduino-uno", "pinName": "12"}, "end": {"componentId": "lock-pad1", "pinName": "R2"}, "color": "#cc44cc"}, {"id": "lock-r3", "start": {"componentId": "arduino-uno", "pinName": "14"}, "end": {"componentId": "lock-pad1", "pinName": "R3"}, "color": "#cc44cc"}, {"id": "lock-r4", "start": {"componentId": "arduino-uno", "pinName": "27"}, "end": {"componentId": "lock-pad1", "pinName": "R4"}, "color": "#cc44cc"}, {"id": "lock-c1", "start": {"componentId": "arduino-uno", "pinName": "26"}, "end": {"componentId": "lock-pad1", "pinName": "C1"}, "color": "#22cc66"}, {"id": "lock-c2", "start": {"componentId": "arduino-uno", "pinName": "25"}, "end": {"componentId": "lock-pad1", "pinName": "C2"}, "color": "#22cc66"}, {"id": "lock-c3", "start": {"componentId": "arduino-uno", "pinName": "33"}, "end": {"componentId": "lock-pad1", "pinName": "C3"}, "color": "#22cc66"}, {"id": "lock-c4", "start": {"componentId": "arduino-uno", "pinName": "32"}, "end": {"componentId": "lock-pad1", "pinName": "C4"}, "color": "#22cc66"}, {"id": "lock-lp5", "start": {"componentId": "arduino-uno", "pinName": "5"}, "end": {"componentId": "lock-rl5", "pinName": "1"}, "color": "#22aaff"}, {"id": "lock-lr5", "start": {"componentId": "lock-rl5", "pinName": "2"}, "end": {"componentId": "lock-led5", "pinName": "A"}, "color": "#cc44cc"}, {"id": "lock-lg5", "start": {"componentId": "lock-led5", "pinName": "C"}, "end": {"componentId": "arduino-uno", "pinName": "GND"}, "color": "#000000"}, {"id": "lock-lp4", "start": {"componentId": "arduino-uno", "pinName": "4"}, "end": {"componentId": "lock-rl4", "pinName": "1"}, "color": "#22aaff"}, {"id": "lock-lr4", "start": {"componentId": "lock-rl4", "pinName": "2"}, "end": {"componentId": "lock-led4", "pinName": "A"}, "color": "#cc44cc"}, {"id": "lock-lg4", "start": {"componentId": "lock-led4", "pinName": "C"}, "end": {"componentId": "arduino-uno", "pinName": "GND"}, "color": "#000000"}],
     tags: ["100-days", "esp32", "lcd", "micropython"],
   },
   {
@@ -5629,7 +5792,7 @@ while True:
     description: "Pico 2 W Dht11 Http Csv Logger on Raspberry Pi Pico W (MicroPython) \u2014 uses DHT, HTTP server, Wi-Fi. From Kritish Mohapatra's 100 Days of IoT series: https://github.com/kritishmohapatra/100_Days_100_IoT_Projects",
     category: "communication",
     difficulty: "intermediate",
-    boardType: "raspberry-pi-pico",
+    boardType: "pi-pico-w",
     languageMode: 'micropython',
     files: [
       { name: "app.py", content: `from flask import Flask, request
@@ -5670,7 +5833,7 @@ password = "pas"
 
 url = "http://ip:5000/data"  # laptop IP
 
-sensor = dht.DHT11(Pin(15))
+sensor = dht.DHT22(Pin(15))  # Velxio emulates the DHT22 waveform (use DHT11 on real hw)
 
 wlan = network.WLAN(network.STA_IF)
 wlan.active(True)
@@ -5682,9 +5845,14 @@ while not wlan.isconnected():
 print("WiFi connected")
 
 while True:
-    sensor.measure()
-    temp = sensor.temperature()
-    hum = sensor.humidity()
+    try:
+        sensor.measure()
+        temp = sensor.temperature()
+        hum = sensor.humidity()
+    except OSError as e:
+        print("DHT read failed:", e)  # keep the loop alive (sensor unplugged?)
+        time.sleep(2)
+        continue
 
     data = {
         "temperature": temp,
@@ -5703,9 +5871,9 @@ while True:
 ` },
     ],
     code: '',
-    components: [],
-    wires: [],
-    tags: ["100-days", "dht", "http_server", "micropython", "raspberry-pi-pico", "rp2040", "wifi"],
+    components: [{"type": "wokwi-dht22", "id": "plog-dht1", "x": 440, "y": 200, "properties": {"temperature": "28", "humidity": "65"}}],
+    wires: [{"id": "plog-dht-vcc", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "plog-dht1", "pinName": "VCC"}, "color": "#ff4444"}, {"id": "plog-dht-gnd", "start": {"componentId": "arduino-uno", "pinName": "GND"}, "end": {"componentId": "plog-dht1", "pinName": "GND"}, "color": "#000000"}, {"id": "plog-dht-data", "start": {"componentId": "arduino-uno", "pinName": "GP15"}, "end": {"componentId": "plog-dht1", "pinName": "SDA"}, "color": "#22cc66"}],
+    tags: ["100-days", "dht", "http_server", "micropython", "pi-pico-w", "pico-w", "wifi"],
   },
   {
     id: "100d-pico-w-async-led-control-micropython",
@@ -5713,7 +5881,7 @@ while True:
     description: "Pico W Async LED Control (MicroPython) on Raspberry Pi Pico W (MicroPython) \u2014 uses Wi-Fi. From Kritish Mohapatra's 100 Days of IoT series: https://github.com/kritishmohapatra/100_Days_100_IoT_Projects",
     category: "communication",
     difficulty: "intermediate",
-    boardType: "raspberry-pi-pico",
+    boardType: "pi-pico-w",
     languageMode: 'micropython',
     files: [
       { name: "main.py", content: `import uasyncio as asyncio
@@ -5826,7 +5994,7 @@ asyncio.run(main())
     code: '',
     components: [],
     wires: [],
-    tags: ["100-days", "micropython", "pico-w", "raspberry-pi-pico", "wifi"],
+    tags: ["100-days", "micropython", "pi-pico-w", "pico-w", "wifi"],
   },
   {
     id: "100d-pico-w-web-servo-controller",
@@ -5834,7 +6002,7 @@ asyncio.run(main())
     description: "Pico W Web Servo Controller on Raspberry Pi Pico W (MicroPython) \u2014 uses OTA, Servo, Wi-Fi. From Kritish Mohapatra's 100 Days of IoT series: https://github.com/kritishmohapatra/100_Days_100_IoT_Projects",
     category: "robotics",
     difficulty: "advanced",
-    boardType: "raspberry-pi-pico",
+    boardType: "pi-pico-w",
     languageMode: 'micropython',
     files: [
       { name: "main.py", content: `import network
@@ -6092,7 +6260,7 @@ while True:
     code: '',
     components: [],
     wires: [],
-    tags: ["100-days", "micropython", "ota", "pico-w", "raspberry-pi-pico", "servo", "wifi"],
+    tags: ["100-days", "micropython", "ota", "pi-pico-w", "pico-w", "servo", "wifi"],
   },
   {
     id: "100d-potentiometer-visualizer",
@@ -6140,12 +6308,13 @@ while True:
     boardType: "esp32",
     languageMode: 'micropython',
     files: [
-      { name: "main.py", content: `from machine import ADC, Pin, SoftI2C
+      { name: "main.py", content: `from machine import ADC, Pin, I2C
 import ssd1306
 import time
 
 # OLED setup
-i2c = SoftI2C(scl=Pin(22), sda=Pin(21))
+# Velxio decodes the hardware I2C controller only (no bit-banged buses)
+i2c = I2C(0, scl=Pin(22), sda=Pin(21))
 oled = ssd1306.SSD1306_I2C(128, 64, i2c)
 
 # Sensor setup
@@ -6377,8 +6546,8 @@ class SSD1306_SPI(SSD1306):
 ` },
     ],
     code: '',
-    components: [],
-    wires: [],
+    components: [{"type": "wokwi-ssd1306", "id": "pulse-oled1", "x": 420, "y": 60, "properties": {}}, {"type": "wokwi-heart-beat-sensor", "id": "pulse-hb1", "x": 440, "y": 260, "properties": {}}],
+    wires: [{"id": "pulse-oled-vcc", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "pulse-oled1", "pinName": "3V3"}, "color": "#ff4444"}, {"id": "pulse-oled-gnd", "start": {"componentId": "arduino-uno", "pinName": "GND"}, "end": {"componentId": "pulse-oled1", "pinName": "GND"}, "color": "#000000"}, {"id": "pulse-oled-sda", "start": {"componentId": "arduino-uno", "pinName": "21"}, "end": {"componentId": "pulse-oled1", "pinName": "DATA"}, "color": "#22aaff"}, {"id": "pulse-oled-scl", "start": {"componentId": "arduino-uno", "pinName": "22"}, "end": {"componentId": "pulse-oled1", "pinName": "CLK"}, "color": "#ff8800"}, {"id": "pulse-hb-vcc", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "pulse-hb1", "pinName": "VCC"}, "color": "#ff4444"}, {"id": "pulse-hb-gnd", "start": {"componentId": "arduino-uno", "pinName": "GND"}, "end": {"componentId": "pulse-hb1", "pinName": "GND"}, "color": "#000000"}, {"id": "pulse-hb-out", "start": {"componentId": "arduino-uno", "pinName": "34"}, "end": {"componentId": "pulse-hb1", "pinName": "OUT"}, "color": "#22cc66"}],
     tags: ["100-days", "esp32", "i2c_oled", "micropython"],
   },
   {
@@ -6454,7 +6623,7 @@ while True:
     description: "Raspberry Pi Pico 2 W ThingsBoard IoT on Raspberry Pi Pico W (MicroPython) \u2014 uses DHT, MQTT, Wi-Fi. From Kritish Mohapatra's 100 Days of IoT series: https://github.com/kritishmohapatra/100_Days_100_IoT_Projects",
     category: "communication",
     difficulty: "intermediate",
-    boardType: "raspberry-pi-pico",
+    boardType: "pi-pico-w",
     languageMode: 'micropython',
     files: [
       { name: "main.py", content: `import network
@@ -6473,7 +6642,7 @@ ACCESS_TOKEN = "tokenn"
 # --- Hardware Setup ---
 # Using "LED" for Pico W onboard LED, or Pin(15) for an external LED
 led = Pin("LED", Pin.OUT) 
-sensor = dht.DHT11(Pin(4)) 
+sensor = dht.DHT22(Pin(4))  # Velxio emulates the DHT22 waveform (use DHT11 on real hw)
 led_state = False
 
 # --- MQTT Callback (Handles Switch Commands) ---
@@ -6771,9 +6940,9 @@ class MQTTClient:
 ` },
     ],
     code: '',
-    components: [],
-    wires: [],
-    tags: ["100-days", "dht", "micropython", "mqtt", "pico-w", "raspberry-pi-pico", "wifi"],
+    components: [{"type": "wokwi-dht22", "id": "tb-dht1", "x": 440, "y": 200, "properties": {"temperature": "28", "humidity": "65"}}],
+    wires: [{"id": "tb-dht-vcc", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "tb-dht1", "pinName": "VCC"}, "color": "#ff4444"}, {"id": "tb-dht-gnd", "start": {"componentId": "arduino-uno", "pinName": "GND"}, "end": {"componentId": "tb-dht1", "pinName": "GND"}, "color": "#000000"}, {"id": "tb-dht-data", "start": {"componentId": "arduino-uno", "pinName": "GP4"}, "end": {"componentId": "tb-dht1", "pinName": "SDA"}, "color": "#22cc66"}],
+    tags: ["100-days", "dht", "micropython", "mqtt", "pi-pico-w", "pico-w", "wifi"],
   },
   {
     id: "100d-servo-motor-control-with-raspberry-pi-pico-2-w-micropython",
@@ -6781,7 +6950,7 @@ class MQTTClient:
     description: "Servo Motor Control with Raspberry Pi Pico 2 W (MicroPython) on Raspberry Pi Pico W (MicroPython) \u2014 uses Servo. From Kritish Mohapatra's 100 Days of IoT series: https://github.com/kritishmohapatra/100_Days_100_IoT_Projects",
     category: "robotics",
     difficulty: "beginner",
-    boardType: "raspberry-pi-pico",
+    boardType: "pi-pico-w",
     languageMode: 'micropython',
     files: [
       { name: "main.py", content: `from machine import Pin, PWM
@@ -6820,12 +6989,12 @@ while True:
     code: '',
     components: [],
     wires: [],
-    tags: ["100-days", "micropython", "pico-w", "raspberry-pi-pico", "servo"],
+    tags: ["100-days", "micropython", "pi-pico-w", "pico-w", "servo"],
   },
   {
     id: "100d-single-digit-seven-segment-display-with-raspberry-pi-pico-micropython",
     title: "Single Digit Seven Segment Display with Raspberry Pi-Pico (MicroPython)",
-    description: "Single Digit Seven Segment Display with Raspberry Pi-Pico (MicroPython) on Raspberry Pi Pico W (MicroPython). From Kritish Mohapatra's 100 Days of IoT series: https://github.com/kritishmohapatra/100_Days_100_IoT_Projects",
+    description: "Single Digit Seven Segment Display with Raspberry Pi-Pico (MicroPython) on Raspberry Pi Pico (MicroPython). From Kritish Mohapatra's 100 Days of IoT series: https://github.com/kritishmohapatra/100_Days_100_IoT_Projects",
     category: "basics",
     difficulty: "beginner",
     boardType: "raspberry-pi-pico",
@@ -7253,7 +7422,7 @@ class Blynk(BlynkProtocol):
         self.process(data)
 
 ` },
-      { name: "simple_home_automation_with_blynk_and _micropython.py", content: `'''Copyright (c) 2026 Kritish Mohapatra'''
+      { name: "main.py", content: `'''Copyright (c) 2026 Kritish Mohapatra'''
 
 
 import network # Library for network functionalities (Wi-Fi)
@@ -7278,19 +7447,46 @@ sta_if.active(True) # Activate the Wi-Fi interface
 sta_if.connect(wifissid, wifipass) # Connect to the Wi-Fi network
 
 while not sta_if.isconnected(): # Wait until connected to Wi-Fi
-    pass
+    sleep(0.1)
 
 print("Connected to Wi-Fi:", sta_if.ifconfig()) # Print the Wi-Fi connection details
 
 # Initialize Blynk Connection
-blynk = BlynkLib.Blynk(auth, insecure=True) # Create a Blynk object with the auth token
+# ── Velxio adaptation ──────────────────────────────────────────────────────────────────
+# A plain socket.connect() to blynk.cloud blocks forever when the emulated
+# network cannot reach the internet, freezing the whole demo. Probe with a
+# short timeout first and fall back to an offline no-op Blynk object.
+class _OfflineBlynk:
+    def on(self, *_a, **_k):
+        def _deco(f):
+            return f
+        return _deco
+    def run(self):
+        pass
+    def virtual_write(self, *_a):
+        pass
+
+def _blynk_cloud_reachable(host="blynk.cloud", port=80, timeout_s=5):
+    import socket
+    try:
+        ai = socket.getaddrinfo(host, port)[0][-1]
+        s = socket.socket()
+        s.settimeout(timeout_s)
+        s.connect(ai)
+        s.close()
+        return True
+    except OSError as e:
+        print("Blynk Cloud unreachable, running offline:", e)
+        return False
+
+blynk = BlynkLib.Blynk(auth, insecure=True) if _blynk_cloud_reachable() else _OfflineBlynk()
 
 # Create LED Object
 led1=Pin(16, Pin.OUT) # Initialize LED 1 on pin 16 (D0), set as output
 led2=Pin(5, Pin.OUT) # Initialize LED 2 on pin 5 (D1), set as output
 led3=Pin(4, Pin.OUT) # Initialize LED 3 on pin 4 (D2), set as output
 led4=Pin(0, Pin.OUT) # Initialize LED 4 on pin 0 (D3), set as output
-sensor=dht.DHT11(Pin(14)) # Initialize DHT11 sensor on pin 14 (D5)
+sensor=dht.DHT22(Pin(14)) # DHT on pin 14 — Velxio emulates the DHT22 waveform (use DHT11 on real hw)
 
 led1.value(1) # Turn off LED 1 initially (active low)
 led2.value(1) # Turn off LED 2 initially (active low)
@@ -7351,10 +7547,14 @@ def write_value(pin, value):
 # Main Loop (run Blynk processes)
 while True:
     blynk.run() # Run Blynk processes (handle incoming and outgoing data)
-    sensor.measure()  # Measure temperature and humidity
-    temperature = sensor.temperature() # Get the temperature value
-    #print(temperature)
-    blynk.virtual_write(5, temperature)  # Send temperature to Blynk virtual pin V5
+    try:
+        sensor.measure()  # Measure temperature and humidity
+        temperature = sensor.temperature() # Get the temperature value
+        print("Temp:", temperature, "C")
+        blynk.virtual_write(5, temperature)  # Send temperature to Blynk virtual pin V5
+    except OSError as e:
+        print("DHT read failed:", e)  # keep the loop alive (sensor unplugged?)
+    sleep(2)
 
 
 
@@ -7380,8 +7580,8 @@ while True:
 ` },
     ],
     code: '',
-    components: [],
-    wires: [],
+    components: [{"type": "wokwi-dht22", "id": "home-dht1", "x": 460, "y": 320, "properties": {"temperature": "28", "humidity": "65"}}, {"type": "wokwi-resistor", "id": "home-r16", "x": 420, "y": 60, "properties": {"value": "220"}}, {"type": "wokwi-led", "id": "home-led16", "x": 420, "y": 160, "properties": {"color": "red"}}, {"type": "wokwi-resistor", "id": "home-r5", "x": 510, "y": 60, "properties": {"value": "220"}}, {"type": "wokwi-led", "id": "home-led5", "x": 510, "y": 160, "properties": {"color": "green"}}, {"type": "wokwi-resistor", "id": "home-r4", "x": 600, "y": 60, "properties": {"value": "220"}}, {"type": "wokwi-led", "id": "home-led4", "x": 600, "y": 160, "properties": {"color": "blue"}}, {"type": "wokwi-resistor", "id": "home-r0", "x": 690, "y": 60, "properties": {"value": "220"}}, {"type": "wokwi-led", "id": "home-led0", "x": 690, "y": 160, "properties": {"color": "yellow"}}],
+    wires: [{"id": "home-dht-vcc", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "home-dht1", "pinName": "VCC"}, "color": "#ff4444"}, {"id": "home-dht-gnd", "start": {"componentId": "arduino-uno", "pinName": "GND"}, "end": {"componentId": "home-dht1", "pinName": "GND"}, "color": "#000000"}, {"id": "home-dht-data", "start": {"componentId": "arduino-uno", "pinName": "14"}, "end": {"componentId": "home-dht1", "pinName": "SDA"}, "color": "#22cc66"}, {"id": "home-vcc16", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "home-r16", "pinName": "1"}, "color": "#ff4444"}, {"id": "home-ra16", "start": {"componentId": "home-r16", "pinName": "2"}, "end": {"componentId": "home-led16", "pinName": "A"}, "color": "#cc44cc"}, {"id": "home-cpin16", "start": {"componentId": "home-led16", "pinName": "C"}, "end": {"componentId": "arduino-uno", "pinName": "16"}, "color": "#22aaff"}, {"id": "home-vcc5", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "home-r5", "pinName": "1"}, "color": "#ff4444"}, {"id": "home-ra5", "start": {"componentId": "home-r5", "pinName": "2"}, "end": {"componentId": "home-led5", "pinName": "A"}, "color": "#cc44cc"}, {"id": "home-cpin5", "start": {"componentId": "home-led5", "pinName": "C"}, "end": {"componentId": "arduino-uno", "pinName": "5"}, "color": "#22aaff"}, {"id": "home-vcc4", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "home-r4", "pinName": "1"}, "color": "#ff4444"}, {"id": "home-ra4", "start": {"componentId": "home-r4", "pinName": "2"}, "end": {"componentId": "home-led4", "pinName": "A"}, "color": "#cc44cc"}, {"id": "home-cpin4", "start": {"componentId": "home-led4", "pinName": "C"}, "end": {"componentId": "arduino-uno", "pinName": "4"}, "color": "#22aaff"}, {"id": "home-vcc0", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "home-r0", "pinName": "1"}, "color": "#ff4444"}, {"id": "home-ra0", "start": {"componentId": "home-r0", "pinName": "2"}, "end": {"componentId": "home-led0", "pinName": "A"}, "color": "#cc44cc"}, {"id": "home-cpin0", "start": {"componentId": "home-led0", "pinName": "C"}, "end": {"componentId": "arduino-uno", "pinName": "0"}, "color": "#22aaff"}],
     tags: ["100-days", "blynk", "blynk_cloud", "dht", "esp32", "micropython", "wifi"],
   },
   {
@@ -7728,7 +7928,7 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
 
 ` },
-      { name: "esp32_sensor_code.py", content: `import network, urequests, time, dht
+      { name: "main.py", content: `import network, urequests, time, dht
 from machine import ADC, Pin
 
 ssid = "kritish"
@@ -7743,7 +7943,7 @@ soil = ADC(Pin(35))
 soil.atten(ADC.ATTN_11DB)
 
 # DHT
-d = dht.DHT11(Pin(4))
+d = dht.DHT22(Pin(4))  # Velxio emulates the DHT22 waveform (use DHT11 on real hw)
 
 # WiFi
 wlan = network.WLAN(network.STA_IF)
@@ -7794,8 +7994,8 @@ while True:
 ` },
     ],
     code: '',
-    components: [],
-    wires: [],
+    components: [{"type": "wokwi-dht22", "id": "gas-dht1", "x": 440, "y": 200, "properties": {"temperature": "28", "humidity": "65"}}],
+    wires: [{"id": "gas-dht-vcc", "start": {"componentId": "arduino-uno", "pinName": "3V3"}, "end": {"componentId": "gas-dht1", "pinName": "VCC"}, "color": "#ff4444"}, {"id": "gas-dht-gnd", "start": {"componentId": "arduino-uno", "pinName": "GND"}, "end": {"componentId": "gas-dht1", "pinName": "GND"}, "color": "#000000"}, {"id": "gas-dht-data", "start": {"componentId": "arduino-uno", "pinName": "4"}, "end": {"componentId": "gas-dht1", "pinName": "SDA"}, "color": "#22cc66"}],
     tags: ["100-days", "dht", "esp32", "http_server", "micropython", "wifi"],
   },
   {
@@ -8072,7 +8272,7 @@ while True:
     description: "WebSocket LED Control using Raspberry Pi Pico W on Raspberry Pi Pico W (MicroPython) \u2014 uses WebSocket, Wi-Fi. From Kritish Mohapatra's 100 Days of IoT series: https://github.com/kritishmohapatra/100_Days_100_IoT_Projects",
     category: "communication",
     difficulty: "advanced",
-    boardType: "raspberry-pi-pico",
+    boardType: "pi-pico-w",
     languageMode: 'micropython',
     files: [
       { name: "main.py", content: `import socket
@@ -8177,7 +8377,7 @@ while True:
     code: '',
     components: [],
     wires: [],
-    tags: ["100-days", "micropython", "pico-w", "raspberry-pi-pico", "websocket", "wifi"],
+    tags: ["100-days", "micropython", "pi-pico-w", "pico-w", "websocket", "wifi"],
   },
   {
     id: "100d-wi-fi-controlled-4wd-robot-car",
