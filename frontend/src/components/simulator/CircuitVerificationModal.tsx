@@ -78,7 +78,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1000,
+    // Above the agent side panel (z 8000): a modal is always the top task.
+    zIndex: 9000,
   },
   modal: {
     background: '#252526',
