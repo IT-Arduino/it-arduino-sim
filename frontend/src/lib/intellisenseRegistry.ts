@@ -43,3 +43,27 @@ function run(impl: IntellisenseImpl, monaco: unknown): void {
     console.warn('[oss] intellisense impl threw:', err);
   }
 }
+
+/**
+ * Compile-diagnostics seam. The editor toolbar publishes the raw compiler
+ * output after every build (empty string on success, to clear); with the
+ * pro overlay loaded, its sink parses gcc/mpy positions out of the text
+ * and paints Monaco markers on the affected lines. Inert in OSS.
+ */
+
+type CompileOutputSink = (raw: string) => void;
+
+let _compileSink: CompileOutputSink | null = null;
+
+export function installCompileDiagnosticsSink(sink: CompileOutputSink | null): void {
+  _compileSink = sink;
+}
+
+export function publishCompileOutput(raw: string): void {
+  try {
+    _compileSink?.(raw);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[oss] compile-diagnostics sink threw:', err);
+  }
+}
