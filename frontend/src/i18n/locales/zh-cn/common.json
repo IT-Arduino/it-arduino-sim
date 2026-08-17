@@ -33,7 +33,7 @@
     "hero": {
       "titleLine1": "Arduino、ESP32 和 Raspberry Pi。",
       "titleAccent": "就在你的浏览器中。",
-      "subtitle": "编写代码、连接元件、运行。支持 19 块开发板，AI 智能助手为你搭建电路，真实 CPU 仿真，完整离线桌面应用，AGPLv3 开源。",
+      "subtitle": "编写代码、连接元件、运行。支持 35 块开发板，AI 智能助手为你搭建电路，真实 CPU 仿真，完整离线桌面应用，AGPLv3 开源。",
       "ctaPrimary": "免费在线试用模拟器 →",
       "ctaGithub": "在 GitHub 上查看",
       "trustLine": "内置 AI 助手 · 离线可用 · AGPLv3 开源 · 无需注册",

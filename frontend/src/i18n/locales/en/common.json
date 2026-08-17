@@ -33,7 +33,7 @@
     "hero": {
       "titleLine1": "Arduino, ESP32 & Raspberry Pi.",
       "titleAccent": "Right in your browser.",
-      "subtitle": "Write code, wire up components, hit run. 19 boards, an AI agent that builds circuits for you, real CPU emulation, full offline desktop app, AGPLv3 open source.",
+      "subtitle": "Write code, wire up components, hit run. 35 boards, an AI agent that builds circuits for you, real CPU emulation, full offline desktop app, AGPLv3 open source.",
       "ctaPrimary": "Try Simulator Free Online →",
       "ctaGithub": "View on GitHub",
       "trustLine": "AI agent included · Works offline · Open source AGPLv3 · No signup needed",
