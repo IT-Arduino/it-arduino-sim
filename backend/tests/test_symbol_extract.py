@@ -205,3 +205,63 @@ def test_route_registers_symbols_path() -> None:
     from app.api.routes import intellisense
 
     assert any(r.path == "/symbols/{spec}" for r in intellisense.router.routes)
+
+
+def test_type_endpoint_returns_only_the_declaring_class_members(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """/type/{name} is the completion-safe long-tail path: only the members
+    of that class, never a library's module-level constants. And when two
+    libraries declare the same class, the one NAMED after it wins over a
+    fork/bundle that vendors a trimmed copy."""
+    fastapi = pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+    from app.api.routes import intellisense
+
+    root = tmp_path / "libcache"
+
+    def lib(dirname: str, display: str, header: str) -> None:
+        d = root / dirname / "src"
+        d.mkdir(parents=True)
+        (root / dirname / "library.properties").write_text(
+            f"name={display}\nversion=1.0.0\n", encoding="utf-8"
+        )
+        (d / "Lib.h").write_text(header, encoding="utf-8")
+
+    # The canonical library: named after the class, full API + a macro.
+    lib(
+        "pubsubclient@2.8-aaaaaaaaaaaa",
+        "PubSubClient",
+        "#define MQTT_MAX_PACKET_SIZE 256\n"
+        "class PubSubClient {\npublic:\n  void setServer(const char*, int);\n"
+        "  bool publish(const char*, const char*);\n  bool connected();\n};\n",
+    )
+    # A bundle that vendors a trimmed copy under another name.
+    lib(
+        "espbundle@1.0.0-bbbbbbbbbbbb",
+        "ESP Bundle",
+        "class PubSubClient {\npublic:\n  bool publish(const char*, const char*);\n};\n"
+        "class BundleThing {\npublic:\n  void go();\n};\n",
+    )
+    monkeypatch.setenv("VELXIO_LIBCACHE_DIR", str(root))
+
+    app = fastapi.FastAPI()
+    app.include_router(intellisense.router, prefix="/api/intellisense")
+    client = TestClient(app)
+
+    r = client.get("/api/intellisense/type/PubSubClient")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["id"] == "PubSubClient"          # the canonical one, not the bundle
+    names = {s["name"] for s in body["symbols"]}
+    assert names == {"setServer", "publish", "connected"}
+    assert all(s["owner"] == "PubSubClient" for s in body["symbols"])
+    assert "MQTT_MAX_PACKET_SIZE" not in names    # module-level never leaks
+
+    r = client.get("/api/intellisense/type/BundleThing")
+    assert r.status_code == 200 and r.json()["id"] == "ESP Bundle"
+
+    assert client.get("/api/intellisense/type/Nope").status_code == 404
+    assert client.get("/api/intellisense/type/not-a-type!").status_code == 400
+    # the index is persisted and reused
+    assert (root / ".symbols" / "_types.json").is_file()
