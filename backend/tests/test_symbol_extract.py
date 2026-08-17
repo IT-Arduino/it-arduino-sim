@@ -123,6 +123,41 @@ def test_scan_library_constants_and_enums(fake_lib: Path) -> None:
 
 # ── spec parsing / normalization (used by the route) ──────────────────────
 
+def test_access_label_survives_a_nested_enum(tmp_path: Path) -> None:
+    """`public:` followed by a nested typedef enum used to take the enum branch
+    of the walker without ever applying the access label, so the class stayed
+    private and every method after the enum vanished. AccelStepper shipped 4
+    of its ~50 public methods that way; DallasTemperature shipped 0."""
+    lib = tmp_path / "steplib@1.0.0-abcdefabcdef"
+    src = lib / "src"
+    src.mkdir(parents=True)
+    (lib / "library.properties").write_text("name=Step Lib\nversion=1.0.0\n", encoding="utf-8")
+    (src / "Step.h").write_text(
+        """\
+class Stepper {
+public:
+    typedef enum { FUNCTION = 0, DRIVER = 1 } MotorInterfaceType;
+    Stepper(uint8_t iface = DRIVER);
+    void moveTo(long absolute);
+    bool run();
+protected:
+    void step(long n);
+private:
+    int _pin;
+public:
+    void setMaxSpeed(float speed);
+};
+""",
+        encoding="utf-8",
+    )
+    result = scan_library(lib)
+    methods = _by_kind(result, "method")
+    assert set(methods) == {"moveTo", "run", "setMaxSpeed"}
+    assert all(m["owner"] == "Stepper" for m in methods.values())
+    assert "step" not in methods and "_pin" not in methods
+    assert {"FUNCTION", "DRIVER"} <= set(_by_kind(result, "constant"))
+
+
 def test_parse_spec() -> None:
     assert parse_spec("Adafruit GFX Library@1.12.6") == ("Adafruit GFX Library", "1.12.6")
     assert parse_spec("FastLED") == ("FastLED", None)
