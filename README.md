@@ -79,7 +79,7 @@ instead of 5-30 seconds.
 
 ## Screenshots
 
-![ESP32 weather station driving an ILI9341 TFT](docs/img/screens/weather-station.gif)
+<p align="center"><img src="docs/img/screens/weather-station.gif" width="520" alt="ESP32 weather station driving an ILI9341 TFT"></p>
 
 ESP32 weather station — a BMP280 over I2C, a DHT22 on a GPIO and an ILI9341 TFT over SPI wired on the canvas, three buses working at once while the display updates live.
 
