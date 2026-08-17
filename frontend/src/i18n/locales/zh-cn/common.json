@@ -43,7 +43,7 @@
       "label": "支持的硬件",
       "titleLine1": "每种架构。",
       "titleLine2": "一个工具。",
-      "subtitle": "19 种开发板，涵盖 5 种 CPU 架构——AVR8、ARM Cortex-M0+、RISC-V、Xtensa 和 Linux。全部在本地运行，无需云。"
+      "subtitle": "35 种开发板，涵盖 6 种 CPU 架构——AVR8、ARM Cortex-M、ARM Cortex-A、RISC-V、Xtensa 和 Linux。包含 Pimoroni、M5Stack、Seeed Studio 和 DFRobot 的合作伙伴开发板。全部在本地运行，无需云端。"
     },
     "features": {
       "label": "功能",

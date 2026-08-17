@@ -43,7 +43,7 @@
       "label": "対応ハードウェア",
       "titleLine1": "すべてのアーキテクチャ。",
       "titleLine2": "1つのツール。",
-      "subtitle": "5つのCPUアーキテクチャ（AVR8、ARM Cortex-M0+、RISC-V、Xtensa、Linux）にわたる19のボード。すべてローカルで動作し、クラウドは不要。"
+      "subtitle": "6つのCPUアーキテクチャ（AVR8、ARM Cortex-M、ARM Cortex-A、RISC-V、Xtensa、Linux）にわたる35のボード。Pimoroni、M5Stack、Seeed Studio、DFRobot のパートナーボードも含みます。すべてローカルで動作し、クラウドは不要です。"
     },
     "features": {
       "label": "機能",

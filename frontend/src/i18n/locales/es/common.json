@@ -43,7 +43,7 @@
       "label": "Hardware compatible",
       "titleLine1": "Cada arquitectura.",
       "titleLine2": "Una sola herramienta.",
-      "subtitle": "19 placas en 5 arquitecturas de CPU: AVR8, ARM Cortex-M0+, RISC-V, Xtensa y Linux. Todo funciona localmente, sin necesidad de nube."
+      "subtitle": "35 placas en 6 arquitecturas de CPU: AVR8, ARM Cortex-M, ARM Cortex-A, RISC-V, Xtensa y Linux. Incluye placas de nuestros partners Pimoroni, M5Stack, Seeed Studio y DFRobot. Todo se ejecuta en local, sin nube."
     },
     "features": {
       "label": "Características",

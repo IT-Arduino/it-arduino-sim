@@ -43,7 +43,7 @@
       "label": "Hardware supportato",
       "titleLine1": "Ogni architettura.",
       "titleLine2": "Un solo strumento.",
-      "subtitle": "19 schede su 5 architetture CPU — AVR8, ARM Cortex-M0+, RISC-V, Xtensa e Linux. Tutte in esecuzione localmente, senza cloud."
+      "subtitle": "35 schede su 6 architetture CPU — AVR8, ARM Cortex-M, ARM Cortex-A, RISC-V, Xtensa e Linux. Incluse le schede dei partner Pimoroni, M5Stack, Seeed Studio e DFRobot. Tutto in locale, senza cloud."
     },
     "features": {
       "label": "Funzionalità",

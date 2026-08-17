@@ -43,7 +43,7 @@
       "label": "Unterstützte Hardware",
       "titleLine1": "Jede Architektur.",
       "titleLine2": "Ein Werkzeug.",
-      "subtitle": "19 Boards über 5 CPU-Architekturen – AVR8, ARM Cortex-M0+, RISC-V, Xtensa und Linux. Alle laufen lokal, keine Cloud erforderlich."
+      "subtitle": "35 Boards über 6 CPU-Architekturen – AVR8, ARM Cortex-M, ARM Cortex-A, RISC-V, Xtensa und Linux. Inklusive Partner-Boards von Pimoroni, M5Stack, Seeed Studio und DFRobot. Alles läuft lokal, ohne Cloud."
     },
     "features": {
       "label": "Funktionen",
