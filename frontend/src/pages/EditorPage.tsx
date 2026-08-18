@@ -544,7 +544,6 @@ export const EditorPage: React.FC = () => {
   return (
     <div className="app">
       <AppHeader
-        autoSave={autoSave}
         editorMenu={!isMobile ? <EditorMenuBar /> : undefined}
         editorToolbar={unifiedToolbar}
       />
@@ -628,7 +627,7 @@ export const EditorPage: React.FC = () => {
                 }}
               >
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
-                  <FileExplorer onSaveClick={handleSaveClick} onNewClick={handleNewClick} />
+                  <FileExplorer onSaveClick={handleSaveClick} onNewClick={handleNewClick} autoSave={autoSave} />
                 </div>
                 {accountBlock && (
                   <div className="explorer-account-footer">{accountBlock}</div>

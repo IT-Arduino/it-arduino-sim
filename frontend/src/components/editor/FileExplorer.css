@@ -67,6 +67,27 @@
   color: var(--color-action-primary);
 }
 
+/* The Save button doubles as the auto-save indicator once a project is
+   loaded (replaces the "Unsaved changes" text pill in the header). */
+.file-explorer-save-btn.is-saved {
+  color: #3fb950;
+}
+.file-explorer-save-btn.is-dirty {
+  color: #f0883e;
+}
+.file-explorer-save-btn.is-saving {
+  color: #3fb950;
+  animation: velxio-pulse 1s ease-in-out infinite;
+}
+.file-explorer-save-btn.is-error {
+  color: #f85149;
+}
+.file-explorer-save-btn.is-saved:hover,
+.file-explorer-save-btn.is-dirty:hover,
+.file-explorer-save-btn.is-error:hover {
+  filter: brightness(1.25);
+}
+
 .file-explorer-list {
   flex: 1;
   overflow-y: auto;

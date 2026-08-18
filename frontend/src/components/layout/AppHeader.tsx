@@ -7,15 +7,12 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 import { useLocalizedHref, useCurrentLocale } from '../../i18n/useLocalizedNavigate';
 import { blogUrlFor } from '../../i18n/path';
 import { trackVisitGitHub, trackVisitDiscord } from '../../utils/analytics';
-import type { AutoSaveState } from '../../hooks/useAutoSaveProject';
 import './LanguageSwitcher.css';
 
 const GITHUB_URL = 'https://github.com/davidmonterocrespo24/velxio';
 const DISCORD_URL = 'https://discord.gg/3mARjJrh4E';
 
 interface AppHeaderProps {
-  /** Optional auto-save state — when set, renders a save status indicator. */
-  autoSave?: AutoSaveState;
   /** Editor variant: a File/Edit menu bar rendered next to the logo. When
    *  set, the marketing nav links (Home / Docs / Pricing / …) are hidden —
    *  inside the editor they are noise that costs exactly the width the
@@ -29,51 +26,7 @@ interface AppHeaderProps {
   editorToolbar?: React.ReactNode;
 }
 
-const SAVE_STATUS_COPY: Record<AutoSaveState['status'], { label: string; color: string }> = {
-  idle: { label: 'Saved', color: '#7d8590' },
-  dirty: { label: 'Unsaved changes', color: '#f0883e' },
-  saving: { label: 'Saving…', color: '#3fb950' },
-  saved: { label: 'Saved', color: '#3fb950' },
-  error: { label: 'Save failed', color: '#f85149' },
-};
-
-const AutoSaveIndicator: React.FC<{ state: AutoSaveState }> = ({ state }) => {
-  const meta = SAVE_STATUS_COPY[state.status];
-  const tip =
-    state.status === 'error' && state.errorMessage
-      ? `Auto-save failed: ${state.errorMessage}`
-      : state.lastSavedAt
-        ? `Last saved ${new Date(state.lastSavedAt).toLocaleTimeString()}`
-        : 'Auto-save ready';
-  return (
-    <div
-      title={tip}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '4px 10px',
-        fontSize: 12,
-        color: meta.color,
-        userSelect: 'none',
-      }}
-    >
-      <span
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: '50%',
-          background: meta.color,
-          opacity: state.status === 'saving' ? 0.7 : 1,
-          animation: state.status === 'saving' ? 'velxio-pulse 1s ease-in-out infinite' : 'none',
-        }}
-      />
-      <span>{meta.label}</span>
-    </div>
-  );
-};
-
-export const AppHeader: React.FC<AppHeaderProps> = ({ autoSave, editorMenu, editorToolbar }) => {
+export const AppHeader: React.FC<AppHeaderProps> = ({ editorMenu, editorToolbar }) => {
   const location = useLocation();
   const currentProject = useProjectStore((s) => s.currentProject);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -224,12 +177,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ autoSave, editorMenu, edit
         </div>
 
         {/* Editor toolbar strip — fills the middle the nav vacated. */}
-        {editorToolbar && (
-          <>
-            {autoSave && currentProject && <AutoSaveIndicator state={autoSave} />}
-            <div className="header-editor-toolbar">{editorToolbar}</div>
-          </>
-        )}
+        {editorToolbar && <div className="header-editor-toolbar">{editorToolbar}</div>}
 
         {/* Right: language + share + auth + mobile hamburger. In the
             desktop-editor variant this block does not render at all: the
@@ -241,10 +189,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ autoSave, editorMenu, edit
         {!editorToolbar && (
         <div className="header-right">
           <LanguageSwitcher />
-
-          {/* Auto-save status — only when a project is loaded and the editor
-              page mounted the hook */}
-          {autoSave && currentProject && <AutoSaveIndicator state={autoSave} />}
 
           {/* Share button — visible when a project is loaded */}
           {currentProject && location.pathname === '/editor' && (
