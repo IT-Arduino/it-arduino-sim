@@ -8,7 +8,12 @@
 
 import React from 'react';
 import { renderToString } from 'react-dom/server';
-import { MemoryRouter } from 'react-router-dom';
+// Initialise i18next with the bundled English resources before any page
+// renders: without this every t() call in the SSR output came back as its
+// KEY ("landing.hero.titleLine1"), which is what the prerendered bodies
+// shipped once they were actually injected.
+import './i18n';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { SEO_ROUTES } from './seoRoutes';
 
 // ── SEO page components ─────────────────────────────────────────────────────
@@ -56,6 +61,14 @@ export async function loadRouteComponents(): Promise<Record<string, React.FC>> {
   if (import.meta.env.VITE_PRO_BUILD) {
     const m = await import('@pro/pages/marketing');
     routeComponents = { ...OSS_ROUTE_COMPONENTS, ...m.MARKETING_ROUTE_COMPONENTS };
+    // The overlay's own namespace ("pro": landing sections, pricing...),
+    // else its t() calls render as keys too.
+    try {
+      const reg = await import('@pro/i18n/register');
+      reg.registerProI18n?.();
+    } catch (err) {
+      console.warn('  ⚠ pro i18n not registered for SSR:', (err as Error).message);
+    }
   }
   return routeComponents;
 }
@@ -103,9 +116,13 @@ export function getPrerenderedExampleRoutes() {
  */
 export function renderExample(exampleId: string): string {
   try {
+    // Mounted under its real route so useParams() sees exampleId; rendered
+    // bare it had no params and every example page SSR'd as "not found".
     return renderToString(
       <MemoryRouter initialEntries={[`/examples/${exampleId}`]}>
-        <ExampleDetailPage />
+        <Routes>
+          <Route path="/examples/:exampleId" element={<ExampleDetailPage />} />
+        </Routes>
       </MemoryRouter>,
     );
   } catch (err) {
