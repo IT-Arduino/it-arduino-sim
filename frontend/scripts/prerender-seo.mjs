@@ -147,7 +147,11 @@ try {
     } else {
       html = html.replace('</head>', `  ${canonicalTag}\n  </head>`);
     }
-    html = withHreflang(html, route.path);
+    // hreflang only for a page that is its own canonical; a page pointing
+    // its canonical elsewhere (/v2 -> /) must not declare alternates.
+    if (withSlash(seoMeta.url) === withSlash(`${DOMAIN}${route.path}`)) {
+      html = withHreflang(html, route.path);
+    }
 
     // Replace OG tags
     html = html.replace(

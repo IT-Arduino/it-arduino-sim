@@ -236,24 +236,31 @@ export const SEO_ROUTES: SeoRoute[] = [
   {
     path: '/v2',
     priority: 0.9,
+    // Superseded release page. Canonical points at the home (seoMeta.url)
+    // and noindex keeps it out of the sitemap: /v2 and /v2-5 were taking
+    // two brand sitelink slots (5.9k impressions, 29 clicks) that the
+    // editor and the simulator landings should hold. The page still
+    // renders for old links.
+    noindex: true,
     changefreq: 'monthly',
     seoMeta: {
       title: 'Velxio 2.0 — Multi-Board Embedded Simulator | ESP32, Raspberry Pi, Arduino, RISC-V',
       description:
         'Velxio 2.0 is here. Simulate Arduino, ESP32, Raspberry Pi Pico, and Raspberry Pi 3 in your browser. 19 boards, 68+ examples, realistic sensor simulation. Free and open-source.',
-      url: `${DOMAIN}/v2`,
+      url: `${DOMAIN}/`,
     },
   },
   {
     path: '/v2-5',
     priority: 0.9,
+    noindex: true, // see /v2
     changefreq: 'monthly',
     seoMeta: {
       title:
         'Velxio 2.5 — Arduino + SPICE Analog Circuit Simulator in Your Browser | ngspice-WASM',
       description:
         'Velxio 2.5 brings real-time analog circuit simulation via ngspice-WASM. Hybrid digital + analog co-simulation: resistors, capacitors, inductors, op-amps, transistors, voltmeters, ammeters — wired to Arduino, ESP32, RP2040 GPIO/ADC. 40+ circuit examples. Free and open-source.',
-      url: `${DOMAIN}/v2-5`,
+      url: `${DOMAIN}/`,
     },
   },
   {

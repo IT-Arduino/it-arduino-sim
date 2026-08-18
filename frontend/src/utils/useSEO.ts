@@ -70,6 +70,13 @@ function localeLinks(url: string): { canonical: string; alternates: { hreflang: 
     return { canonical: canonicalDefault, alternates: [] };
   }
   if (!isLocalizedRoute(strippedPath)) return { canonical: canonicalDefault, alternates: [] };
+  // A page whose canonical is another page (/v2 -> /) keeps that canonical
+  // as given and declares no alternates.
+  if (typeof window !== 'undefined') {
+    const herePath = stripLocaleFromPath(window.location.pathname).replace(/\/+$/, '') || '/';
+    const urlPath = strippedPath.replace(/\/+$/, '') || '/';
+    if (herePath !== urlPath) return { canonical: canonicalDefault, alternates: [] };
+  }
   const current = typeof window !== 'undefined' ? getLocaleFromPath(window.location.pathname) : DEFAULT_LOCALE;
   const variant = (l: (typeof LOCALES)[number]) => withTrailingSlash(`${DOMAIN}${localizedPath(strippedPath, l)}`);
   return {
