@@ -2002,14 +2002,26 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
           const auxFiles = files.filter(
             (f) => f !== mainFile && f.name.endsWith('.py'),
           );
-          const preludeLines = auxFiles.map((f) => {
+          // A packaged module ("umqtt/simple.py" — how micropython-lib ships
+          // umqtt.simple) needs its directory created first: MicroPython's
+          // open() does not mkdir, so without this the prelude died with
+          // ENOENT before main.py ever ran.
+          const mkdirs = new Set<string>();
+          for (const f of auxFiles) {
+            const segs = f.name.split('/').slice(0, -1);
+            for (let i = 1; i <= segs.length; i++) mkdirs.add(segs.slice(0, i).join('/'));
+          }
+          const mkdirLines = [...mkdirs].sort().map(
+            (d) => `try:\n    __import__('os').mkdir(${JSON.stringify(d)})\nexcept OSError:\n    pass`,
+          );
+          const preludeLines = mkdirLines.concat(auxFiles.map((f) => {
             // JSON.stringify produces an ASCII-safe Python-compatible
             // string literal (both languages share the same \n \r \t \" \\
             // escapes, and JSON does not emit any escape Python rejects).
             const lit = JSON.stringify(f.content);
             const path = JSON.stringify(f.name);
             return `with open(${path},'w') as _f:\n    _f.write(${lit})`;
-          });
+          }));
 
           // Does this run get a real, WORKING network driver? Two gates:
           //  - the sketch must want WiFi (must match what startBoard()
