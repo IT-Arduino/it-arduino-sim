@@ -86,6 +86,36 @@ try {
   const routes = getPrerenderedRoutes();
   const exampleRoutes = getPrerenderedExampleRoutes();
 
+  // hreflang for the localized (marketing/static) pages: every locale
+  // variant of the route plus x-default on the locale-less English URL.
+  // The SPA serves the same page translated under /<locale>/..., so each
+  // variant is a real page (see useSEO.ts, which emits the same set on the
+  // client, and the prod app shell, which emits it for the /<locale>/
+  // variants nginx has no static file for).
+  const { LOCALES, LOCALE_META, DEFAULT_LOCALE } = await vite.ssrLoadModule('/src/i18n/config.ts');
+  const localizedPath = (path, locale) =>
+    locale === DEFAULT_LOCALE ? path : `/${locale}${path === '/' ? '' : path}`;
+  const hreflangTags = (routePath) => {
+    const variant = (l) => withSlash(`${DOMAIN}${localizedPath(routePath, l)}`);
+    return [
+      ...LOCALES.map((l) => `<link rel="alternate" hreflang="${LOCALE_META[l].htmlLang}" href="${variant(l)}" />`),
+      `<link rel="alternate" hreflang="x-default" href="${variant(DEFAULT_LOCALE)}" />`,
+    ].join('\n  ');
+  };
+  const withHreflang = (html, routePath) =>
+    html.replace('</head>', `  ${hreflangTags(routePath)}\n  </head>`);
+
+  // Route metadata for the prod app shell (title/description per SEO route),
+  // so /<locale>/<route> paths that fall through to it get the route's own
+  // head instead of the homepage's.
+  writeFileSync(
+    join(distDir, 'seo-routes.json'),
+    JSON.stringify(
+      routes.map((r) => ({ path: r.path, title: r.seoMeta.title, description: r.seoMeta.description })),
+    ),
+    'utf-8',
+  );
+
   console.log(`📄 Prerendering ${routes.length} SEO pages + ${exampleRoutes.length} example pages...\n`);
 
   for (const route of routes) {
@@ -114,6 +144,7 @@ try {
     } else {
       html = html.replace('</head>', `  ${canonicalTag}\n  </head>`);
     }
+    html = withHreflang(html, route.path);
 
     // Replace OG tags
     html = html.replace(

@@ -19,7 +19,27 @@ import { ExampleDetailPage } from './pages/ExampleDetailPage';
 // Map route paths to their React component. The OSS build prerenders only
 // what it ships (the examples gallery); the marketing surface lives in the
 // pro overlay and is merged in by loadRouteComponents() below.
+/**
+ * /editor is the live workspace (Monaco, WASM engines) — nothing there
+ * survives renderToString, so its prerender is a static crawlable summary.
+ * Being prerendered at all is what matters: nginx then serves /editor/ as
+ * a real page and 301s /editor to it, instead of both forms answering 200
+ * with the homepage head (Google had indexed the two as separate pages).
+ */
+const EditorSeoSummary: React.FC = () => (
+  <main>
+    <h1>Velxio Editor — multi-board circuit and code simulator</h1>
+    <p>
+      Write, compile and simulate Arduino, ESP32, ESP32-C3, ESP32-S3, Raspberry Pi
+      Pico and Raspberry Pi code in your browser, wired to a live circuit canvas
+      with SPICE analog simulation. Free, open source, no install and no account
+      needed.
+    </p>
+  </main>
+);
+
 const OSS_ROUTE_COMPONENTS: Record<string, React.FC> = {
+  '/editor': EditorSeoSummary,
   '/examples': ExamplesPage,
 };
 

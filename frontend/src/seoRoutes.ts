@@ -47,7 +47,21 @@ export const SEO_ROUTES: SeoRoute[] = [
       url: `${DOMAIN}/`,
     },
   },
-  { path: '/editor', priority: 0.9, changefreq: 'weekly' },
+  {
+    path: '/editor',
+    priority: 0.9,
+    changefreq: 'weekly',
+    // With seoMeta the route is prerendered, so nginx serves /editor/ as a
+    // real page and 301s /editor to it. Without it both forms answered 200
+    // with the homepage head, and Google indexed /editor AND /editor/ as
+    // two pages with different impressions.
+    seoMeta: {
+      title: 'Multi-Board Simulator Editor — Arduino, ESP32, RP2040, RISC-V | Velxio',
+      description:
+        'Write, compile and simulate Arduino, ESP32, Raspberry Pi Pico, ESP32-C3, and Raspberry Pi 3 code in your browser. 19 boards, 5 CPU architectures, 48+ components. Free and open-source.',
+      url: `${DOMAIN}/editor`,
+    },
+  },
   {
     path: '/examples',
     priority: 0.8,
