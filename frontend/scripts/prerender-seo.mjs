@@ -108,10 +108,13 @@ try {
   // Route metadata for the prod app shell (title/description per SEO route),
   // so /<locale>/<route> paths that fall through to it get the route's own
   // head instead of the homepage's.
+  const { SEO_ROUTES } = await vite.ssrLoadModule('/src/seoRoutes.ts');
   writeFileSync(
     join(distDir, 'seo-routes.json'),
     JSON.stringify(
-      routes.map((r) => ({ path: r.path, title: r.seoMeta.title, description: r.seoMeta.description })),
+      SEO_ROUTES.filter((r) => r.seoMeta && !r.noindex).map((r) => ({
+        path: r.path, title: r.seoMeta.title, description: r.seoMeta.description,
+      })),
     ),
     'utf-8',
   );
