@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useProjectStore } from '../../store/useProjectStore';
@@ -7,6 +7,7 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 import { useLocalizedHref, useCurrentLocale } from '../../i18n/useLocalizedNavigate';
 import { blogUrlFor } from '../../i18n/path';
 import { trackVisitGitHub, trackVisitDiscord } from '../../utils/analytics';
+import { measureStripFit, stripMustDropBelow } from './headerStripFit';
 import './LanguageSwitcher.css';
 
 const GITHUB_URL = 'https://github.com/davidmonterocrespo24/velxio';
@@ -40,6 +41,64 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ editorMenu, editorToolbar 
     setMenuOpen(false);
   }, [location.pathname]);
 
+  // Editor variant: does the toolbar strip fit on the brand row? Measured,
+  // not guessed — see headerStripFit.ts. `app-header--strip-below` moves
+  // it to a full-width second bar. Re-measured whenever the strip host,
+  // the brand block or a strip zone resizes (window, docked chat, board
+  // controls mounting, label collapses). The first measure runs before
+  // paint; later ones are deferred a frame so toggling the class never
+  // re-enters ResizeObserver delivery.
+  const headerRef = useRef<HTMLElement>(null);
+  const hasStrip = !!editorToolbar;
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    if (!header || !hasStrip) return;
+    const CLS = 'app-header--strip-below';
+    const apply = () => {
+      // Always measure the INLINE layout — the question is "would it fit on
+      // the brand row?", and the below-state has different host margins and
+      // wider (uncollapsed) labels. Removing the class, measuring and
+      // restoring it happens in one synchronous pass before the rendering
+      // step, so nothing paints and ResizeObserver sees no transient.
+      header.classList.remove(CLS);
+      const m = measureStripFit(header);
+      header.classList.toggle(CLS, !!m && stripMustDropBelow(m));
+    };
+    apply();
+    if (typeof ResizeObserver === 'undefined') return;
+    let raf = 0;
+    const schedule = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        apply();
+      });
+    };
+    const ro = new ResizeObserver(schedule);
+    const content = header.querySelector<HTMLElement>(':scope > .header-content');
+    const left = content?.querySelector<HTMLElement>(':scope > .header-left');
+    const host = content?.querySelector<HTMLElement>(':scope > .header-editor-toolbar');
+    const strip = host?.firstElementChild;
+    for (const el of [left, host, ...(strip ? Array.from(strip.children) : [])]) {
+      if (el) ro.observe(el);
+    }
+    // Zones mount their controls later (the canvas side is a portal) —
+    // pick up children that appear after mount.
+    const mo = strip
+      ? new MutationObserver(() => {
+          for (const z of Array.from(strip.children)) ro.observe(z);
+          schedule();
+        })
+      : null;
+    if (strip && mo) mo.observe(strip, { childList: true });
+    return () => {
+      ro.disconnect();
+      mo?.disconnect();
+      if (raf) cancelAnimationFrame(raf);
+      header.classList.remove(CLS);
+    };
+  }, [hasStrip]);
+
   // Tauri desktop: skip the header entirely. The marketing nav was
   // already hidden, but the strip itself was still painting an empty
   // black bar over the editor. Brand/auto-save/share/auth-slot all
@@ -56,7 +115,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ editorMenu, editorToolbar 
     location.pathname === localize(path) ? ' header-nav-link-active' : '';
 
   return (
-    <header className={"app-header" + (editorToolbar ? ' app-header--with-toolbar' : '')}>
+    <header ref={headerRef} className={"app-header" + (editorToolbar ? ' app-header--with-toolbar' : '')}>
       <div className="header-content">
         <div className="header-left">
           {/* Brand */}
