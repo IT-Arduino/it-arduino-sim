@@ -39,6 +39,30 @@ const DOMAIN = 'https://velxio.dev';
 // entry), or Google sees a canonical that points to a redirecting URL.
 const withSlash = (u) => (u.endsWith('/') ? u : `${u}/`);
 
+/**
+ * Swap the whole static #root-seo block (the hand-written homepage fallback
+ * in index.html) for this page's SSR body. Located by string search, not by
+ * a regex anchored on a following <script>: Vite hoists the module script
+ * into <head>, so in the BUILT index.html the block is followed by </body>
+ * — the old regex never matched and every prerendered page shipped the
+ * homepage's fallback body (same <h1>, same nav) under its own <head>.
+ */
+function replaceRootSeo(html, seoBody) {
+  const start = html.indexOf('<div id="root-seo"');
+  if (start === -1) {
+    // No fallback block in this template: add ours before </body>.
+    return html.replace('</body>', `<div id="root-seo" aria-hidden="true">${seoBody}</div>\n  </body>`);
+  }
+  const bodyEnd = html.indexOf('</body>', start);
+  const end = html.lastIndexOf('</div>', bodyEnd === -1 ? html.length : bodyEnd);
+  if (end === -1 || end < start) return html;
+  return (
+    html.slice(0, start) +
+    `<div id="root-seo" aria-hidden="true">${seoBody}</div>` +
+    html.slice(end + '</div>'.length)
+  );
+}
+
 // ── Mock browser globals for SSR ────────────────────────────────────────────
 // Zustand's persist middleware and some components access these at import time.
 if (typeof globalThis.localStorage === 'undefined') {
@@ -196,10 +220,7 @@ try {
       ? bodyHtml
       : `<h1>${seoMeta.title.split(' | ')[0]}</h1><p>${seoMeta.description}</p>`;
 
-    html = html.replace(
-      /<div id="root-seo"[^>]*>[\s\S]*?<\/div>\s*<script/,
-      `<div id="root-seo" aria-hidden="true">${seoBody}</div>\n    <script`
-    );
+    html = replaceRootSeo(html, seoBody);
 
     // Write to dist/{path}/index.html
     const routePath = route.path === '/' ? '' : route.path.slice(1);
@@ -247,10 +268,7 @@ try {
     html = html.replace(/<meta name="twitter:description" content="[^"]*"/, `<meta name="twitter:description" content="${exRoute.description}"`);
 
     const seoBody = bodyHtml || `<h1>${exRoute.title.split(' — ')[0]}</h1><p>${exRoute.description}</p>`;
-    html = html.replace(
-      /<div id="root-seo"[^>]*>[\s\S]*?<\/div>\s*<script/,
-      `<div id="root-seo" aria-hidden="true">${seoBody}</div>\n    <script`
-    );
+    html = replaceRootSeo(html, seoBody);
 
     const dir = join(distDir, 'examples', exampleId);
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
