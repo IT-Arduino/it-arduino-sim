@@ -1113,11 +1113,12 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
                     <span
                       style={{
                         marginLeft: 'auto',
-                        fontSize: 10,
+                        fontSize: 9,
+                        lineHeight: '14px',
                         color: '#9d9d9d',
                         background: '#2d2d2d',
-                        borderRadius: 8,
-                        padding: '1px 7px',
+                        borderRadius: 7,
+                        padding: '0 5px',
                       }}
                       title={
                         board.libraries && board.libraries.length

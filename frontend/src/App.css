@@ -673,8 +673,10 @@ body {
 }
 
 /* Tight footer (narrow explorer): the avatar alone identifies the account;
-   the name is a luxury that costs exactly the width we do not have. */
-@container (max-width: 150px) {
+   the name is a luxury that costs exactly the width we do not have. The
+   threshold sits under the explorer's 150px default so the first name shows
+   out of the box and only goes when the user drags the pane narrower. */
+@container (max-width: 135px) {
   .explorer-account-footer .header-username-text {
     display: none;
   }
