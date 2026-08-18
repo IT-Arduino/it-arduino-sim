@@ -108,6 +108,20 @@ try {
   // Route metadata for the prod app shell (title/description per SEO route),
   // so /<locale>/<route> paths that fall through to it get the route's own
   // head instead of the homepage's.
+  // Starter examples ("New <board> project" pages) for the prod app shell.
+  const starters = await vite.ssrLoadModule('/src/data/starters.ts');
+  writeFileSync(
+    join(distDir, 'starters.json'),
+    JSON.stringify(
+      starters.STARTER_EXAMPLES.map((st) => ({
+        id: st.id, board: st.board,
+        title: starters.starterTitle(st.board),
+        description: starters.starterDescription(st.board),
+      })),
+    ),
+    'utf-8',
+  );
+
   const { SEO_ROUTES } = await vite.ssrLoadModule('/src/seoRoutes.ts');
   writeFileSync(
     join(distDir, 'seo-routes.json'),
