@@ -7,7 +7,7 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 import { useLocalizedHref, useCurrentLocale } from '../../i18n/useLocalizedNavigate';
 import { blogUrlFor } from '../../i18n/path';
 import { trackVisitGitHub, trackVisitDiscord } from '../../utils/analytics';
-import { measureStripFit, stripMustDropBelow } from './headerStripFit';
+import { applyStripLayout, STRIP_BELOW_CLASS } from './headerStripFit';
 import './LanguageSwitcher.css';
 
 const GITHUB_URL = 'https://github.com/davidmonterocrespo24/velxio';
@@ -41,28 +41,21 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ editorMenu, editorToolbar 
     setMenuOpen(false);
   }, [location.pathname]);
 
-  // Editor variant: does the toolbar strip fit on the brand row? Measured,
-  // not guessed — see headerStripFit.ts. `app-header--strip-below` moves
-  // it to a full-width second bar. Re-measured whenever the strip host,
-  // the brand block or a strip zone resizes (window, docked chat, board
-  // controls mounting, label collapses). The first measure runs before
-  // paint; later ones are deferred a frame so toggling the class never
-  // re-enters ResizeObserver delivery.
+  // Editor variant: where does the toolbar strip go — on the brand row or
+  // on its own bar below, labelled or icon-only? Measured, not guessed —
+  // see headerStripFit.ts, which sets `app-header--strip-below` on the
+  // header and `unified-toolbar--compact` on the strip. Re-measured
+  // whenever the strip host, the brand block or a strip zone resizes
+  // (window, docked chat, board controls mounting). The first measure runs
+  // before paint; later ones are deferred a frame so toggling the classes
+  // never re-enters ResizeObserver delivery.
   const headerRef = useRef<HTMLElement>(null);
   const hasStrip = !!editorToolbar;
   useLayoutEffect(() => {
     const header = headerRef.current;
     if (!header || !hasStrip) return;
-    const CLS = 'app-header--strip-below';
     const apply = () => {
-      // Always measure the INLINE layout — the question is "would it fit on
-      // the brand row?", and the below-state has different host margins and
-      // wider (uncollapsed) labels. Removing the class, measuring and
-      // restoring it happens in one synchronous pass before the rendering
-      // step, so nothing paints and ResizeObserver sees no transient.
-      header.classList.remove(CLS);
-      const m = measureStripFit(header);
-      header.classList.toggle(CLS, !!m && stripMustDropBelow(m));
+      applyStripLayout(header);
     };
     apply();
     if (typeof ResizeObserver === 'undefined') return;
@@ -95,7 +88,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ editorMenu, editorToolbar 
       ro.disconnect();
       mo?.disconnect();
       if (raf) cancelAnimationFrame(raf);
-      header.classList.remove(CLS);
+      header.classList.remove(STRIP_BELOW_CLASS);
     };
   }, [hasStrip]);
 
