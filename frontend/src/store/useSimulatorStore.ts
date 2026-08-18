@@ -38,6 +38,7 @@ import { createEsp32Bridge } from '../simulation/Esp32BridgeFactory';
 import { Stm32Bridge, stm32PinNameToLinear } from '../simulation/Stm32Bridge';
 import { STM32_LED } from '../components/velxio-components/Stm32BluePillElement';
 import { useEditorStore } from './useEditorStore';
+import { fingerprintSources } from '../utils/sourceFingerprint';
 import { useVfsStore } from './useVfsStore';
 import { buildProjectSdImage, decodeSdFiles, bytesToB64 } from '../utils/sdCardFiles';
 import { boardPinToNumber, isBoardComponent } from '../utils/boardPinMapping';
@@ -1953,9 +1954,15 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         }
       }
 
+      // Remember what this program was built from, so the Flash dialog can
+      // tell a fresh build from one the user has edited past.
+      const compiledSourceHash = fingerprintSources(
+        board,
+        useEditorStore.getState().getGroupFiles(board.activeFileGroupId),
+      );
       set((s) => {
         const boards = s.boards.map((b) =>
-          b.id === boardId ? { ...b, compiledProgram: program } : b,
+          b.id === boardId ? { ...b, compiledProgram: program, compiledSourceHash } : b,
         );
         const isActive = s.activeBoardId === boardId;
         return {

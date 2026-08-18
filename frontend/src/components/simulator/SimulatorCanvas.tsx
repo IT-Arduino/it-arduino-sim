@@ -3470,17 +3470,19 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
             const isMpy = board.languageMode === 'micropython';
             const mpyWebOk =
               isMpy && !isTauriRuntime && webFlashMpyAvailable(board.boardKind);
+            // Arduino/ESP-IDF boards are always flashable: the Flash dialog
+            // compiles first when there is no build (or a stale one).
             actions.push({
               id: 'flash',
               label: t('editor.canvas.flashToBoard'),
-              disabled: isMpy ? !mpyWebOk : !board.compiledProgram,
+              disabled: isMpy ? !mpyWebOk : false,
               title: isMpy
                 ? mpyWebOk
-                  ? 'Install MicroPython (if needed) and upload this project to a real USB-attached board'
-                  : 'MicroPython projects cannot be flashed from here — Arduino sketches only'
+                  ? t('editor.canvas.flashHint.mpy')
+                  : t('editor.canvas.flashHint.mpyUnavailable')
                 : board.compiledProgram
-                  ? 'Flash the compiled sketch to a real USB-attached board'
-                  : 'Compile the sketch first',
+                  ? t('editor.canvas.flashHint.ready')
+                  : t('editor.canvas.flashHint.willCompile'),
               onSelect: () => {
                 setFlashModalFor(boardContextMenu.boardId);
                 setBoardContextMenu(null);
