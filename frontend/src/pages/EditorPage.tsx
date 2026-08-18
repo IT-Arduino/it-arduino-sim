@@ -136,7 +136,9 @@ export const EditorPage: React.FC = () => {
   useEffect(() => {
     if (starterDialogShownThisLoad) return;
     const locale = getLocaleFromPath(window.location.pathname);
-    if (window.location.pathname !== localizedPath('/editor', locale)) return;
+    // /editor is prerendered, so a fresh load arrives as /editor/ (nginx
+    // adds the slash); client-side navigation lands on /editor. Both count.
+    if (window.location.pathname.replace(/\/+$/, '') !== localizedPath('/editor', locale)) return;
     if (window.location.search) return;
     if (useProjectStore.getState().currentProject) return;
     const sim = useSimulatorStore.getState();
