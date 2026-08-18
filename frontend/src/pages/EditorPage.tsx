@@ -45,10 +45,12 @@ const BOTTOM_PANEL_DEFAULT = 200;
 
 const EXPLORER_MIN = 100;
 const EXPLORER_MAX = 500;
-// Narrow by default: the explorer rows are compact (see FileExplorer.css),
-// so 150px fits a board header with its actions and typical file names,
-// and every px saved here goes to the code editor.
-const EXPLORER_DEFAULT = 150;
+// Narrow by default: the explorer rows are compact and both headers stack
+// their actions ABOVE their label instead of beside it (see
+// FileExplorer.css), so nothing has to share a line — 124px fits a board
+// name and typical file names, and every px saved here goes to the code
+// editor.
+const EXPLORER_DEFAULT = 124;
 
 // Once per full page load: the pristine-visit starter dialog must not pop
 // again when the user closes it and later navigates away from and back to
