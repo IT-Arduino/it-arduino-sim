@@ -54,7 +54,7 @@ export interface ProBoardDef {
   /** ESP32 run-path routing: the base chip the board carries. Routes the run
    *  through the ESP32 bridge path and picks the machine/engine type. Omit for
    *  boards that provide createSimulator (RP2350 class) or AVR/RP2040. */
-  esp32Family?: 'esp32' | 'esp32-s3' | 'esp32-c3' | 'esp32-c6';
+  esp32Family?: 'esp32' | 'esp32-s3' | 'esp32-c3' | 'esp32-c6' | 'esp32-p4' | 'esp32-c5';
   /** QEMU-Linux run-path routing: route this kind through the Raspberry Pi
    *  bridge (backend qemu WebSocket, VFS panel, boot terminal). The overlay
    *  must also register a matching backend profile for the kind. */
