@@ -1633,12 +1633,24 @@ class ESPIDFCompiler:
                 excluded_dirs = {
                     '.git', '.github', '.vscode', '__pycache__',
                     'docs', 'doc', 'example', 'examples', 'test', 'tests',
-                    'extras', 'ci', 'fuzz', 'fuzzing', 'benchmark', 'benchmarks',
+                    'ci', 'fuzz', 'fuzzing', 'benchmark', 'benchmarks',
                 }
+                # `extras/` is header-only in the merge: FastLED's unity build
+                # (src/fl/build/extras+.cpp) does #include
+                # "extras/_build.cpp.hpp", so dropping the whole dir breaks the
+                # build with "No such file". Its opt-in shims are all
+                # .cpp.hpp/.h fragments; copy those, but never compile a
+                # .c/.cpp that happens to live there (extras/ traditionally
+                # holds repo-only content).
+                header_only_dirs = {'extras'}
 
                 def _should_include(rel_path: Path) -> bool:
                     parts = rel_path.parts
                     if any(part.lower() in excluded_dirs for part in parts[:-1]):
+                        return False
+                    if (rel_path.suffix.lower() in ('.c', '.cpp')
+                            and any(p.lower() in header_only_dirs
+                                    for p in parts[:-1])):
                         return False
                     # Copy compiled sources (.c/.cpp) AND every flavour of header
                     # or text-included fragment. `.inl`/`.inc`/`.ipp`/`.tcc` are
@@ -2077,17 +2089,23 @@ class ESPIDFCompiler:
             'examples',
             'test',
             'tests',
-            'extras',
             'ci',
             'fuzz',
             'fuzzing',
             'benchmark',
             'benchmarks',
         }
+        # Same header-only treatment of extras/ as _generate_merged_component:
+        # unity builds may #include "extras/..." fragments.
+        header_only_dirs = {'extras'}
 
         def should_include(relative_path: Path) -> bool:
             parts = relative_path.parts
             if any(part.lower() in excluded_dirs for part in parts[:-1]):
+                return False
+            if (relative_path.suffix.lower() in ('.c', '.cpp')
+                    and any(p.lower() in header_only_dirs
+                            for p in parts[:-1])):
                 return False
             if relative_path.suffix not in ('.h', '.hpp', '.c', '.cpp'):
                 return False
