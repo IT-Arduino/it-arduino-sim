@@ -1259,6 +1259,15 @@ class ESPIDFCompiler:
         'ctype.h', 'errno.h', 'time.h', 'stddef.h', 'stdint.h', 'setjmp.h',
         'signal.h', 'locale.h', 'wchar.h', 'stdbool.h', 'stdarg.h', 'float.h',
         'algorithm.h', 'memory.h', 'alloca.h', 'new.h',
+        # Not a C standard header, but the same shadowing mechanism: FastLED
+        # ships a host-test stub `src/platforms/stub/Arduino.h`. With that dir
+        # on the global -I, any OTHER merged library's `#include <Arduino.h>`
+        # (e.g. U8g2lib.cpp) resolves to the stub instead of the arduino-esp32
+        # core — 'yield' undeclared, and fl::string pollutes String overload
+        # resolution inside the core's WString.h. FastLED itself only reaches
+        # the stub via the file-relative "platforms/stub/Arduino.h", which
+        # still resolves with the directory off -I.
+        'arduino.h',
     })
 
     # arduino-esp32 uses a single library architecture id ("esp32") across
