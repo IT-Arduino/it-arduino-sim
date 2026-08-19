@@ -2598,7 +2598,7 @@ class ESPIDFCompiler:
         # run without it for now (the P4 engine models PSRAM as optional and
         # firmware built with SPIRAM would fail honestly on a board that does
         # not declare it) — keep it off until the engines validate it.
-        if idf_target in ('esp32c3', 'esp32c6', 'esp32p4', 'esp32c5'):
+        if idf_target in ('esp32c3', 'esp32c6', 'esp32c5'):
             normalized['psram'] = 'disabled'
 
         # ESP32-C3 / ESP32-C6 top out at 160 MHz — clamp the historical 240
@@ -2675,10 +2675,9 @@ class ESPIDFCompiler:
         if idf_target == 'esp32p4':
             # The P4's CPU-frequency kconfig choices (360/400) do not overlap
             # the classic 240/160/80/40 set the template renders — drop the
-            # whole group and let IDF's own default stand. SPIRAM stays off
-            # (see _normalize_options).
+            # whole group and let IDF's own default stand. SPIRAM renders
+            # with the P4's own hex-mode symbols (see the PSRAM chunk).
             drops += (
-                'CONFIG_SPIRAM',
                 'CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ',
             )
         if idf_target != 'esp32':
@@ -2760,6 +2759,15 @@ class ESPIDFCompiler:
         psram_chunks: list[str] = []
         if psram_mode == 'disabled':
             psram_chunks.append('CONFIG_SPIRAM=n')
+        elif idf_target == 'esp32p4':
+            # The P4 has its own Kconfig.spiram: 16-line AP hex is the only
+            # line mode, and the classic speed/mode symbols (80M, QUAD/OCT)
+            # do not exist — emitting them breaks kconfgen. 200M is the
+            # tree's default and rev0-safe (250M needs rev >= 3).
+            psram_chunks.append('CONFIG_SPIRAM=y')
+            psram_chunks.append('CONFIG_SPIRAM_USE_MALLOC=y')
+            psram_chunks.append('CONFIG_SPIRAM_MODE_HEX=y')
+            psram_chunks.append('CONFIG_SPIRAM_SPEED_200M=y')
         else:
             psram_chunks.append('CONFIG_SPIRAM=y')
             psram_chunks.append('CONFIG_SPIRAM_USE_MALLOC=y')
