@@ -1780,12 +1780,19 @@ class ESPIDFCompiler:
         # at a time (nvs.h, then esp_efuse.h, ... — M5GFX/M5Unified touch
         # several). Require the standard set Arduino-facing libraries lean
         # on, guarded on existence so both IDF generations stay happy.
-        # esp_http_server: FastLED 3.10's fl/net remote-control code includes
-        # <esp_http_server.h>; in Arduino IDE builds it arrives through the
-        # core's global include path, here it must be an explicit REQUIRES.
+        # The tail of the list covers headers Arduino IDE exposes through the
+        # core's global include path but a merged IDF component must REQUIRE
+        # explicitly — FastLED 3.10 alone pulls <esp_http_server.h> (fl/net),
+        # <esp_cache.h> (esp_mm), <esp_heap_caps.h> (heap), <esp_ota_ops.h>
+        # (app_update), <esp_bt.h> (bt), <esp_psram.h>, and esp_hw_support /
+        # esp_rom / log / esp_system headers from its RMT/I2S drivers. All
+        # entries stay guarded on the component existing in the IDF tree.
         for _comp in ('nvs_flash', 'efuse', 'esp_timer', 'driver',
                       'spi_flash', 'esp_adc', 'esp_wifi', 'esp_event',
-                      'esp_netif', 'esp_partition', 'esp_http_server'):
+                      'esp_netif', 'esp_partition', 'esp_http_server',
+                      'esp_mm', 'esp_hw_support', 'heap', 'esp_system',
+                      'esp_rom', 'log', 'app_update', 'bt', 'esp_psram',
+                      'esp_pm'):
             for _root in filter(None, (self.idf5_path, self.idf_path)):
                 if os.path.isdir(os.path.join(_root, 'components', _comp)):
                     extra_requires += f' {_comp}'
