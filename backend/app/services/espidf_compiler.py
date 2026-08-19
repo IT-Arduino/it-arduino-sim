@@ -60,6 +60,50 @@ _USE_PERSISTENT_DIR = (
 )
 
 
+# ── Per-library include roots (Arduino-faithful layout) ──────────────────────
+# The merged `user_libs_all` component used to copy every library's files into
+# ONE interleaved tree and then put EVERY directory that held a file on the
+# component's public INCLUDE_DIRS. That is the root cause of the header-shadow
+# bug class: a library's private internals — FastLED's host-test
+# `src/platforms/stub/Arduino.h`, its `src/fl/stl/asio/http/http_parser.h`,
+# LovyanGFX's `src/lgfx/internal/limits.h` — landed on the global -I and
+# hijacked `#include`s issued by OTHER libraries, by the arduino-esp32 core and
+# by ESP-IDF itself. Every fix was another name in `_SHADOW_STD_HEADERS`, i.e.
+# chasing symptoms: the denylist grows with every library that ships a
+# generically-named internal header.
+#
+# arduino-cli — the resolver every other Velxio board family already delegates
+# to — shares one global -I list too, but adds exactly ONE directory per
+# library: `<lib>/src` for the recursive layout, `<lib>` for the legacy flat
+# one, never a subdirectory (its header index is non-recursive, so
+# `src/sub/foo.h` is only ever reachable as `<sub/foo.h>`). `utility/` stays
+# private to the library that owns it. arduino-esp32 does the same as an IDF
+# component: one public include dir per bundled library.
+#
+# So: keep the single component — a component per library would trade this bug
+# for REQUIRES-order shadowing (IDF exports component includes as plain -I,
+# never -isystem) plus IDF-component name collisions — but give each library
+# its own subtree and publish only its include root.
+#
+# Set VELXIO_PER_LIB_ROOTS=0 to fall back to the legacy interleaved layout
+# without rebuilding the image (rollback hatch).
+_PER_LIB_ROOTS = (
+    os.environ.get('VELXIO_PER_LIB_ROOTS', '1')
+    not in ('0', 'false', 'False', '')
+)
+
+
+def _sanitise_lib_dirname(name: str) -> str:
+    """Component-relative directory name for a library.
+
+    Cache folder names carry `@version-hash` suffixes (`fastled@3.10.5-017d…`)
+    and user libs can be named anything; keep the characters that are safe in a
+    path AND inside a quoted CMake string, fold the rest.
+    """
+    safe = re.sub(r'[^A-Za-z0-9_.@-]', '_', name).strip('.')
+    return safe or 'lib'
+
+
 def _idf_version_signature() -> str:
     """Snapshot of the ESP-IDF + arduino-esp32 toolchain version. Used to
     invalidate persistent build dirs after an upstream submodule bump (the
@@ -1488,10 +1532,15 @@ class ESPIDFCompiler:
         arduino-esp32 libs and bundled esp32_libs are always allowed (they are
         platform-provided, not user installs).
 
-        All library files are copied flat into one directory, so every header is
-        visible to every other header and source file without any cross-component
-        REQUIRES propagation — which is unreliable in ESP-IDF 4.x for deeply
-        nested transitive dependencies.
+        Layout (see the _PER_LIB_ROOTS note at module scope): every library is
+        copied into its OWN subtree of the component and exports exactly ONE
+        include root — `<lib>/src`, or `<lib>` for the flat legacy layout, with
+        `utility/` kept PRIVATE. That is arduino-cli's model, and the reason a
+        library's private internals can no longer hijack another library's (or
+        the core's, or ESP-IDF's) `#include`s. One component is deliberate: a
+        component per library would swap this failure mode for REQUIRES-order
+        shadowing plus IDF component-name collisions, and buys no caching that
+        ccache does not already provide.
 
         Search priority per header:
           1. arduino_libs (user-installed via Library Manager) → merge into component
@@ -1527,6 +1576,23 @@ class ESPIDFCompiler:
         seen_names: set[str] = set()
         header_to_comp: dict[str, str] = {}
         found_any = False
+
+        # Per-library bookkeeping for the Arduino-faithful layout
+        # (see _PER_LIB_ROOTS):
+        #   lib_include_roots — ONE component-relative include root per library,
+        #                       in resolution order (arduino-cli's -I order).
+        #   lib_priv_roots    — legacy-layout `utility/` dirs. PRIVATE so they
+        #                       reach the library sources that need them without
+        #                       entering the sketch's namespace, exactly as
+        #                       arduino-cli scopes them to that library's units.
+        #   root_header_owner — root header basename -> first library that
+        #                       published it, for collision reporting.
+        #   lib_prefix_by_name— library dir name -> unique sanitised subdir.
+        lib_include_roots: list[str] = []
+        lib_priv_roots: list[str] = []
+        root_header_owner: dict[str, str] = {}
+        lib_prefix_by_name: dict[str, str] = {}
+        used_prefixes: set[str] = set()
 
         headers_to_resolve: list[str] = list(ext_headers)
         # Headers the SKETCH itself includes (vs transitive pulls found by
@@ -1690,21 +1756,84 @@ class ESPIDFCompiler:
                     # presumed to be buildable source.
                     return True
 
+                # Destination subtree. Per-library roots keep each library in
+                # its OWN directory, so two libraries shipping the same
+                # relative path can no longer collapse into a single
+                # silently-picked copy; legacy mode interleaves them under the
+                # component root (first-resolved wins).
+                first_copy = lib_dir_name not in lib_prefix_by_name
+                if _PER_LIB_ROOTS:
+                    if first_copy:
+                        _prefix = _sanitise_lib_dirname(lib_dir_name)
+                        if _prefix in used_prefixes:
+                            _n = 2
+                            while f'{_prefix}_{_n}' in used_prefixes:
+                                _n += 1
+                            _prefix = f'{_prefix}_{_n}'
+                        used_prefixes.add(_prefix)
+                        lib_prefix_by_name[lib_dir_name] = _prefix
+                    lib_prefix = lib_prefix_by_name[lib_dir_name]
+                    dest_root = comp_dir / lib_prefix
+                else:
+                    lib_prefix = ''
+                    lib_prefix_by_name.setdefault(lib_dir_name, '')
+                    dest_root = comp_dir
+
                 for f in lib_root.rglob('*'):
                     if not f.is_file():
                         continue
                     rel_path = f.relative_to(lib_root)
                     if not _should_include(rel_path):
                         continue
-                    # Track file by its relative path to preserve structure
-                    file_key = str(rel_path).replace('\\', '/')
+                    # Track file by its COMPONENT-relative path: it preserves
+                    # structure, and in legacy mode it is also the cross-library
+                    # dedup key.
+                    rel_key = str(rel_path).replace('\\', '/')
+                    file_key = f'{lib_prefix}/{rel_key}' if lib_prefix else rel_key
                     if file_key not in seen_names:
-                        dest = comp_dir / rel_path
+                        dest = dest_root / rel_path
                         dest.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(f, dest)
                         seen_names.add(file_key)
                     if f.suffix in ('.cpp', '.c') and file_key not in cpp_files:
                         cpp_files.append(file_key)
+
+                if _PER_LIB_ROOTS and first_copy:
+                    # arduino-cli's `SourceDir`: `<lib>/src` for the recursive
+                    # layout, `<lib>` for the flat legacy one. Nothing else.
+                    lib_include_roots.append(
+                        f'{lib_prefix}/src' if has_src_layout else lib_prefix
+                    )
+                    if not has_src_layout and (lib_root / 'utility').is_dir():
+                        lib_priv_roots.append(f'{lib_prefix}/utility')
+                    # With one include root per library these root-level headers
+                    # are the ONLY ones that can still shadow anything, so they
+                    # must not be silent — the Arduino IDE reports the same
+                    # thing as "Multiple libraries were found for X.h".
+                    _src_dir = (lib_root / 'src') if has_src_layout else lib_root
+                    try:
+                        for _entry in sorted(_src_dir.iterdir()):
+                            if not _entry.is_file():
+                                continue
+                            if _entry.suffix.lower() not in ('.h', '.hpp', '.hh', '.hxx'):
+                                continue
+                            _owner = root_header_owner.setdefault(_entry.name, lib_dir_name)
+                            if _owner != lib_dir_name:
+                                logger.warning(
+                                    f'[espidf] header collision: <{_entry.name}> is '
+                                    f'published by both "{_owner}" and '
+                                    f'"{lib_dir_name}" — "{_owner}" wins (its '
+                                    f'include root comes first)'
+                                )
+                            if _entry.name.lower() in self._SHADOW_STD_HEADERS:
+                                logger.warning(
+                                    f'[espidf] "{lib_dir_name}" publishes '
+                                    f'{_entry.name} at its include root — that '
+                                    f'shadows the toolchain/core header for every '
+                                    f'library in this build'
+                                )
+                    except OSError:
+                        pass
 
                 # Scan newly copied headers for transitive includes.
                 # Use rglob so libs with `src/` layout (e.g. GxEPD2, ArduinoJson)
@@ -1713,7 +1842,10 @@ class ESPIDFCompiler:
                 # ALL header extensions (.h/.hpp/.hh/.hxx/.inc): C++ libs like
                 # M5Unified put the transitive `#include <M5GFX.h>` in a .hpp,
                 # so a `*.h`-only scan silently drops that dependency.
-                for lib_file in comp_dir.rglob('*'):
+                # Per-library roots let this scan the library that was JUST
+                # copied instead of re-walking every library merged so far —
+                # same result (resolved_headers dedups), a fraction of the I/O.
+                for lib_file in (dest_root if _PER_LIB_ROOTS else comp_dir).rglob('*'):
                     if lib_file.suffix.lower() not in ('.h', '.hpp', '.hh', '.hxx', '.inc'):
                         continue
                     try:
@@ -1748,26 +1880,50 @@ class ESPIDFCompiler:
         # a stray `#include <limits.h>` deep in FreeRTOS resolves to the
         # library's copy and breaks the build. The files stay copied so the
         # owning library's file-relative includes still resolve.
-        shadow_dirs: set[str] = set()
-        for file_key in seen_names:
-            if PurePosixPath(file_key).name.lower() in self._SHADOW_STD_HEADERS:
-                parent = str(PurePosixPath(file_key).parent)
-                if parent and parent != '.':
-                    shadow_dirs.add(parent)
-
-        include_dirs: set[str] = {'.'}
-        for file_key in seen_names:
-            parent = str(PurePosixPath(file_key).parent)
-            if parent and parent != '.' and parent not in shadow_dirs:
-                include_dirs.add(parent)
-
-        if shadow_dirs:
-            logger.info(
-                f'[espidf] kept {len(shadow_dirs)} dir(s) off -I to avoid '
-                f'shadowing standard headers: {sorted(shadow_dirs)}'
+        priv_include_dirs_line = ''
+        if _PER_LIB_ROOTS:
+            # ONE include root per library, in resolution order. This is the
+            # whole fix: a library's internals stay reachable by its own sources
+            # through file-relative includes, and by nobody else. No denylist
+            # needed for subdirectories because no subdirectory is ever exported.
+            include_dirs_line = 'INCLUDE_DIRS ' + ' '.join(
+                f'"{d}"' for d in ['.'] + lib_include_roots
             )
+            if lib_priv_roots:
+                priv_include_dirs_line = 'PRIV_INCLUDE_DIRS ' + ' '.join(
+                    f'"{d}"' for d in lib_priv_roots
+                )
+            logger.info(
+                f'[espidf] include roots ({len(lib_include_roots)} librar'
+                f'{"y" if len(lib_include_roots) == 1 else "ies"}): '
+                f'{lib_include_roots}'
+                + (f' | private: {lib_priv_roots}' if lib_priv_roots else '')
+            )
+        else:
+            # Legacy interleaved layout: every directory holding a copied file
+            # is exported, minus the hand-maintained shadow denylist.
+            shadow_dirs: set[str] = set()
+            for file_key in seen_names:
+                if PurePosixPath(file_key).name.lower() in self._SHADOW_STD_HEADERS:
+                    parent = str(PurePosixPath(file_key).parent)
+                    if parent and parent != '.':
+                        shadow_dirs.add(parent)
 
-        include_dirs_line = 'INCLUDE_DIRS ' + ' '.join(f'"{d}"' for d in sorted(include_dirs))
+            include_dirs: set[str] = {'.'}
+            for file_key in seen_names:
+                parent = str(PurePosixPath(file_key).parent)
+                if parent and parent != '.' and parent not in shadow_dirs:
+                    include_dirs.add(parent)
+
+            if shadow_dirs:
+                logger.info(
+                    f'[espidf] kept {len(shadow_dirs)} dir(s) off -I to avoid '
+                    f'shadowing standard headers: {sorted(shadow_dirs)}'
+                )
+
+            include_dirs_line = 'INCLUDE_DIRS ' + ' '.join(
+                f'"{d}"' for d in sorted(include_dirs)
+            )
 
         # LovyanGFX's Bus_EPD.cpp (e-paper bus, compiled unconditionally as part
         # of the M5GFX merge) includes <esp_lcd_panel_io.h>, which is provided by
@@ -1850,12 +2006,20 @@ class ESPIDFCompiler:
                 '    -Wno-error=uninitialized)\n'
             )
 
+        _priv_cmake_line = (
+            f'    {priv_include_dirs_line}\n' if priv_include_dirs_line else ''
+        )
         cmake_content = (
-            '# Auto-generated by Velxio — all user libraries merged into one component.\n'
-            '# Directory structure preserved for libraries like ArduinoJson with src/ layout.\n'
+            '# Auto-generated by Velxio — user libraries as one IDF component.\n'
+            '# Each library keeps its own subtree and exports exactly ONE include\n'
+            '# root (<lib>/src, or <lib> for the flat legacy layout), matching\n'
+            "# arduino-cli's resolution semantics. Library internals stay\n"
+            '# reachable through file-relative includes and never enter another\n'
+            "# library's — or the core's — include path.\n"
             'idf_component_register(\n'
             f'    {srcs_line}\n'
             f'    {include_dirs_line}\n'
+            f'{_priv_cmake_line}'
             f'    REQUIRES {arduino_comp_name}{extra_requires}\n'
             ')\n'
             f'{defs_block}'
@@ -3310,6 +3474,10 @@ class ESPIDFCompiler:
                     # never share a configured build/ — the cmake cache and
                     # every object file are tied to the IDF tree.
                     + f'|idf:{5 if use_idf5 else 4}|ard:{int(arduino_mode)}'
+                    # The user-libs layout changes every object path and the
+                    # component's include list, so the two modes must never
+                    # share a configured build/ (stale objects + cmake cache).
+                    + f'|libroots:{int(_PER_LIB_ROOTS)}'
                     + _lang_token
                 ).encode()
             ).hexdigest()[:12]
