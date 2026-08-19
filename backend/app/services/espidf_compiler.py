@@ -1790,9 +1790,9 @@ class ESPIDFCompiler:
         for _comp in ('nvs_flash', 'efuse', 'esp_timer', 'driver',
                       'spi_flash', 'esp_adc', 'esp_wifi', 'esp_event',
                       'esp_netif', 'esp_partition', 'esp_http_server',
-                      'esp_mm', 'esp_hw_support', 'heap', 'esp_system',
-                      'esp_rom', 'log', 'app_update', 'bt', 'esp_psram',
-                      'esp_pm'):
+                      'http_parser', 'esp_mm', 'esp_hw_support', 'heap',
+                      'esp_system', 'esp_rom', 'log', 'app_update', 'bt',
+                      'esp_psram', 'esp_pm'):
             for _root in filter(None, (self.idf5_path, self.idf_path)):
                 if os.path.isdir(os.path.join(_root, 'components', _comp)):
                     extra_requires += f' {_comp}'
@@ -3485,12 +3485,27 @@ class ESPIDFCompiler:
         partition_csv = self._render_partition_csv(board_options['partitionScheme'])
         (project_dir / 'partitions.csv').write_text(partition_csv, encoding='utf-8')
 
-        # Get sketch content
+        # Get sketch content — Arduino tab semantics: EVERY .ino is part of
+        # the sketch. The main file (literal sketch.ino, else the first .ino
+        # sent) comes first so its globals are visible to the other tabs,
+        # and the rest are concatenated after it in alphabetical order —
+        # exactly what arduino-cli/the IDE do. #line markers keep compiler
+        # diagnostics pointing at the real file/line of each tab.
+        ino_files = [f for f in files if f['name'].endswith('.ino')]
         main_content = ''
-        for f in files:
-            if f['name'].endswith('.ino'):
-                main_content = f['content']
-                break
+        if ino_files:
+            main_ino = next(
+                (f for f in ino_files if f['name'] == 'sketch.ino'),
+                ino_files[0],
+            )
+            rest = sorted(
+                (f for f in ino_files if f is not main_ino),
+                key=lambda f: f['name'],
+            )
+            main_content = '\n'.join(
+                f'#line 1 "{f["name"]}"\n{f["content"]}'
+                for f in [main_ino] + rest
+            )
         if not main_content and files:
             main_content = files[0]['content']
 
