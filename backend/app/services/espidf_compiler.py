@@ -794,6 +794,28 @@ class ESPIDFCompiler:
             '[espidf] Declared managed components: %s', ', '.join(sorted(deps))
         )
 
+    # include -> managed component (name, version). Each of these headers
+    # ships in a registry component that neither the template nor
+    # arduino-esp32's own manifest depends on, so a sketch using it dies
+    # with "No such file or directory" unless the dependency is declared
+    # (the esp_camera.h lesson, generalized for the Espressif devkit
+    # boards' display/touch stacks).
+    _MANAGED_COMPONENT_INCLUDES: tuple[tuple[str, str, str], ...] = (
+        (r'esp_camera\.h', 'espressif/esp32-camera', '^2.0.4'),
+        (r'esp_lcd_st77916\.h', 'espressif/esp_lcd_st77916', '*'),
+        (r'esp_lcd_touch_cst816s\.h', 'espressif/esp_lcd_touch_cst816s', '*'),
+        (r'esp_lcd_gc9a01\.h', 'espressif/esp_lcd_gc9a01', '*'),
+        (r'esp_lcd_ek79007\.h', 'espressif/esp_lcd_ek79007', '*'),
+    )
+
+    def _detect_managed_components(self, code: str) -> dict:
+        """Managed components the source explicitly #includes."""
+        deps: dict[str, str] = {}
+        for pattern, name, version in self._MANAGED_COMPONENT_INCLUDES:
+            if re.search(r'#include\s*[<"]' + pattern + r'[">]', code):
+                deps[name] = version
+        return deps
+
     def _detect_camera_usage(self, code: str) -> bool:
         """Does the sketch use the ESP32 camera driver?
 
@@ -3420,6 +3442,18 @@ class ESPIDFCompiler:
                     'stdout': '',
                     'stderr': '',
                 }
+            # Registry components the sources #include (esp_lcd_st77916 for
+            # the VoCat display example, etc.) — same resolution the arduino
+            # branch gets; without the manifest the header simply does not
+            # exist and the build dies at the first #include.
+            pure_src = '\n'.join(
+                str(f.get('content', '')) for f in files if str(f.get('name', '')).endswith(
+                    ('.ino', '.cpp', '.c', '.h', '.hpp')
+                )
+            )
+            managed_pure = self._detect_managed_components(pure_src)
+            if managed_pure:
+                self._add_managed_components(project_dir, managed_pure)
         elif arduino_mode:
             # Arduino-as-component mode: copy sketch as .cpp
             sketch_cpp = project_dir / 'main' / 'sketch.ino.cpp'
@@ -3544,16 +3578,27 @@ class ESPIDFCompiler:
                     ('.ino', '.cpp', '.c', '.h', '.hpp')
                 )
             )
-            if self._detect_camera_usage(sketch_src):
-                self._add_managed_components(
-                    project_dir, {'espressif/esp32-camera': '^2.0.4'}
-                )
+            managed = self._detect_managed_components(sketch_src)
+            if managed:
+                self._add_managed_components(project_dir, managed)
         else:
             # Pure ESP-IDF mode (no Arduino component usable for this
             # target). Remove Arduino main.cpp to avoid conflict.
             main_cpp = project_dir / 'main' / 'main.cpp'
             if main_cpp.exists():
                 main_cpp.unlink()
+
+            # Pure-IDF sources need the same include->component resolution the
+            # arduino branch gets (e.g. the VoCat display example includes
+            # esp_lcd_st77916.h from the component registry).
+            idf_src = '\n'.join(
+                f.get('content', '') for f in files if str(f.get('name', '')).endswith(
+                    ('.ino', '.cpp', '.c', '.h', '.hpp')
+                )
+            )
+            managed_idf = self._detect_managed_components(idf_src)
+            if managed_idf:
+                self._add_managed_components(project_dir, managed_idf)
 
             if self._contains_app_main(main_content):
                 # The user's code is already a plain ESP-IDF program —
