@@ -105,6 +105,10 @@ export interface ProBoardDef {
    *  setMicrophoneSource (I2S RX sample injection): shows the canvas-header
    *  Mic toggle that streams the computer's microphone into it. */
   builtInMicrophone?: boolean;
+  /** The board carries a camera fed from the host webcam (CameraToggle in the
+   *  canvas header; the bridge implements pushCameraFrame). An object form
+   *  caps the injected JPEG size for drivers with tight frame buffers. */
+  builtInCamera?: boolean | { maxFrameBytes?: number };
   /** Display-controller identity for panel autodetect probes. Vendor
    *  libraries (M5GFX and friends) identify a board by reading the panel's
    *  RDDID over SPI with the display's own chip-select — and reject the

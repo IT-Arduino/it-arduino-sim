@@ -48,6 +48,22 @@ export function isOnlineOnlyAdSuppressed(id: string): boolean {
 
 export const ONLINE_ONLY_BOARD_ADS: OnlineOnlyBoardAd[] = [
   {
+    id: 'esp-eye',
+    label: 'ESP-EYE',
+    description: 'Espressif AI vision devkit: ESP32 + OV2640 camera, I2S mic, face-recognition heritage — in-browser emulation',
+    thumbnailSvg:
+      '<svg width="72" height="72" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">' +
+      '<rect x="20" y="4" width="32" height="64" rx="5" fill="#131316"/>' +
+      '<circle cx="36" cy="26" r="12" fill="#1c1c20" stroke="#33343a"/>' +
+      '<circle cx="36" cy="26" r="8" fill="#060608" stroke="#2f2f34"/>' +
+      '<circle cx="36" cy="26" r="3" fill="#101722"/>' +
+      '<rect x="30" y="42" width="12" height="10" fill="#d8b44a"/>' +
+      '<rect x="26" y="56" width="20" height="6" rx="1.5" fill="#b8bec6"/>' +
+      '<circle cx="47" cy="46" r="2.2" fill="#ff4030"/>' +
+      '<circle cx="25" cy="46" r="2.2" fill="#e8e8ea"/>' +
+      '</svg>',
+  },
+  {
     id: 'esp32-c3-lcdkit',
     label: 'ESP32-C3-LCDkit',
     description: 'Espressif knob kit: round GC9A01 display on a rotary encoder, WS2812, IR, PDM speaker — in-browser emulation',

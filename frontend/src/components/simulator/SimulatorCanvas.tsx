@@ -2731,15 +2731,22 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                     ESP32-CAM (OV2640 over I2S0 DVP) and the XIAO ESP32S3
                     Sense (OV2640-compatible over LCD_CAM). */}
                 {(activeBoard?.boardKind === 'esp32-cam' ||
-                  activeBoard?.boardKind === 'xiao-esp32s3-sense') && (
+                  activeBoard?.boardKind === 'xiao-esp32s3-sense' ||
+                  (activeBoard &&
+                    Boolean(getProBoard(activeBoard.boardKind)?.builtInCamera))) && (
                   <CameraToggle
                     boardId={activeBoard.id}
                     // The S3 esp32-camera build allocates width*height/5 bytes
                     // for a QVGA JPEG frame (15360) and stops copying at
                     // fb_size - one 1 KiB DMA half-buffer: frames must stay
                     // under ~14336 or the EOI marker is truncated (NO-EOI).
+                    // Overlay boards declare their cap on builtInCamera.
                     maxFrameBytes={
-                      activeBoard.boardKind === 'xiao-esp32s3-sense' ? 14000 : undefined
+                      activeBoard.boardKind === 'xiao-esp32s3-sense'
+                        ? 14000
+                        : ((cam) => (typeof cam === 'object' ? cam.maxFrameBytes : undefined))(
+                            getProBoard(activeBoard.boardKind)?.builtInCamera,
+                          )
                     }
                   />
                 )}
