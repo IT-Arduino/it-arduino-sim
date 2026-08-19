@@ -48,6 +48,21 @@ export function isOnlineOnlyAdSuppressed(id: string): boolean {
 
 export const ONLINE_ONLY_BOARD_ADS: OnlineOnlyBoardAd[] = [
   {
+    id: 'esp32-c3-lcdkit',
+    label: 'ESP32-C3-LCDkit',
+    description: 'Espressif knob kit: round GC9A01 display on a rotary encoder, WS2812, IR, PDM speaker — in-browser emulation',
+    thumbnailSvg:
+      '<svg width="72" height="72" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">' +
+      '<rect x="6" y="6" width="60" height="60" rx="5" fill="#131316"/>' +
+      '<rect x="26" y="8" width="20" height="12" rx="1" fill="#b8bec6"/>' +
+      '<text x="36" y="17" text-anchor="middle" font-size="5" font-family="monospace" fill="#2d3138">C3</text>' +
+      '<circle cx="36" cy="42" r="19" fill="#1a1a1e" stroke="#3a3b40"/>' +
+      '<circle cx="36" cy="42" r="15" fill="#0c4a5e"/>' +
+      '<circle cx="36" cy="42" r="15" fill="none" stroke="#22a0c8" stroke-dasharray="2 3"/>' +
+      '<circle cx="62" cy="30" r="3" fill="#38c172"/>' +
+      '</svg>',
+  },
+  {
     id: 'esp32-c6',
     label: 'ESP32-C6-DevKitC-1',
     description: 'RISC-V single-core, WiFi 6 + BLE + 802.15.4 — in-browser emulation',
