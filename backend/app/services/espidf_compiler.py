@@ -1268,6 +1268,13 @@ class ESPIDFCompiler:
         # the stub via the file-relative "platforms/stub/Arduino.h", which
         # still resolves with the directory off -I.
         'arduino.h',
+        # Same story with an IDF component header: IDF's esp_http_server.h
+        # does #include <http_parser.h> (the http_parser component's enum
+        # with HTTP_GET/HTTP_POST/...). FastLED ships its own
+        # fl/stl/asio/http/http_parser.h and references it path-qualified
+        # only, so keep its directory off -I or the IDF include resolves to
+        # FastLED's file and every httpd_method_t use fails to compile.
+        'http_parser.h',
     })
 
     # arduino-esp32 uses a single library architecture id ("esp32") across
