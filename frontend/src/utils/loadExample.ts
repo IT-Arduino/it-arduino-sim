@@ -327,7 +327,16 @@ export async function loadExample(
       if (boardOwnedFiles.length > 0) {
         editorStore.loadFiles(boardOwnedFiles);
       } else {
-        const filename = isPiBoardKind(liveBoard.boardKind) ? 'main.cpp' : 'sketch.ino';
+        // The name must match the mode the board was just switched into:
+        // MicroPython pastes main.py, ESP-IDF builds main.c — a bare `code:`
+        // example otherwise lands its Python in a file called sketch.ino.
+        const filename = isPiBoardKind(liveBoard.boardKind)
+          ? 'main.cpp'
+          : example.languageMode === 'micropython'
+            ? 'main.py'
+            : example.languageMode === 'espidf'
+              ? 'main.c'
+              : 'sketch.ino';
         editorStore.loadFiles([{ name: filename, content: example.code }]);
       }
     } else if (chipGroupIds.length > 0) {
