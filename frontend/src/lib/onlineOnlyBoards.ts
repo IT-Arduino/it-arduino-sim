@@ -131,6 +131,26 @@ export const ONLINE_ONLY_BOARD_ADS: OnlineOnlyBoardAd[] = [
       '</svg>',
   },
   {
+    id: 'esp-sensairshuttle',
+    label: 'ESP-SensAirShuttle',
+    description: 'Espressif ESP32-C5 sensing devkit: BME690 gas sensor + BMM350 magnetometer shuttles, 1.9" touch LCD, WiFi 6 dual-band — in-browser emulation',
+    thumbnailSvg:
+      '<svg width="72" height="72" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">' +
+      '<rect x="8" y="12" width="56" height="48" rx="4" fill="#131316"/>' +
+      '<rect x="12" y="18" width="26" height="34" rx="2" fill="#1a1a1e" stroke="#3a3b40"/>' +
+      '<rect x="14" y="20" width="22" height="30" fill="#0c4a5e"/>' +
+      '<rect x="44" y="16" width="16" height="18" rx="2" fill="#186329"/>' +
+      '<circle cx="52" cy="22" r="2.6" fill="#101418"/>' +
+      '<rect x="47" y="27" width="10" height="4" rx="1" fill="#b8bec6"/>' +
+      '<rect x="44" y="38" width="16" height="18" rx="2" fill="#186329"/>' +
+      '<rect x="47" y="42" width="6" height="6" rx="1" fill="#101418"/>' +
+      '<text x="53" y="53" text-anchor="middle" font-size="4.5" font-family="monospace" fill="#c8ccd2">C5</text>' +
+      '<g fill="#d8b44a"><rect x="9" y="20" width="2.4" height="2.4"/><rect x="9" y="26" width="2.4" height="2.4"/>' +
+      '<rect x="9" y="32" width="2.4" height="2.4"/><rect x="9" y="38" width="2.4" height="2.4"/>' +
+      '<rect x="9" y="44" width="2.4" height="2.4"/></g>' +
+      '</svg>',
+  },
+  {
     id: 'm5stack-core',
     label: 'M5Stack Core Basic',
     description: 'ESP32 all-in-one: 2" LCD, 3 buttons, speaker, microSD',
