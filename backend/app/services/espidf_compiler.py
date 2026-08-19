@@ -3668,7 +3668,13 @@ class ESPIDFCompiler:
                 # / OSS self-host.
                 arduino_libs = libraries_dir or self._find_arduino_libraries_dir()
 
-                component_names, _ = self._resolve_library_components(
+                # Heavy sync filesystem work (BFS header resolution + copying
+                # thousands of library files — FastLED alone takes minutes).
+                # Run it off the event loop like cmake/ninja below, or the
+                # loop starves: /compile/start responses never flush and the
+                # client dies on its 30s timeout while the build is fine.
+                component_names, _ = await asyncio.to_thread(
+                    self._resolve_library_components,
                     ext_headers, arduino_libs, esp32_libs,
                     arduino_comp_name, user_libs_dir,
                     allowed_libraries=allowed_libraries,
