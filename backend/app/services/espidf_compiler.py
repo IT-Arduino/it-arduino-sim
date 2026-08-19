@@ -2601,6 +2601,14 @@ class ESPIDFCompiler:
         if idf_target in ('esp32c3', 'esp32c6', 'esp32c5'):
             normalized['psram'] = 'disabled'
 
+        # The P4-Function-EV module always carries 32 MB AP-hex PSRAM and
+        # esp_lcd allocates DSI framebuffers from it unconditionally - the
+        # board's flagship peripheral needs it. Default ON unless the
+        # request explicitly says otherwise (the UI only sends the field
+        # once the user opens the board-options modal).
+        if idf_target == 'esp32p4' and 'psram' not in (opts or {}):
+            normalized['psram'] = 'enabled'
+
         # ESP32-C3 / ESP32-C6 top out at 160 MHz — clamp the historical 240
         # default (and any stale higher value) instead of failing the build.
         # (On C3 the 240 choice was always an unknown kconfig symbol that
