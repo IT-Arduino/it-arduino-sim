@@ -1430,9 +1430,14 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
             kpBridge.sendSensorUpdate(anchorPin, {
               pressed: [...pressed].map((s) => s.split(',').map(Number)),
             });
-          const timeout = setTimeout(() => {
-            const el = document.getElementById(component.id);
-            if (!el) return;
+          // Attach synchronously — this effect re-runs on every boards[]
+          // mutation (serial output!), and a delayed attach would open a
+          // listener-less window every re-run in which a key press is lost
+          // entirely. No sendSensorDetach on cleanup for the same reason:
+          // the worker-side install is idempotent, and detach+reattach on
+          // unrelated re-renders would wipe the pressed-key state mid-scan.
+          const kpEl = document.getElementById(component.id);
+          if (kpEl) {
             const onPress = (e: Event) => {
               const { row, column } = (e as CustomEvent).detail;
               pressed.add(`${row},${column}`);
@@ -1443,15 +1448,13 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
               pressed.delete(`${row},${column}`);
               sendPressed();
             };
-            el.addEventListener('button-press', onPress);
-            el.addEventListener('button-release', onRelease);
+            kpEl.addEventListener('button-press', onPress);
+            kpEl.addEventListener('button-release', onRelease);
             cleanups.push(() => {
-              el.removeEventListener('button-press', onPress);
-              el.removeEventListener('button-release', onRelease);
+              kpEl.removeEventListener('button-press', onPress);
+              kpEl.removeEventListener('button-release', onRelease);
             });
-          }, 300);
-          cleanups.push(() => clearTimeout(timeout));
-          cleanups.push(() => kpBridge.sendSensorDetach(anchorPin));
+          }
         }
       }
 
