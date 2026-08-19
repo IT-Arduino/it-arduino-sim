@@ -1646,11 +1646,23 @@ class ESPIDFCompiler:
 
                 def _should_include(rel_path: Path) -> bool:
                     parts = rel_path.parts
-                    if any(part.lower() in excluded_dirs for part in parts[:-1]):
+                    # A dir named test/examples/docs/... at the REPO level is
+                    # repo-only content: fully excluded. The same name NESTED
+                    # inside src/ is library code — FastLED has src/fl/test/
+                    # whose _build.cpp.hpp the unity build #includes — so
+                    # nested matches are demoted to header-only (fragments
+                    # copied, sources never compiled) instead of dropped.
+                    if parts[0].lower() in excluded_dirs and len(parts) > 1:
+                        return False
+                    nested_junk = any(
+                        p.lower() in excluded_dirs for p in parts[1:-1]
+                    )
+                    if not has_src_layout and nested_junk:
                         return False
                     if (rel_path.suffix.lower() in ('.c', '.cpp')
-                            and any(p.lower() in header_only_dirs
-                                    for p in parts[:-1])):
+                            and (nested_junk
+                                 or any(p.lower() in header_only_dirs
+                                        for p in parts[:-1]))):
                         return False
                     # Copy compiled sources (.c/.cpp) AND every flavour of header
                     # or text-included fragment. `.inl`/`.inc`/`.ipp`/`.tcc` are
@@ -1768,9 +1780,12 @@ class ESPIDFCompiler:
         # at a time (nvs.h, then esp_efuse.h, ... — M5GFX/M5Unified touch
         # several). Require the standard set Arduino-facing libraries lean
         # on, guarded on existence so both IDF generations stay happy.
+        # esp_http_server: FastLED 3.10's fl/net remote-control code includes
+        # <esp_http_server.h>; in Arduino IDE builds it arrives through the
+        # core's global include path, here it must be an explicit REQUIRES.
         for _comp in ('nvs_flash', 'efuse', 'esp_timer', 'driver',
                       'spi_flash', 'esp_adc', 'esp_wifi', 'esp_event',
-                      'esp_netif', 'esp_partition'):
+                      'esp_netif', 'esp_partition', 'esp_http_server'):
             for _root in filter(None, (self.idf5_path, self.idf_path)):
                 if os.path.isdir(os.path.join(_root, 'components', _comp)):
                     extra_requires += f' {_comp}'
