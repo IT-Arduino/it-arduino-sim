@@ -657,6 +657,29 @@ class ESPIDFCompiler:
     # Cache: boards.txt is a few hundred KB and never changes at runtime.
     _variant_cache: dict = {}
 
+    @staticmethod
+    def _fqbn_board_id_and_options(board_fqbn: str) -> tuple[str, dict]:
+        """Split an arduino FQBN into (board_id, menu-option dict).
+
+        arduino-cli syntax: ``vendor:arch:board_id[:Menu1=val1,Menu2=val2]``.
+        The espidf lane must understand the 4-part option-suffix form too,
+        not just plain 3-part FQBNs — the C3-LCDkit board def pins
+        ``CDCOnBoot=cdc`` this way (the real kit has no UART bridge; its only
+        console is the USB Serial/JTAG port). Menu keys a caller does not
+        recognise are simply ignored.
+        """
+        parts = board_fqbn.split(':')
+        opts: dict = {}
+        if len(parts) >= 4 and parts[3]:
+            for kv in parts[3].split(','):
+                if '=' in kv:
+                    k, v = kv.split('=', 1)
+                    opts[k.strip()] = v.strip()
+            board_id = parts[2]
+        else:
+            board_id = parts[-1]
+        return board_id.split('?')[0].strip(), opts
+
     def _arduino_variant(self, board_fqbn: str, idf_target: str) -> str:
         """The Arduino VARIANT for this FQBN, from arduino-esp32's boards.txt.
 
@@ -670,7 +693,7 @@ class ESPIDFCompiler:
         is read rather than guessed; anything not found falls back to the chip,
         which is the previous behaviour.
         """
-        board_id = board_fqbn.split(':')[-1].split('?')[0].strip()
+        board_id, _ = self._fqbn_board_id_and_options(board_fqbn)
         if not board_id:
             return idf_target
         key = (board_id, idf_target)
@@ -726,10 +749,16 @@ class ESPIDFCompiler:
           ESP32S3 expose UART0's default RX pin (GPIO44) as a plain Dx pin,
           so building them with Serial on UART0 is not just unfaithful: a
           pinMode() on that pin tears the UART driver down mid-sketch.
+
+        A ``CDCOnBoot`` menu option in the FQBN suffix overrides the board's
+        boards.txt default, mirroring arduino-cli
+        (``<id>.menu.CDCOnBoot.cdc.build.cdc_on_boot=1``): the C3-LCDkit pins
+        ``esp32:esp32:esp32c3:CDCOnBoot=cdc`` so its console matches the real
+        kit, which only exposes the USB Serial/JTAG port.
         """
-        board_id = board_fqbn.split(':')[-1].split('?')[0].strip()
+        board_id, menu_opts = self._fqbn_board_id_and_options(board_fqbn)
         if board_id in self._board_flags_cache:
-            return self._board_flags_cache[board_id]
+            return self._apply_menu_overrides(self._board_flags_cache[board_id], menu_opts)
         flags = {'board': None, 'cdc_on_boot': False}
         roots = [
             r
@@ -755,6 +784,19 @@ class ESPIDFCompiler:
             if flags['board'] is not None:
                 break
         self._board_flags_cache[board_id] = flags
+        return self._apply_menu_overrides(flags, menu_opts)
+
+    @staticmethod
+    def _apply_menu_overrides(flags: dict, menu_opts: dict) -> dict:
+        """Overlay FQBN menu options on the boards.txt base flags.
+
+        Only ``CDCOnBoot`` is understood today (``cdc`` -> 1, ``default`` ->
+        the boards.txt value). Returns a copy so the per-board cache never
+        holds an override.
+        """
+        cdc = menu_opts.get('CDCOnBoot')
+        if cdc == 'cdc':
+            return {**flags, 'cdc_on_boot': True}
         return flags
 
     def _idf_target(self, board_fqbn: str) -> str:
