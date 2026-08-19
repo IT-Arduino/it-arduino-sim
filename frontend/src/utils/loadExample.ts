@@ -74,7 +74,7 @@ function seedChipProgramGroups(example: ExampleProject): {
 
   const programFileNames = new Set<string>();
   const chipGroupIds: string[] = [];
-  for (const comp of example.components) {
+  for (const comp of example.components ?? []) {
     if (stripBrandPrefix(comp.type) !== 'custom-chip') continue;
     const pf = String(
       (comp.properties as Record<string, unknown>)?.programFile ?? '',
@@ -227,7 +227,7 @@ export async function loadExample(
     // shows as its own section (the per-board code came from eb.code above).
     seedChipProgramGroups(example);
 
-    const componentsWithoutBoard = example.components.filter(
+    const componentsWithoutBoard = (example.components ?? []).filter(
       (comp) =>
         !comp.type.includes('arduino') &&
         !comp.type.includes('pico') &&
@@ -245,7 +245,7 @@ export async function loadExample(
     );
 
     setWires(
-      example.wires.map((wire) => ({
+      (example.wires ?? []).map((wire) => ({
         id: wire.id,
         start: { componentId: wire.start.componentId, pinName: wire.start.pinName, x: 0, y: 0 },
         end: { componentId: wire.end.componentId, pinName: wire.end.pinName, x: 0, y: 0 },
@@ -346,7 +346,7 @@ export async function loadExample(
       editorStore.setCode(example.code);
     }
 
-    const componentsWithoutBoard = example.components.filter(
+    const componentsWithoutBoard = (example.components ?? []).filter(
       (comp) =>
         !comp.type.includes('arduino') &&
         !comp.type.includes('pico') &&
@@ -383,7 +383,7 @@ export async function loadExample(
       isBoardComponent(id) && liveActiveBoardId ? liveActiveBoardId : id;
 
     setWires(
-      example.wires.map((wire) => ({
+      (example.wires ?? []).map((wire) => ({
         id: wire.id,
         start: {
           componentId: remapBoardId(wire.start.componentId),
