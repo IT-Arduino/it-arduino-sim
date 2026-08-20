@@ -308,7 +308,7 @@ ENV CCACHE_NOHASHDIR=1
 # runtime by the volume mount. ccache reads CCACHE_MAXSIZE / CCACHE_COMPRESS
 # / CCACHE_COMPRESSLEVEL on every invocation and they override any conf-file
 # value, so the cap actually applies at runtime.
-ENV CCACHE_MAXSIZE=8G
+ENV CCACHE_MAXSIZE=20G
 ENV CCACHE_COMPRESS=1
 ENV CCACHE_COMPRESSLEVEL=6
 RUN mkdir -p /var/cache/ccache /var/lib/velxio-build /root/Arduino

@@ -219,7 +219,13 @@ def _run_with_streaming(
 # coldest. Each variant is a full ESP-IDF build tree (~240 MB). Distinct
 # variants = distinct (board options x resolved library set). The global ccache
 # means an evicted-then-rebuilt variant warms up in seconds.
-_MAX_BUILD_VARIANTS = 12
+# Was 12. Each variant is a FULL ~1 GB build tree holding its own copies of
+# the same ESP-IDF component objects, so 46 of them had grown to 25 GB while
+# ccache - the cache that actually serves EVERY target and variant - sat
+# capped at 8 GB, permanently full (99.97%, 153 evictions, 47% hit rate).
+# Fewer trees, a bigger shared cache: a variant that gets evicted rebuilds
+# quickly FROM ccache, but a ccache miss recompiles from source.
+_MAX_BUILD_VARIANTS = 6
 
 
 def _evict_cold_variants(target_dir: Path, keep: int) -> None:
