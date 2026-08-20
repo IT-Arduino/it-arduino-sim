@@ -3038,10 +3038,17 @@ class ESPIDFCompiler:
             psram_chunks.append('CONFIG_SPIRAM_USE_MALLOC=y')
             psram_chunks.append('CONFIG_SPIRAM_MODE_HEX=y')
             psram_chunks.append('CONFIG_SPIRAM_SPEED_200M=y')
+            # The boot-time memory test walks the WHOLE 32 MB before app_main;
+            # on emulated silicon that is tens of millions of guest accesses of
+            # pure startup latency ("Disable this for slightly faster startup",
+            # Kconfig.spiram.common). The RAM is modelled, not physical - there
+            # is nothing to find.
+            psram_chunks.append('CONFIG_SPIRAM_MEMTEST=n')
         else:
             psram_chunks.append('CONFIG_SPIRAM=y')
             psram_chunks.append('CONFIG_SPIRAM_USE_MALLOC=y')
             psram_chunks.append('CONFIG_SPIRAM_SPEED_80M=y')
+            psram_chunks.append('CONFIG_SPIRAM_MEMTEST=n')  # see the P4 note
             if psram_mode == 'opi':
                 psram_chunks.append('CONFIG_SPIRAM_MODE_OCT=y')
             else:
