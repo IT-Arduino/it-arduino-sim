@@ -163,6 +163,13 @@ def _build_identity(board_fqbn: str) -> str:
     is the previous behaviour and never less strict than it needs to be for a
     board whose variant we could not read.
     """
+    # Only the ESP-IDF lane HAS a shared build dir (the predicate is the same
+    # one _run_compile routes on). An AVR / RP2040 / STM32 FQBN has no IDF
+    # target at all, and _idf_target defaults unknown boards to 'esp32' — so
+    # every non-ESP32 board used to collapse onto the `esp32::esp32` key and
+    # queue behind unrelated ESP32 builds for no reason.
+    if not board_fqbn.startswith("esp32:"):
+        return board_fqbn
     try:
         target = espidf_compiler._idf_target(board_fqbn)
         variant = espidf_compiler._arduino_variant(board_fqbn, target)

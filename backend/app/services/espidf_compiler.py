@@ -3967,6 +3967,11 @@ class ESPIDFCompiler:
             f'-DIDF_TARGET={idf_target}',
             '-DCMAKE_BUILD_TYPE=Release',
             f'-DSDKCONFIG_DEFAULTS={project_dir / "sdkconfig.defaults"}',
+            # IDF re-validates its python env on every configure (~1s of a
+            # ~9s configure). The image pins that env at build time and the
+            # entrypoint has already exercised it, so tell IDF it was checked
+            # externally - the same escape hatch idf.py uses for itself.
+            '-DPYTHON_DEPS_CHECKED=1',
             str(project_dir),
         ]
 
