@@ -2043,8 +2043,25 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
           const bridgeMpyWifi = (
             esp32Bridge as { micropythonWifiSupported?: boolean }
           ).micropythonWifiSupported;
-          const wifiOn =
-            (board.hasWifi ?? sketchUsesWifi(files)) && bridgeMpyWifi !== false;
+          // Does this run get the REAL network driver? Only one thing decides
+          // it now: whether the backend behind this board models the radio.
+          //
+          // It used to also require the sketch to look like a WiFi sketch,
+          // because without a NIC `network.WLAN(STA_IF)` hangs forever on
+          // status bits nothing sets, and the stub was the lesser evil. The
+          // QEMU worker attaches the radio unconditionally since #260 — the
+          // chip has one whether or not the sketch uses it — so that condition
+          // no longer describes anything real, and keeping it would put the
+          // stub in front of a working device whenever the scan misread the
+          // sketch. That is the #262 failure, from the other direction.
+          //
+          // Known gap, not introduced here: QEMU's S3 machine models no radio
+          // at all, so a MicroPython sketch that calls WLAN() on an S3 through
+          // the backend waits on a device that is not there. That was already
+          // true when this was gated on the sketch — such a sketch set hasWifi
+          // and took the real driver either way. A sketch that never imports
+          // network is unaffected, which is why this widening is safe.
+          const wifiOn = bridgeMpyWifi !== false;
 
           // WiFi compat shim: replace `network`, `ntptime`, `urequests`
           // with smart stubs BEFORE user main.py imports them.
@@ -2464,17 +2481,18 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
           }
           esp32Bridge.setSensors(sensors);
 
-          // Use WiFi flag set by the compiler (most reliable — avoids stale file group issues).
-          // Fall back to scanning the active file group if the flag hasn't been set yet.
-          let hasWifi = board.hasWifi;
-          if (hasWifi === undefined) {
-            const editorState = useEditorStore.getState();
-            const rawFiles = editorState.fileGroups[board.activeFileGroupId];
-            const boardFiles = rawFiles && rawFiles.length > 0 ? rawFiles : editorState.files;
-            // Shared with loadMicroPythonProgram's stub decision — the two
-            // must not disagree about whether a NIC exists.
-            hasWifi = sketchUsesWifi(boardFiles);
-          }
+          // Either signal saying "WiFi" is enough. The compiler's flag comes
+          // from the build that actually ran, which is why it is consulted at
+          // all; the source scan reads every file in the group, which the
+          // compiler's Arduino path did not until #260. Neither is authoritative
+          // alone, and an OR cannot be talked out of a true by a stale or
+          // narrower false — which is the direction that used to hurt.
+          const editorState = useEditorStore.getState();
+          const rawFiles = editorState.fileGroups[board.activeFileGroupId];
+          const boardFiles = rawFiles && rawFiles.length > 0 ? rawFiles : editorState.files;
+          // Shared with loadMicroPythonProgram's stub decision so the two
+          // cannot disagree about whether this sketch wants WiFi.
+          const hasWifi = (board.hasWifi ?? false) || sketchUsesWifi(boardFiles);
           esp32Bridge.wifiEnabled = hasWifi;
 
           // microSD — if a card is on the canvas, build a FAT16 image (project
