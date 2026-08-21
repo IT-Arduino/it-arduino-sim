@@ -2571,12 +2571,22 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         // Notify an attached PIO peripheral (the pro CYW43 WiFi co-processor)
         // that the simulation started, with the board's source files so it can
         // detect WiFi usage and open its network bridge. No-op in OSS.
-        if (rpSim instanceof RP2040Simulator) {
+        //
+        // Overlay boards carry the same peripheral: the Pimoroni Pico Plus 2 W
+        // and Badger 2350 have the RM2 (the same CYW43439 die) on an RP2350
+        // simulator, which is NOT an RP2040Simulator. Without this branch they
+        // associated to the local virtual AP but never got the network bridge
+        // opened, so real internet and the Pro custom-AP config never applied
+        // — WiFi that reached an IP and could reach nothing.
+        const pioSim = rpSim as
+          | (typeof rpSim & { getPioPeripheral?: () => { onSimulationStart?: (f: unknown[]) => void } | null })
+          | null;
+        if (typeof pioSim?.getPioPeripheral === 'function') {
           const editorState = useEditorStore.getState();
           const rawFiles = editorState.fileGroups[board.activeFileGroupId];
           const boardFiles =
             rawFiles && rawFiles.length > 0 ? rawFiles : editorState.files;
-          rpSim.getPioPeripheral()?.onSimulationStart?.(boardFiles);
+          pioSim.getPioPeripheral()?.onSimulationStart?.(boardFiles);
         }
       }
 
