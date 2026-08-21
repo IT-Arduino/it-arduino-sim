@@ -2013,37 +2013,20 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
         const b64 = uint8ArrayToBase64(padToFlashSize(firmware, board.boardKind));
         esp32Bridge.loadFirmware(b64);
 
-        // Queue code injection for after REPL boots. Multi-file projects:
-        // every .py file other than the entry point gets materialized to the
-        // MicroPython filesystem (via a prelude executed inside the same raw
-        // REPL paste) before main.py runs, so `import mylib` resolves.
-        // Without this, ESP32 projects with helper modules crashed at runtime
-        // with ModuleNotFoundError.
+        // Queue the project for after the REPL boots. Multi-file projects:
+        // every .py file other than the entry point is materialized onto the
+        // MicroPython filesystem before main runs, so `import mylib` resolves.
+        //
+        // They travel as FILES, not as source inlined into the program. Inlining
+        // is what issue #219 was: a 36 KB library became one Python string
+        // literal, so compiling it asked a PSRAM-less ESP32 for one contiguous
+        // 36 KB allocation and the board answered MemoryError. The bridge now
+        // writes each one in bounded steps — see simulation/micropythonSession.ts.
         const mainFile = files.find((f) => f.name === 'main.py') ?? files[0];
         if (mainFile) {
           const auxFiles = files.filter(
             (f) => f !== mainFile && f.name.endsWith('.py'),
           );
-          // A packaged module ("umqtt/simple.py" — how micropython-lib ships
-          // umqtt.simple) needs its directory created first: MicroPython's
-          // open() does not mkdir, so without this the prelude died with
-          // ENOENT before main.py ever ran.
-          const mkdirs = new Set<string>();
-          for (const f of auxFiles) {
-            const segs = f.name.split('/').slice(0, -1);
-            for (let i = 1; i <= segs.length; i++) mkdirs.add(segs.slice(0, i).join('/'));
-          }
-          const mkdirLines = [...mkdirs].sort().map(
-            (d) => `try:\n    __import__('os').mkdir(${JSON.stringify(d)})\nexcept OSError:\n    pass`,
-          );
-          const preludeLines = mkdirLines.concat(auxFiles.map((f) => {
-            // JSON.stringify produces an ASCII-safe Python-compatible
-            // string literal (both languages share the same \n \r \t \" \\
-            // escapes, and JSON does not emit any escape Python rejects).
-            const lit = JSON.stringify(f.content);
-            const path = JSON.stringify(f.name);
-            return `with open(${path},'w') as _f:\n    _f.write(${lit})`;
-          }));
 
           // Does this run get a real, WORKING network driver? Two gates:
           //  - the sketch must want WiFi (must match what startBoard()
@@ -2229,9 +2212,10 @@ export const useSimulatorStore = create<SimulatorState>((set, get) => {
             'sys.modules["requests"] = _StubURequests()',
           ].join('\n');
 
-          const prelude = wifiStub + '\n' +
-            (preludeLines.length ? preludeLines.join('\n') + '\n' : '');
-          esp32Bridge.setPendingMicroPythonCode(prelude + mainFile.content);
+          esp32Bridge.setPendingMicroPythonProgram({
+            files: auxFiles.map((f) => ({ name: f.name, content: f.content })),
+            main: wifiStub + '\n' + mainFile.content,
+          });
         }
       } else {
         // Browser-side firmware+filesystem path. Any simulator exposing
