@@ -41,7 +41,6 @@ import { useEditorStore } from './useEditorStore';
 import { fingerprintSources } from '../utils/sourceFingerprint';
 import { useVfsStore } from './useVfsStore';
 import { buildProjectSdImage, decodeSdFiles, bytesToB64 } from '../utils/sdCardFiles';
-import { boardPinToNumber, isBoardComponent } from '../utils/boardPinMapping';
 import {
   autoWireColor,
   DEFAULT_WIRE_COLOR,
@@ -344,6 +343,19 @@ class Esp32BridgeShim {
   registerSensor(type: string, pin: number, properties: Record<string, unknown>): boolean {
     this.bridge.sendSensorAttach(type, pin, properties);
     return true; // backend handles the protocol
+  }
+
+  /** Pins a backend-emulated single-wire sensor drives itself. The generic
+   *  seam connectDigitalInputsToMcu asks before thresholding a pin into the
+   *  guest — see simulation/partPinOwnership for the same rule on the part
+   *  side. Both exist because they know different halves: the part layer knows
+   *  what the canvas attached, the bridge knows what the worker was told. */
+  ownsPin(pin: number): boolean {
+    // Optional call on purpose: this shim wraps whichever bridge the build
+    // installed (the OSS QEMU one, or an overlay's in-browser engine), and a
+    // missing answer must degrade to "not owned", never to a TypeError thrown
+    // inside the SPICE subscription.
+    return this.bridge.ownsSensorPin?.(pin) ?? false;
   }
 
   /**

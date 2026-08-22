@@ -63,6 +63,12 @@ export function toQemuBoardType(kind: BoardKind): 'esp32' | 'esp32-s3' | 'esp32-
   return 'esp32'; // esp32, esp32-devkit-c-v4, esp32-cam, wemos-lolin32-lite
 }
 
+/** Sensor kinds whose model drives the pad itself for the whole exchange — a
+ *  DHT22's DATA line, an HC-SR04's TRIG/ECHO pair. Anything else registered
+ *  through the sensor channel (ePaper, keypad, I2C devices) leaves its GPIOs to
+ *  the host. */
+const SINGLE_WIRE_SENSOR_TYPES = new Set(['dht22', 'hc-sr04']);
+
 const API_BASE = (): string => {
   // The desktop shell injects the sidecar URL at runtime (random port) via
   // window.__VELXIO_API_BASE__; honor it first so the QEMU-board WebSocket
@@ -620,7 +626,14 @@ export class Esp32Bridge {
     for (const s of sensors) {
       const pin = s['pin'];
       const idx = merged.findIndex((e) => e['pin'] === pin);
-      if (idx >= 0) merged[idx] = s;
+      // FIELD-level merge, not object replacement. The two registration paths
+      // see different amounts: the part resolves the sensor's extra pins
+      // through the full wire walk, while the store's pre-registration knows
+      // the component's properties. Replacing the whole entry let the coarser
+      // one silently drop `echo_pin` — the QEMU worker then fell back to
+      // TRIG+1 and pulsed a pin nobody was reading (the 1k/2k2 divider
+      // report). Whoever writes last still wins per FIELD.
+      if (idx >= 0) merged[idx] = { ...merged[idx], ...s };
       else merged.push(s);
     }
     this._pendingSensors = merged;
@@ -667,8 +680,15 @@ export class Esp32Bridge {
    * and reply — pulseIn() then timed out forever while the worker was pulsing
    * the pin correctly. Same shape as the in-browser engines' ownsPin guard.
    */
-  private sensorOwnsPin(gpioPin: number): boolean {
+  ownsSensorPin(gpioPin: number): boolean {
     for (const s of this._pendingSensors) {
+      // ONLY the single-wire sensors own a pad. The same channel registers
+      // plenty of other things — an ePaper panel's DC/BUSY pins, a membrane
+      // keypad's rows, every I2C device on a virtual 200+addr pin — and those
+      // still need the host to drive their real GPIOs. Blocking those was the
+      // difference between this guard and the in-browser engines' narrow
+      // SingleWireSensorHub.ownsPin, which is the behaviour to match.
+      if (!SINGLE_WIRE_SENSOR_TYPES.has(String(s['sensor_type']))) continue;
       if (s['pin'] === gpioPin) return true;
       if (s['echo_pin'] === gpioPin) return true;
     }
@@ -677,7 +697,7 @@ export class Esp32Bridge {
 
   /** Drive a GPIO pin from an external source (e.g. connected Arduino) */
   sendPinEvent(gpioPin: number, state: boolean): void {
-    if (this.sensorOwnsPin(gpioPin)) return;
+    if (this.ownsSensorPin(gpioPin)) return;
     this._send({ type: 'esp32_gpio_in', data: { pin: gpioPin, state: state ? 1 : 0 } });
   }
 
