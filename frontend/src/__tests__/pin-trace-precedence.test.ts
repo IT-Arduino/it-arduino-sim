@@ -20,7 +20,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useSimulatorStore } from '../store/useSimulatorStore';
-import { traceDetailed } from '../simulation/PinTrace';
+import { traceDetailed, traceBoardGpio } from '../simulation/PinTrace';
 
 const BOARD = 'arduino-uno';
 
@@ -230,5 +230,27 @@ describe('cost of walking the net', () => {
     );
     expect(perDriven).toBeLessThan(3);
     expect(perRail).toBeLessThan(8);
+  });
+});
+
+describe('a net shared by two boards', () => {
+  it('answers each board its own pad', () => {
+    // One sensor line wired to a GPIO on BOTH boards. Whoever pre-registers
+    // the sensor for board B must learn B's pad, whatever order the wires
+    // were drawn in — the walk must not stop at A's pad and report "not on B".
+    useSimulatorStore.setState({ boards: [], components: [], wires: [] } as never);
+    useSimulatorStore.getState().addBoard('arduino-uno' as never, 0, 0, 'uno-a');
+    useSimulatorStore.getState().addBoard('esp32' as never, 0, 0, 'esp-b');
+    const s = useSimulatorStore.getState();
+    s.setComponents([]);
+    s.setWires([
+      wire('x1', ['sensor', 'ECHO'], ['uno-a', '7']),
+      wire('x2', ['sensor', 'ECHO'], ['esp-b', '19']),
+    ] as never);
+    const state = useSimulatorStore.getState();
+    expect(traceBoardGpio(state as never, 'sensor', 'ECHO', 'uno-a')).toBe(7);
+    expect(traceBoardGpio(state as never, 'sensor', 'ECHO', 'esp-b')).toBe(19);
+    // And a board the net never reaches is still "not here".
+    expect(traceBoardGpio(state as never, 'sensor', 'ECHO', 'nope')).toBeNull();
   });
 });

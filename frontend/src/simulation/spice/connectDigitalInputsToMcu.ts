@@ -98,10 +98,14 @@ export function connectDigitalInputsToMcu(): () => void {
         // user adds the pull-up or the level divider real hardware needs, the
         // net is component-backed and solves at whatever the passives say,
         // which is not what the part is driving.
-        // Nothing is cached for a skipped pin on purpose: the connector must
-        // stay free to emit the moment the part lets go of the line.
-        if (isPartOwnedPin(board.id, gpio)) continue;
-        if (sim.ownsPin?.(gpio)) continue; // a backend sensor drives this pad
+        if (isPartOwnedPin(board.id, gpio) || sim.ownsPin?.(gpio)) {
+          // Forget what we last pushed here. While the part drove the line the
+          // guest's level was whatever the part made it, so the moment the
+          // part lets go (rewire, unmount, detach) the next solve must emit
+          // even if the circuit happens to agree with our stale memory.
+          lastLevel.delete(`${board.id}:${gpio}`);
+          continue;
+        }
         // Only drive pins whose net is backed by a real source/element (rail,
         // pull, button switch, divider, cross-board output, …). A net that is
         // only floating (an event-driven part like a rotary encoder / keypad

@@ -66,8 +66,52 @@ export function toQemuBoardType(kind: BoardKind): 'esp32' | 'esp32-s3' | 'esp32-
 /** Sensor kinds whose model drives the pad itself for the whole exchange — a
  *  DHT22's DATA line, an HC-SR04's TRIG/ECHO pair. Anything else registered
  *  through the sensor channel (ePaper, keypad, I2C devices) leaves its GPIOs to
- *  the host. */
-const SINGLE_WIRE_SENSOR_TYPES = new Set(['dht22', 'hc-sr04']);
+ *  the host. Exported so an overlay engine answers the same question with the
+ *  same list instead of a copy that drifts. */
+export const SINGLE_WIRE_SENSOR_TYPES: ReadonlySet<string> = new Set(['dht22', 'hc-sr04']);
+
+/** True for a sensor record (`{ sensor_type, pin, ... }`) of a single-wire kind. */
+export function isSingleWireSensorRecord(rec: Record<string, unknown>): boolean {
+  return SINGLE_WIRE_SENSOR_TYPES.has(String(rec['sensor_type'] ?? ''));
+}
+
+/** Pads a single-wire sensor record owns: its data pin and any extra pin it
+ *  names (`echo_pin` for an HC-SR04). */
+export function sensorRecordOwnsPin(rec: Record<string, unknown>, gpioPin: number): boolean {
+  if (!isSingleWireSensorRecord(rec)) return false;
+  if (rec['pin'] === gpioPin) return true;
+  for (const [k, v] of Object.entries(rec)) {
+    if ((k.endsWith('_pin') || k.endsWith('Pin')) && v === gpioPin) return true;
+  }
+  return false;
+}
+
+/**
+ * Upsert sensor records by `pin` — the one merge every bridge uses.
+ *
+ * Same kind on the same pin merges per FIELD. Two registration paths describe
+ * one sensor knowing different halves: the part resolves its extra pins through
+ * the wire walk, the store's pre-registration knows the component's properties.
+ * Replacing the object let the coarser path silently drop `echo_pin`, and the
+ * QEMU worker then fell back to TRIG+1 and pulsed a pin nobody was reading
+ * (the 1k/2k2 divider report). Whoever writes last still wins per field.
+ *
+ * A DIFFERENT kind on the same pin replaces outright: a DHT22 swapped for an
+ * HC-SR04 must not inherit a stale `echo_pin` that ownsSensorPin would then
+ * keep guarding against the host.
+ */
+export function upsertSensorRecords(
+  existing: ReadonlyArray<Record<string, unknown>>,
+  incoming: ReadonlyArray<Record<string, unknown>>,
+): Array<Record<string, unknown>> {
+  const merged = existing.slice();
+  for (const s of incoming) {
+    const idx = merged.findIndex((e) => e['pin'] === s['pin']);
+    if (idx < 0) merged.push(s);
+    else merged[idx] = merged[idx]['sensor_type'] === s['sensor_type'] ? { ...merged[idx], ...s } : s;
+  }
+  return merged;
+}
 
 const API_BASE = (): string => {
   // The desktop shell injects the sidecar URL at runtime (random port) via
@@ -622,21 +666,7 @@ export class Esp32Bridge {
    * 5.65" UC8159c panel sat unresponsive while its firmware busy-waited.
    */
   setSensors(sensors: Array<Record<string, unknown>>): void {
-    const merged = this._pendingSensors.slice();
-    for (const s of sensors) {
-      const pin = s['pin'];
-      const idx = merged.findIndex((e) => e['pin'] === pin);
-      // FIELD-level merge, not object replacement. The two registration paths
-      // see different amounts: the part resolves the sensor's extra pins
-      // through the full wire walk, while the store's pre-registration knows
-      // the component's properties. Replacing the whole entry let the coarser
-      // one silently drop `echo_pin` — the QEMU worker then fell back to
-      // TRIG+1 and pulsed a pin nobody was reading (the 1k/2k2 divider
-      // report). Whoever writes last still wins per FIELD.
-      if (idx >= 0) merged[idx] = { ...merged[idx], ...s };
-      else merged.push(s);
-    }
-    this._pendingSensors = merged;
+    this._pendingSensors = upsertSensorRecords(this._pendingSensors, sensors);
   }
 
   /** Returns true if a firmware has been loaded and is ready to send. */
@@ -681,18 +711,13 @@ export class Esp32Bridge {
    * the pin correctly. Same shape as the in-browser engines' ownsPin guard.
    */
   ownsSensorPin(gpioPin: number): boolean {
-    for (const s of this._pendingSensors) {
-      // ONLY the single-wire sensors own a pad. The same channel registers
-      // plenty of other things — an ePaper panel's DC/BUSY pins, a membrane
-      // keypad's rows, every I2C device on a virtual 200+addr pin — and those
-      // still need the host to drive their real GPIOs. Blocking those was the
-      // difference between this guard and the in-browser engines' narrow
-      // SingleWireSensorHub.ownsPin, which is the behaviour to match.
-      if (!SINGLE_WIRE_SENSOR_TYPES.has(String(s['sensor_type']))) continue;
-      if (s['pin'] === gpioPin) return true;
-      if (s['echo_pin'] === gpioPin) return true;
-    }
-    return false;
+    // ONLY the single-wire sensors own a pad. The same channel registers plenty
+    // of other things — an ePaper panel's DC/BUSY pins, a membrane keypad's
+    // rows, every I2C device on a virtual 200+addr pin — and those still need
+    // the host to drive their real GPIOs. Blocking those was the difference
+    // between this guard and the in-browser engines' narrow
+    // SingleWireSensorHub.ownsPin, which is the behaviour to match.
+    return this._pendingSensors.some((s) => sensorRecordOwnsPin(s, gpioPin));
   }
 
   /** Drive a GPIO pin from an external source (e.g. connected Arduino) */
@@ -800,12 +825,7 @@ export class Esp32Bridge {
     // before the WebSocket opens (the common case when attachEvents fires
     // before the user clicks Run).
     const entry = { sensor_type: sensorType, pin, ...properties };
-    const existing = this._pendingSensors.findIndex((s) => s['pin'] === pin);
-    if (existing >= 0) {
-      this._pendingSensors[existing] = entry;
-    } else {
-      this._pendingSensors.push(entry);
-    }
+    this._pendingSensors = upsertSensorRecords(this._pendingSensors, [entry]);
     // Also send immediately if already connected (re-attach on hot reload)
     if (this._connected) {
       this._send({ type: 'esp32_sensor_attach', data: entry });

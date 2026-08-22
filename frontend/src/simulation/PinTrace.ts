@@ -271,18 +271,35 @@ export function traceDetailed(
   state: TraceState,
   fromId: string,
   fromPin: string,
-  depth: number,
+  depth = 0,
   activeSeen = false,
-  visited?: Map<string, number>,
 ): TraceResult {
-  // The ROOT call is the only one allowed to mint a chip-net / own-chip-pin
-  // fallback (see rule 5) — the guard `depth === 0` used to give that, and
-  // no longer can now that a node is collected rather than walked.
-  const isRoot = visited === undefined;
-  // Visits are recorded WITH their depth: a node first reached deep, where the
-  // hop budget cut its continuations short, must still be walkable when a
-  // shorter route arrives later.
-  const seen = visited ?? new Map<string, number>();
+  return walk(state, fromId, fromPin, depth, activeSeen, new Map(), true, undefined);
+}
+
+/**
+ * The recursion behind traceDetailed / traceBoardGpio.
+ *
+ *  - `seen` records each visit WITH its depth: a node first reached deep,
+ *    where the hop budget cut its continuations short, must still be walkable
+ *    when a shorter route arrives later.
+ *  - `isRoot` marks the outermost frame, the only one allowed to mint a
+ *    chip-net / own-chip-pin fallback (rule 5) — `depth === 0` used to say
+ *    that, and cannot now that a node is collected rather than walked.
+ *  - `preferBoard` breaks a tie between driven pads of DIFFERENT boards on one
+ *    node, so a caller asking about a specific board gets that board's pad
+ *    when the net reaches both (a sensor shared by two MCUs).
+ */
+function walk(
+  state: TraceState,
+  fromId: string,
+  fromPin: string,
+  depth: number,
+  activeSeen: boolean,
+  seen: Map<string, number>,
+  isRoot: boolean,
+  preferBoard: string | undefined,
+): TraceResult {
   const selfKey = pinKey(fromId, fromPin);
   const seenAt = seen.get(selfKey);
   if (seenAt !== undefined && seenAt <= depth) {
@@ -290,7 +307,7 @@ export function traceDetailed(
   }
   if (depth > MAX_HOPS) return { arduinoPin: null, crossedActiveDevice: activeSeen };
 
-  const node = collectNode(state, fromId, fromPin, seen, depth);
+  const node = collectNode(state, fromId, fromPin, seen, depth, preferBoard);
 
   // ── Rules 1 and 2: the pads on this node ─────────────────────────────────
   if (node.drivenHit) return { ...node.drivenHit, crossedActiveDevice: activeSeen };
@@ -306,7 +323,7 @@ export function traceDetailed(
     if (!pair || !p.comp) continue;
     const farPin = p.pinName === pair[0] ? pair[1] : pair[0];
     const nowActive = activeSeen || isActiveDevice(p.comp.metadataId);
-    const across = traceDetailed(state, p.comp.id, farPin, depth + 1, nowActive, seen);
+    const across = walk(state, p.comp.id, farPin, depth + 1, nowActive, seen, false, preferBoard);
     if (isBoardPin(across.arduinoPin)) return across;
     if (across.arduinoPin === RAIL) crossedRail ??= across;
     else if (across.arduinoPin !== null) chipHit ??= across;
@@ -359,11 +376,22 @@ function collectNode(
   fromPin: string,
   seen: Map<string, number>,
   depth: number,
+  preferBoard: string | undefined,
 ): NodeInfo {
   const pins: NodeInfo['pins'] = [];
   const boardHits: TraceResult[] = [];
+  // A driven pad of the preferred board ends collection at once; one of any
+  // other board is kept and only wins if the preferred board never shows up.
   let drivenHit: TraceResult | null = null;
   let chipPin: NodeInfo['chipPin'] = null;
+  const takeDriven = (hit: TraceResult): boolean => {
+    if (preferBoard === undefined || hit.boardId === preferBoard) {
+      drivenHit = hit;
+      return true;
+    }
+    drivenHit ??= hit;
+    return false;
+  };
   const local = new Set<string>();
   const queue: Array<{ componentId: string; pinName: string }> = [
     { componentId: fromId, pinName: fromPin },
@@ -391,8 +419,11 @@ function collectNode(
     const socket = traceThroughSocket(state, cur.componentId, cur.pinName);
     if (socket) {
       const hit = { arduinoPin: socket.pin, crossedActiveDevice: false, boardId: socket.boardId };
-      if (isBoardPin(socket.pin)) return { pins, boardHits, drivenHit: hit, chipPin };
-      boardHits.push(hit);
+      if (isBoardPin(socket.pin)) {
+        if (takeDriven(hit)) return { pins, boardHits, drivenHit, chipPin };
+      } else {
+        boardHits.push(hit);
+      }
     }
 
     // Breadboards join N holes per internal group (5-hole strip / power rail):
@@ -437,8 +468,11 @@ function collectNode(
           };
           // A driven pad ends the search for this node — and, on a big shared
           // rail, ends a walk of every leg hanging off it.
-          if (isBoardPin(pin)) return { pins, boardHits, drivenHit: hit, chipPin };
-          boardHits.push(hit);
+          if (isBoardPin(pin)) {
+            if (takeDriven(hit)) return { pins, boardHits, drivenHit, chipPin };
+          } else {
+            boardHits.push(hit);
+          }
         }
         continue;
       }
@@ -459,6 +493,11 @@ function collectNode(
  * supply pad, a custom-chip net, or nothing at all. This is the shape a caller
  * that wants to talk to REAL hardware wants: a rail and a synthetic chip pin
  * are both "not a GPIO on this board".
+ *
+ * `boardId` is a PREFERENCE the walk honours on the node, not just a filter on
+ * the way out: when one net reaches two boards' GPIOs (a sensor shared by two
+ * MCUs) the caller asking about board A gets A's pad, and only a net that
+ * truly never reaches A answers null for it.
  */
 export function traceBoardGpio(
   state: TraceState,
@@ -466,7 +505,7 @@ export function traceBoardGpio(
   pinName: string,
   boardId?: string,
 ): number | null {
-  const hit = traceDetailed(state, componentId, pinName, 0);
+  const hit = walk(state, componentId, pinName, 0, false, new Map(), true, boardId);
   if (hit.arduinoPin === null) return null;
   if (hit.arduinoPin < 0 || hit.arduinoPin >= SYNTHETIC_CHIP_PIN_BASE) return null;
   if (boardId !== undefined && hit.boardId !== undefined && hit.boardId !== boardId) return null;

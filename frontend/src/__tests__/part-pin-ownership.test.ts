@@ -108,3 +108,31 @@ describe('part pin ownership', () => {
     expect(wrapped.readValue()).toBe(7); // `this` is the target, not the proxy
   });
 });
+
+describe('sensor records on the ESP32 bridge', () => {
+  it('merges the two registration paths per field, same kind on the same pin', async () => {
+    const { upsertSensorRecords } = await import('../simulation/Esp32Bridge');
+    // The store knows the distance, the part knows the echo pin. Neither may
+    // erase what the other contributed.
+    const a = upsertSensorRecords([], [{ sensor_type: 'hc-sr04', pin: 21, echo_pin: 41 }]);
+    const b = upsertSensorRecords(a, [{ sensor_type: 'hc-sr04', pin: 21, distance: 30 }]);
+    expect(b).toEqual([{ sensor_type: 'hc-sr04', pin: 21, echo_pin: 41, distance: 30 }]);
+  });
+
+  it('replaces outright when a different kind lands on the pin', async () => {
+    const { upsertSensorRecords, sensorRecordOwnsPin } = await import('../simulation/Esp32Bridge');
+    const a = upsertSensorRecords([], [{ sensor_type: 'hc-sr04', pin: 4, echo_pin: 5 }]);
+    const b = upsertSensorRecords(a, [{ sensor_type: 'dht22', pin: 4, temperature: 22 }]);
+    expect(b).toEqual([{ sensor_type: 'dht22', pin: 4, temperature: 22 }]);
+    // ...so the old echo pin is handed back to the host, not guarded forever.
+    expect(sensorRecordOwnsPin(b[0], 5)).toBe(false);
+    expect(sensorRecordOwnsPin(b[0], 4)).toBe(true);
+  });
+
+  it('only single-wire kinds own pads', async () => {
+    const { sensorRecordOwnsPin } = await import('../simulation/Esp32Bridge');
+    // An ePaper panel registers real GPIOs too; the host must keep driving them.
+    expect(sensorRecordOwnsPin({ sensor_type: 'epaper-ssd168x', pin: 10, dc_pin: 9 }, 9)).toBe(false);
+    expect(sensorRecordOwnsPin({ sensor_type: 'hc-sr04', pin: 21, echo_pin: 41 }, 41)).toBe(true);
+  });
+});
