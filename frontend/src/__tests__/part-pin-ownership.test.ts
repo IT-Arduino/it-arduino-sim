@@ -136,3 +136,32 @@ describe('sensor records on the ESP32 bridge', () => {
     expect(sensorRecordOwnsPin({ sensor_type: 'hc-sr04', pin: 21, echo_pin: 41 }, 41)).toBe(true);
   });
 });
+
+describe('one declaration of the sensors whose model owns the line', () => {
+  it('the bridge, the store map and the type list all come from it', async () => {
+    const models = await import('../simulation/sensorModels');
+    const bridge = await import('../simulation/Esp32Bridge');
+    // The bridge re-exports rather than restating: same object identity.
+    expect(bridge.SINGLE_WIRE_SENSOR_TYPES).toBe(models.SINGLE_WIRE_SENSOR_TYPES);
+    expect(bridge.sensorRecordOwnsPin).toBe(models.sensorRecordOwnsPin);
+    // And the type set is derived from the wiring specs, not typed twice.
+    expect([...models.SINGLE_WIRE_SENSOR_TYPES].sort()).toEqual(
+      Object.values(models.SINGLE_WIRE_SENSOR_MODELS)
+        .map((m) => m.sensorType)
+        .sort(),
+    );
+  });
+
+  it('a new extra pin is owned by declaring it, with no other edit', async () => {
+    const { sensorRecordOwnsPin, SINGLE_WIRE_SENSOR_MODELS } = await import(
+      '../simulation/sensorModels'
+    );
+    // Ownership walks the fields the model DECLARES, so echo_pin is covered
+    // because hc-sr04 declares it — not because anything greps for "echo".
+    expect(SINGLE_WIRE_SENSOR_MODELS['hc-sr04'].extraPins).toEqual({ echo_pin: 'ECHO' });
+    expect(sensorRecordOwnsPin({ sensor_type: 'hc-sr04', pin: 21, echo_pin: 41 }, 41)).toBe(true);
+    // A field the model does NOT declare is not owned, even on a single-wire
+    // record — otherwise any stray *_pin property would silently take a pad.
+    expect(sensorRecordOwnsPin({ sensor_type: 'dht22', pin: 4, other_pin: 9 }, 9)).toBe(false);
+  });
+});

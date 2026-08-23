@@ -37,6 +37,7 @@
 import type { BoardKind } from '../types/board';
 import { MicroPythonSession, type MpyProgram } from './micropythonSession';
 import { getProBoard } from '../lib/proBoardRegistry';
+import { sensorRecordOwnsPin as recordOwnsPin } from './sensorModels';
 import { generateUUID } from '../utils/uuid';
 
 /**
@@ -61,29 +62,6 @@ export function toQemuBoardType(kind: BoardKind): 'esp32' | 'esp32-s3' | 'esp32-
   if (kind === 'esp32-c3' || kind === 'xiao-esp32-c3' || kind === 'aitewinrobot-esp32c3-supermini')
     return 'esp32-c3';
   return 'esp32'; // esp32, esp32-devkit-c-v4, esp32-cam, wemos-lolin32-lite
-}
-
-/** Sensor kinds whose model drives the pad itself for the whole exchange — a
- *  DHT22's DATA line, an HC-SR04's TRIG/ECHO pair. Anything else registered
- *  through the sensor channel (ePaper, keypad, I2C devices) leaves its GPIOs to
- *  the host. Exported so an overlay engine answers the same question with the
- *  same list instead of a copy that drifts. */
-export const SINGLE_WIRE_SENSOR_TYPES: ReadonlySet<string> = new Set(['dht22', 'hc-sr04']);
-
-/** True for a sensor record (`{ sensor_type, pin, ... }`) of a single-wire kind. */
-export function isSingleWireSensorRecord(rec: Record<string, unknown>): boolean {
-  return SINGLE_WIRE_SENSOR_TYPES.has(String(rec['sensor_type'] ?? ''));
-}
-
-/** Pads a single-wire sensor record owns: its data pin and any extra pin it
- *  names (`echo_pin` for an HC-SR04). */
-export function sensorRecordOwnsPin(rec: Record<string, unknown>, gpioPin: number): boolean {
-  if (!isSingleWireSensorRecord(rec)) return false;
-  if (rec['pin'] === gpioPin) return true;
-  for (const [k, v] of Object.entries(rec)) {
-    if ((k.endsWith('_pin') || k.endsWith('Pin')) && v === gpioPin) return true;
-  }
-  return false;
 }
 
 /**
@@ -112,6 +90,16 @@ export function upsertSensorRecords(
   }
   return merged;
 }
+
+// The sensors whose model owns its line are declared once, in sensorModels.
+// Re-exported here because this bridge is the import site the overlay engines
+// and the tests already use; the list itself lives with the wiring spec so it
+// cannot drift from what the store pre-registers.
+export {
+  SINGLE_WIRE_SENSOR_TYPES,
+  isSingleWireSensorRecord,
+  sensorRecordOwnsPin,
+} from './sensorModels';
 
 const API_BASE = (): string => {
   // The desktop shell injects the sidecar URL at runtime (random port) via
@@ -717,7 +705,7 @@ export class Esp32Bridge {
     // the host to drive their real GPIOs. Blocking those was the difference
     // between this guard and the in-browser engines' narrow
     // SingleWireSensorHub.ownsPin, which is the behaviour to match.
-    return this._pendingSensors.some((s) => sensorRecordOwnsPin(s, gpioPin));
+    return this._pendingSensors.some((s) => recordOwnsPin(s, gpioPin));
   }
 
   /** Drive a GPIO pin from an external source (e.g. connected Arduino) */

@@ -65,30 +65,16 @@ import {
   setInterconnectRuntime,
 } from '../simulation/Interconnect';
 import { SENSOR_CONTROLS, getSensorControl } from '../simulation/sensorControlConfig';
+import { SINGLE_WIRE_SENSOR_MODELS } from '../simulation/sensorModels';
 import { traceBoardGpio } from '../simulation/PinTrace';
 import { dispatchSensorUpdate } from '../simulation/SensorUpdateRegistry';
 
 // ── Sensor pre-registration ──────────────────────────────────────────────────
-// Maps component metadataId → { sensorType, dataPinName, propertyKeys }
-// Used to pre-register sensors in the start_esp32 payload so the QEMU worker
-// has them ready before the firmware starts executing (prevents race conditions).
-const SENSOR_COMPONENT_MAP: Record<
-  string,
-  {
-    sensorType: string;
-    dataPinName: string;
-    propertyKeys: string[];
-    extraPins?: Record<string, string>; // extra pin mappings: prop name → component pin name
-  }
-> = {
-  dht22: { sensorType: 'dht22', dataPinName: 'SDA', propertyKeys: ['temperature', 'humidity'] },
-  'hc-sr04': {
-    sensorType: 'hc-sr04',
-    dataPinName: 'TRIG',
-    propertyKeys: ['distance'],
-    extraPins: { echo_pin: 'ECHO' },
-  },
-};
+// Sensors whose model drives its own line (DHT22, HC-SR04) — declared once in
+// simulation/sensorModels, which the ESP32 bridge also reads to know which pads
+// the host must not touch. Used here to pre-register them in the start_esp32
+// payload so the worker has them before the firmware runs.
+const SENSOR_COMPONENT_MAP = SINGLE_WIRE_SENSOR_MODELS;
 
 // ── I2C sensor pre-registration ───────────────────────────────────────────────
 // I2C sensors use virtual pins (200 + i2c_addr) instead of real GPIO pins.
