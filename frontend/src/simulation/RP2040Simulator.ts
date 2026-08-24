@@ -138,11 +138,27 @@ export class IdleSpinDetector {
     const prev = this.prevPc;
     this.prevPc = pc;
     if (prev === -1) return false;
-    if (pc < this.loopLow) this.loopLow = pc;
-    if (pc > this.loopHigh) this.loopHigh = pc;
     this.sinceIter++;
 
-    if (pc < prev) {
+    // The common case by far — a step forward inside the same code — is
+    // handled here and returns, so the loop-close bookkeeping below runs only
+    // on a backward branch. This function is called once per emulated
+    // instruction; on a 165 M-instruction boot every field access in it is
+    // 165 M field accesses.
+    if (pc >= prev) {
+      if (pc > prev + this.maxStride) {
+        // Long forward jump (call / loop exit) — left the tight spin.
+        this.reset();
+      } else if (pc > this.loopHigh) {
+        this.loopHigh = pc;
+      }
+      return false;
+    }
+
+    // A backward branch is the loop's top, so it is also its lowest PC.
+    if (pc < this.loopLow) this.loopLow = pc;
+
+    {
       // Backward branch — one loop iteration just closed.
       const g = gpio();
       const iterLength = this.sinceIter;
@@ -186,10 +202,6 @@ export class IdleSpinDetector {
       return this.iters >= this.threshold;
     }
 
-    if (pc > prev + this.maxStride) {
-      // Long forward jump (call / loop exit) — left the tight spin.
-      this.reset();
-    }
     return false;
   }
 
