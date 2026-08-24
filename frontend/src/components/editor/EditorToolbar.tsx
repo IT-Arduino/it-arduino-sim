@@ -1073,7 +1073,7 @@ export const EditorToolbar = ({
         continue;
       }
 
-      const fqbn = BOARD_KIND_FQBN[board.boardKind];
+      const fqbn = fqbnForLanguage(board.boardKind, board.languageMode);
       if (!fqbn) {
         blog('error', 'no FQBN configured');
         boardFailed++;
