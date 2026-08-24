@@ -898,6 +898,17 @@ class ESPIDFCompiler:
         (r'esp_lcd_touch_cst816s\.h', 'espressif/esp_lcd_touch_cst816s', '*'),
         (r'esp_lcd_gc9a01\.h', 'espressif/esp_lcd_gc9a01', '*'),
         (r'esp_lcd_ek79007\.h', 'espressif/esp_lcd_ek79007', '*'),
+        # The building blocks Espressif's OWN board demos are made of — the
+        # C3-LCDkit knob_panel drives its WS2812 through led_strip and its
+        # EC11 through knob+button, the P4 devkit's panel is a GT911, and
+        # every audio demo on the VoCat/P4 goes through esp_codec_dev. A
+        # visitor pasting official example code hit "No such file or
+        # directory" on all four.
+        (r'led_strip\.h', 'espressif/led_strip', '*'),
+        (r'iot_button\.h', 'espressif/button', '*'),
+        (r'iot_knob\.h', 'espressif/knob', '*'),
+        (r'esp_lcd_touch_gt911\.h', 'espressif/esp_lcd_touch_gt911', '*'),
+        (r'esp_codec_dev\.h', 'espressif/esp_codec_dev', '*'),
     )
 
     def _detect_managed_components(self, code: str) -> dict:
