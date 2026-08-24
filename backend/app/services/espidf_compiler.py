@@ -909,6 +909,12 @@ class ESPIDFCompiler:
         (r'iot_knob\.h', 'espressif/knob', '*'),
         (r'esp_lcd_touch_gt911\.h', 'espressif/esp_lcd_touch_gt911', '*'),
         (r'esp_codec_dev\.h', 'espressif/esp_codec_dev', '*'),
+        # LVGL and its BSP glue: every official board demo's UI is built on
+        # them, so without these a visitor cannot paste a single screen of
+        # esp-dev-kits code. The dependency is only declared when the source
+        # includes the header, so nothing else pays for the bigger build.
+        (r'lvgl\.h', 'lvgl/lvgl', '*'),
+        (r'esp_lvgl_port\.h', 'espressif/esp_lvgl_port', '*'),
     )
 
     def _detect_managed_components(self, code: str) -> dict:

@@ -166,6 +166,8 @@ class ManagedComponentDetectionTests(unittest.TestCase):
             '#include "esp_lcd_st77916.h"': 'espressif/esp_lcd_st77916',
             '#include "esp_lcd_touch_cst816s.h"': 'espressif/esp_lcd_touch_cst816s',
             '#include "esp_lcd_ek79007.h"': 'espressif/esp_lcd_ek79007',
+            '#include "lvgl.h"': 'lvgl/lvgl',
+            '#include "esp_lvgl_port.h"': 'espressif/esp_lvgl_port',
         }
         for line, component in cases.items():
             with self.subTest(line=line):
