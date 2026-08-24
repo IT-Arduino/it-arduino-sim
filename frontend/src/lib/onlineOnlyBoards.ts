@@ -291,6 +291,34 @@ export interface OnlineOnlyComponentAd {
 
 export const ONLINE_ONLY_COMPONENT_ADS: OnlineOnlyComponentAd[] = [
   {
+    id: 'pro-scd41',
+    label: 'SCD41 CO2 Sensor',
+    description: 'Sensirion photoacoustic CO2 (400-5000 ppm) with temperature and humidity over I2C, live sliders while it runs - available in the online editor',
+    category: 'sensors',
+    thumbnailSvg: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><rect x='12' y='12' width='36' height='36' rx='4' fill='#12463a' stroke='#0b3129' stroke-width='1'/><rect x='18' y='20' width='24' height='16' rx='2' fill='#b9c2bd'/><text x='30' y='45' font-family='monospace' font-size='7' fill='#eaf3ea' text-anchor='middle'>SCD41</text></svg>",
+  },
+  {
+    id: 'pro-bme688',
+    label: 'BME688 Gas Sensor',
+    description: 'Bosch temperature, humidity, pressure and a heated gas plate, driven the way the Bosch API drives it - available in the online editor',
+    category: 'sensors',
+    thumbnailSvg: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><rect x='14' y='14' width='32' height='32' rx='3' fill='#5c3a12' stroke='#3f280c' stroke-width='1'/><rect x='23' y='22' width='14' height='14' rx='2' fill='#cfd3d9'/><text x='30' y='44' font-family='monospace' font-size='6' fill='#f2ece0' text-anchor='middle'>BME688</text></svg>",
+  },
+  {
+    id: 'pro-bme280',
+    label: 'BME280 Sensor',
+    description: 'Bosch temperature, humidity and pressure over I2C, with live sliders for all three readings - available in the online editor',
+    category: 'sensors',
+    thumbnailSvg: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><rect x='15' y='15' width='30' height='30' rx='3' fill='#1a1a1a' stroke='#555' stroke-width='1'/><text x='30' y='34' font-family='monospace' font-size='8' fill='#4fc3f7' text-anchor='middle'>BME280</text></svg>",
+  },
+  {
+    id: 'pro-encoder-wheel',
+    label: 'RGB Encoder Wheel',
+    description: 'Pimoroni\'s rotary wheel: 24 RGB LEDs, five switches, an IO expander and an IS31FL3731 modelled at register level - available in the online editor',
+    category: 'input',
+    thumbnailSvg: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'><circle cx='30' cy='30' r='26' fill='#1d2a33' stroke='#0f171d' stroke-width='1'/><circle cx='30' cy='30' r='19' fill='none' stroke='#26343e' stroke-width='6'/><circle cx='30' cy='11' r='2.6' fill='#ff5c5c'/><circle cx='43' cy='17' r='2.6' fill='#ffd35c'/><circle cx='49' cy='30' r='2.6' fill='#5cff8f'/><circle cx='43' cy='43' r='2.6' fill='#5cd8ff'/><circle cx='30' cy='49' r='2.6' fill='#7d5cff'/><circle cx='17' cy='43' r='2.6' fill='#ff5cf0'/><circle cx='11' cy='30' r='2.6' fill='#ff8f5c'/><circle cx='17' cy='17' r='2.6' fill='#b6ff5c'/><circle cx='30' cy='30' r='9' fill='#16212a' stroke='#0d141a' stroke-width='1'/></svg>",
+  },
+  {
     id: 'm5stack-chain-8x8',
     label: 'M5Stack Chain RGB Matrix (8\u00d78)',
     description: '64 RGB LEDs, daisy-chainable \u2014 in-browser emulation',
