@@ -3142,6 +3142,16 @@ class ESPIDFCompiler:
                 '\n# Velxio: esp32p4js runs the rev0 mask ROM\n'
                 'CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y\n'
                 'CONFIG_ESP32P4_REV_MIN_0=y\n'
+                # esp_hosted ships an interactive CLI (a REPL on the serial
+                # console) enabled by default. On a cloud-compiled sketch it
+                # is worse than useless: its "host>" prompt interleaves with
+                # the user's own serial output, and its console task polls a
+                # UART that in the emulator never blocks, pinning one HP core
+                # at priority 23 and defeating the engine's idle fast-forward
+                # (project/espressif-devkits-2026-08/STATUS.md, round
+                # 2026-08-25/26).
+                '# Velxio: no interactive REPL on a cloud-built sketch\n'
+                'CONFIG_ESP_HOSTED_CLI_ENABLED=n\n'
             )
         return rendered
 
