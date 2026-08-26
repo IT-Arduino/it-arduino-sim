@@ -2853,20 +2853,22 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                     pairing on velxio.dev). Empty in the OSS build. */}
                 <span data-velxio-slot="wifi-panel" />
 
-                {/* WiFi status indicator + IoT-gateway launcher (ESP32 + Pico W) */}
+                {/* WiFi status indicator + IoT-gateway launcher (ESP32 + Pico W).
+                    Renders from the moment a radio-capable board is active —
+                    before a Run it shows as disconnected, so the icon is a
+                    stable place to click (the overlay hangs its panel off it). */}
                 {activeBoard &&
                   (isEsp32Kind(activeBoard.boardKind) || activeBoard.boardKind === 'pi-pico-w') &&
-                  activeBoard.wifiStatus &&
                   (() => {
                     // The Pico W virtual net assigns its IP deterministically when
                     // the sketch connects; the bridge reports 'started' carrying the
                     // IP. Treat that as got_ip so the badge matches the ESP32 (green,
                     // clickable → the same /api/gateway proxy).
-                    const rawStatus = activeBoard.wifiStatus.status;
+                    const rawStatus = activeBoard.wifiStatus?.status ?? 'disconnected';
                     const status =
                       activeBoard.boardKind === 'pi-pico-w' &&
                       rawStatus === 'started' &&
-                      activeBoard.wifiStatus.ip
+                      activeBoard.wifiStatus?.ip
                         ? 'got_ip'
                         : rawStatus;
                     const hasIp = status === 'got_ip';
@@ -2878,6 +2880,16 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                     const gatewayUrl = `${backendBase}/gateway/${clientId}/`;
 
                     const openGateway = () => {
+                      // A private overlay can claim the click for its WiFi
+                      // panel (networks on the air, PCAP, local gateway); the
+                      // panel carries the gateway-open action forward. OSS
+                      // builds have no hook -> the badge behaves as always.
+                      const panel = (
+                        window as unknown as {
+                          __velxio_wifi_panel_toggle__?: () => boolean;
+                        }
+                      ).__velxio_wifi_panel_toggle__;
+                      if (panel && panel()) return;
                       if (!hasIp) return;
                       // A private overlay (velxio.dev) can install a synchronous
                       // gate to keep the IoT gateway behind a paid plan. When it
@@ -2907,13 +2919,13 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                     };
                     return (
                       <span
-                        className={`canvas-wifi-badge canvas-wifi-${status}${hasIp ? ' canvas-wifi-clickable' : ''}`}
+                        className={`canvas-wifi-badge canvas-wifi-${status}${hasIp || (window as unknown as { __velxio_wifi_panel_toggle__?: unknown }).__velxio_wifi_panel_toggle__ ? ' canvas-wifi-clickable' : ''}`}
                         onClick={openGateway}
                         title={
                           hasIp
-                            ? `WiFi: ${activeBoard.wifiStatus.ssid ?? 'Velxio-GUEST'} — IP: ${activeBoard.wifiStatus.ip}\nClick to open IoT Gateway ↗`
+                            ? `WiFi: ${activeBoard.wifiStatus?.ssid ?? 'Velxio-GUEST'} — IP: ${activeBoard.wifiStatus?.ip}\nClick to open IoT Gateway ↗`
                             : status === 'connected'
-                              ? `WiFi: ${activeBoard.wifiStatus.ssid ?? 'Velxio-GUEST'} — Connecting...`
+                              ? `WiFi: ${activeBoard.wifiStatus?.ssid ?? 'Velxio-GUEST'} — Connecting...`
                               : status === 'initializing'
                                 ? 'WiFi: Initializing...'
                                 : 'WiFi: Disconnected'
