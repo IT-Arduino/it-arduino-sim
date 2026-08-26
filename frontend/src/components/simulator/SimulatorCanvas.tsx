@@ -2879,18 +2879,27 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                       'http://localhost:8001/api';
                     const gatewayUrl = `${backendBase}/gateway/${clientId}/`;
 
-                    const openGateway = () => {
-                      // A private overlay can claim the click for its WiFi
-                      // panel (networks on the air, PCAP, local gateway); the
-                      // panel carries the gateway-open action forward. OSS
-                      // builds have no hook -> the badge behaves as always.
+                    const togglePanel = (): boolean => {
+                      // A private overlay can hang its WiFi panel (networks on
+                      // the air, PCAP, local gateway) off this badge. OSS
+                      // builds install no hook -> false, nothing happens.
                       const panel = (
                         window as unknown as {
                           __velxio_wifi_panel_toggle__?: () => boolean;
                         }
                       ).__velxio_wifi_panel_toggle__;
-                      if (panel && panel()) return;
-                      if (!hasIp) return;
+                      return !!panel && panel();
+                    };
+                    const openGateway = () => {
+                      // With an IP, a click opens the board's web server
+                      // DIRECTLY — the one-click flow users have muscle
+                      // memory for. The panel takes the click only while
+                      // there is nothing to open yet, and right-click
+                      // reaches it any time.
+                      if (!hasIp) {
+                        togglePanel();
+                        return;
+                      }
                       // A private overlay (velxio.dev) can install a synchronous
                       // gate to keep the IoT gateway behind a paid plan. When it
                       // returns true it has already handled the click (e.g. shown
@@ -2918,6 +2927,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                       }
                     };
                     return (
+                      <>
                       <span
                         className={`canvas-wifi-badge canvas-wifi-${status}${hasIp || (window as unknown as { __velxio_wifi_panel_toggle__?: unknown }).__velxio_wifi_panel_toggle__ ? ' canvas-wifi-clickable' : ''}`}
                         onClick={openGateway}
@@ -2947,6 +2957,28 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                           <circle cx="12" cy="20" r="1" />
                         </svg>
                       </span>
+                        {/* Split-button caret: the badge keeps its one-click
+                            gateway action; the caret is the WiFi panel's
+                            handle — always reachable, run or not. Rendered
+                            only when an overlay installed the panel hook, so
+                            the OSS build shows exactly what it always did. */}
+                        {(window as unknown as { __velxio_wifi_panel_toggle__?: unknown })
+                          .__velxio_wifi_panel_toggle__ ? (
+                          <span
+                            className={`canvas-wifi-badge canvas-wifi-${status} canvas-wifi-clickable`}
+                            style={{ marginLeft: -4, paddingLeft: 2, paddingRight: 4 }}
+                            title="WiFi panel"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePanel();
+                            }}
+                          >
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M6 9l6 6 6-6" />
+                            </svg>
+                          </span>
+                        ) : null}
+                      </>
                     );
                   })()}
 
