@@ -3569,9 +3569,15 @@ class ESPIDFCompiler:
         allowed_libraries: set[str] | None = None,
         owner_id: str | None = None,
         pure_idf: bool = False,
+        custom_wifi_ssids: list[str] | None = None,
     ) -> dict:
         """
         Compile Arduino sketch using ESP-IDF.
+
+        `custom_wifi_ssids` non-empty = the project carries its own access
+        point parts: the WiFi normalization below stands down entirely (no
+        SSID rewrite, no channel forcing) — the user's airspace is exactly
+        what they typed, typos included, which is now the truthful outcome.
 
         Returns dict compatible with ArduinoCLIService.compile():
             success, binary_content (base64), binary_type, stdout, stderr, error
@@ -3967,7 +3973,8 @@ class ESPIDFCompiler:
             # Normalization still rewrites only the entry sketch: it edits
             # string literals in place, and the SSID that matters is the one
             # WiFi.begin() is called with.
-            main_content = self._normalize_wifi_for_qemu(main_content)
+            if not custom_wifi_ssids:
+                main_content = self._normalize_wifi_for_qemu(main_content)
 
         # Arduino-as-component only when compile() decided so: the core must
         # support the target (esp32c6 needs an arduino-esp32 3.x core the
@@ -3996,7 +4003,8 @@ class ESPIDFCompiler:
                     continue
                 content = f.get('content', '')
                 if has_wifi:
-                    content = self._normalize_wifi_for_qemu_idf(content)
+                    if not custom_wifi_ssids:
+                        content = self._normalize_wifi_for_qemu_idf(content)
                 (main_dir / name).write_text(content, encoding='utf-8')
                 wrote_any = True
             if not wrote_any:
