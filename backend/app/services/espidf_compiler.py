@@ -3747,6 +3747,7 @@ class ESPIDFCompiler:
                         allowed_libraries=allowed, libraries_dir=scope_dir,
                         arduino_mode=arduino_mode, use_idf5=use_idf5,
                         pure_idf=pure_idf, board_fqbn=board_fqbn,
+                        custom_wifi_ssids=custom_wifi_ssids,
                     )
                 with tempfile.TemporaryDirectory(prefix='espidf_') as temp_dir:
                     project_dir = Path(temp_dir) / 'project'
@@ -3758,6 +3759,7 @@ class ESPIDFCompiler:
                         allowed_libraries=allowed, libraries_dir=scope_dir,
                         arduino_mode=arduino_mode, use_idf5=use_idf5,
                         pure_idf=pure_idf, board_fqbn=board_fqbn,
+                        custom_wifi_ssids=custom_wifi_ssids,
                     )
             finally:
                 if scope_dir is not None:
@@ -3828,6 +3830,7 @@ class ESPIDFCompiler:
         use_idf5: Optional[bool] = None,
         pure_idf: bool = False,
         board_fqbn: str | None = None,
+        custom_wifi_ssids: list[str] | None = None,
     ) -> dict:
         """Inner compile body: writes sketch + libs into `project_dir`,
         runs cmake + ninja, merges binaries. Caller is responsible for
