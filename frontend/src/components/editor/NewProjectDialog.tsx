@@ -256,12 +256,16 @@ export function buildStarterSections(defs: ProBoardDef[]): StarterSection[] {
     },
     // One card per ESP32 chip generation, XIAO variant preferred where
     // Seeed makes one: classic → DevKit V1, S3/C3 → XIAO, C6 → XIAO (overlay).
+    // The S3 Sense sits here next to its sibling — a separate Seeed section
+    // would repeat a brand this section already carries (operator call,
+    // 2026-08-28).
     {
       title: 'ESP32',
       entries: [
         oss('esp32'),
         oss('esp32-cam'),
         oss('xiao-esp32-s3'),
+        ...pro('xiao-esp32s3-sense'),
         oss('xiao-esp32-c3'),
         ...pro('xiao-esp32c6'),
       ],
@@ -272,10 +276,8 @@ export function buildStarterSections(defs: ProBoardDef[]): StarterSection[] {
     { title: 'M5Stack', entries: [...pro('cardputer-adv'), ...pro('m5stack-core')] },
     // Hardware partners (overlay kinds, same shape as M5Stack): each section
     // lists only the boards the overlay actually registered, so an OSS build
-    // and launch-embargoed items (e.g. the Espressif devkits pre-launch)
-    // simply render nothing. The XIAO S3/C3/C6 and XIAO RP2040 stay in the
-    // chip-family sections above as the generation representatives.
-    { title: 'Seeed Studio', entries: [...pro('xiao-esp32s3-sense')] },
+    // and launch-embargoed items simply render nothing. Seeed gets no section
+    // of its own — its boards live in the chip-family sections above.
     { title: 'DFRobot', entries: [...pro('unihiker-m10')] },
     {
       title: 'Pimoroni',

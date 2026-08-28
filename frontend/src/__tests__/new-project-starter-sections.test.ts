@@ -2,10 +2,11 @@
  * NewProjectDialog starter sections — display order and overlay cards.
  *
  * The dialog hardcodes its sections; overlay-registered kinds (M5Stack,
- * the partner sections, XIAO C6, XIAO RP2040) surface only when the private
- * overlay registered them. Guards the operator's requested order: the
- * partner sections (M5Stack, Seeed Studio, DFRobot, Pimoroni, Espressif)
- * sit between ESP32 and STM32, and an OSS build shows none of them empty.
+ * the partner sections, the XIAO overlay variants) surface only when the
+ * private overlay registered them. Guards the operator's requested order:
+ * the partner sections (M5Stack, DFRobot, Pimoroni, Espressif) sit between
+ * ESP32 and STM32, Seeed boards live inside the chip-family sections, and
+ * an OSS build shows no empty partner block.
  */
 import { describe, it, expect } from 'vitest';
 import { buildStarterSections } from '../components/editor/NewProjectDialog';
@@ -46,6 +47,16 @@ describe('NewProjectDialog starter sections', () => {
     expect(m5.entries[0].blurb).toBe('ESP32-S3 card computer');
   });
 
+  it('the S3 Sense joins the ESP32 section, not a section of its own', () => {
+    const secs = buildStarterSections([def('xiao-esp32s3-sense', 'XIAO ESP32-S3 Sense', 'x')]);
+    expect(secs.map((s) => s.title)).not.toContain('Seeed Studio');
+    const esp32 = secs.find((s) => s.title === 'ESP32')!;
+    expect(esp32.entries.map((e) => e.kind)).toContain('xiao-esp32s3-sense');
+    // Right after its sibling XIAO S3.
+    const kinds = esp32.entries.map((e) => e.kind);
+    expect(kinds.indexOf('xiao-esp32s3-sense')).toBe(kinds.indexOf('xiao-esp32-s3') + 1);
+  });
+
   it('full partner overlay: sections sit between M5Stack and STM32, catalog order', () => {
     const defs = [
       def('cardputer-adv', 'M5 Cardputer ADV', 'x'),
@@ -61,7 +72,6 @@ describe('NewProjectDialog starter sections', () => {
       'Arduino',
       'ESP32',
       'M5Stack',
-      'Seeed Studio',
       'DFRobot',
       'Pimoroni',
       'Espressif',
