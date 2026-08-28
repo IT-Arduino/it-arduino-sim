@@ -2,9 +2,10 @@
  * NewProjectDialog starter sections — display order and overlay cards.
  *
  * The dialog hardcodes its sections; overlay-registered kinds (M5Stack,
- * XIAO C6, XIAO RP2040) surface only when the private overlay registered
- * them. Guards the operator's requested order: M5Stack (Cardputer ADV, then
- * Core) sits ahead of STM32, and an OSS build shows no empty M5Stack block.
+ * the partner sections, XIAO C6, XIAO RP2040) surface only when the private
+ * overlay registered them. Guards the operator's requested order: the
+ * partner sections (M5Stack, Seeed Studio, DFRobot, Pimoroni, Espressif)
+ * sit between ESP32 and STM32, and an OSS build shows none of them empty.
  */
 import { describe, it, expect } from 'vitest';
 import { buildStarterSections } from '../components/editor/NewProjectDialog';
@@ -43,6 +44,45 @@ describe('NewProjectDialog starter sections', () => {
     expect(m5.entries.map((e) => e.kind)).toEqual(['cardputer-adv', 'm5stack-core']);
     // Card blurb comes from the registered definition, not a hardcoded string.
     expect(m5.entries[0].blurb).toBe('ESP32-S3 card computer');
+  });
+
+  it('full partner overlay: sections sit between M5Stack and STM32, catalog order', () => {
+    const defs = [
+      def('cardputer-adv', 'M5 Cardputer ADV', 'x'),
+      def('m5stack-core', 'M5Stack Core', 'x'),
+      def('xiao-esp32s3-sense', 'XIAO ESP32-S3 Sense', 'x'),
+      def('unihiker-m10', 'UNIHIKER M10', 'x'),
+      def('pimoroni-pico-plus-2w', 'Pico Plus 2 W', 'x'),
+      def('badger-2350', 'Badger 2350', 'x'),
+      def('stellar-unicorn', 'Stellar Unicorn', 'x'),
+      def('esp32-c3-lcdkit', 'ESP32-C3-LCDkit', 'x'),
+    ];
+    expect(titles(defs)).toEqual([
+      'Arduino',
+      'ESP32',
+      'M5Stack',
+      'Seeed Studio',
+      'DFRobot',
+      'Pimoroni',
+      'Espressif',
+      'STM32',
+      'Raspberry Pi',
+    ]);
+    const pim = buildStarterSections(defs).find((s) => s.title === 'Pimoroni')!;
+    expect(pim.entries.map((e) => e.kind)).toEqual([
+      'pimoroni-pico-plus-2w',
+      'badger-2350',
+      'stellar-unicorn',
+    ]);
+  });
+
+  it('embargoed partner boards (not registered) leave their section unrendered', () => {
+    // Pimoroni launched, Espressif still under embargo: no Espressif block.
+    const defs = [
+      def('pimoroni-pico-plus-2w', 'Pico Plus 2 W', 'x'),
+      def('badger-2350', 'Badger 2350', 'x'),
+    ];
+    expect(titles(defs)).toEqual(['Arduino', 'ESP32', 'Pimoroni', 'STM32', 'Raspberry Pi']);
   });
 
   it('a partial overlay (only one M5 kind) still renders the section with that card', () => {

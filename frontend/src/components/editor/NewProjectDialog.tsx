@@ -156,6 +156,21 @@ const PREFERRED_BLINK_EXAMPLE: Record<string, string> = {
   // is the first run. Both ids carry a captured gallery thumb.
   'cardputer-adv': 'cardputer-adv-hello',
   'm5stack-core': 'm5stack-core-m5-helloworld',
+  // Partner boards (overlay kinds), one representative first-run each. The
+  // Stellar/Badger entries are REQUIRED, not just preferred: their gallery
+  // examples use `boards[]` + boardFilter, which the generic single-board
+  // search above never matches.
+  'xiao-esp32s3-sense': 'xiao-esp32s3-sense-hello',
+  'unihiker-m10': 'unihiker-blink-p2',
+  'pimoroni-pico-plus-2w': 'pimoroni-pico-plus-2w-blink',
+  'badger-2350': 'badger-2350-badgeos',
+  'stellar-unicorn': 'stellar-unicorn-rainbow',
+  // Espressif devkits — launch-embargoed; cards appear when the boards do.
+  'esp32-c3-lcdkit': 'esp32-c3-lcdkit-knob-dial',
+  'esp32-s3-eye': 'esp32-s3-eye-camera-lcd',
+  'esp-vocat': 'esp-vocat-face',
+  'esp-sensairshuttle': 'esp-sensair-lcd-dash',
+  'esp32-p4': 'esp32-p4-blink',
 };
 
 /** Dynamic import keeps the (large) gallery data out of the editor bundle
@@ -255,6 +270,31 @@ export function buildStarterSections(defs: ProBoardDef[]): StarterSection[] {
     // they run on Free and are a friendlier first pick than the Pro-gated
     // STM32 family. Cardputer first, then the Core.
     { title: 'M5Stack', entries: [...pro('cardputer-adv'), ...pro('m5stack-core')] },
+    // Hardware partners (overlay kinds, same shape as M5Stack): each section
+    // lists only the boards the overlay actually registered, so an OSS build
+    // and launch-embargoed items (e.g. the Espressif devkits pre-launch)
+    // simply render nothing. The XIAO S3/C3/C6 and XIAO RP2040 stay in the
+    // chip-family sections above as the generation representatives.
+    { title: 'Seeed Studio', entries: [...pro('xiao-esp32s3-sense')] },
+    { title: 'DFRobot', entries: [...pro('unihiker-m10')] },
+    {
+      title: 'Pimoroni',
+      entries: [
+        ...pro('pimoroni-pico-plus-2w'),
+        ...pro('badger-2350'),
+        ...pro('stellar-unicorn'),
+      ],
+    },
+    {
+      title: 'Espressif',
+      entries: [
+        ...pro('esp32-c3-lcdkit'),
+        ...pro('esp32-s3-eye'),
+        ...pro('esp-vocat'),
+        ...pro('esp32-p4'),
+        ...pro('esp-sensairshuttle'),
+      ],
+    },
     { title: 'STM32', entries: STM32_BOARDS.map(oss) },
     {
       title: 'Raspberry Pi',
