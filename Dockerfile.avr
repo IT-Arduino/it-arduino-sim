@@ -135,4 +135,10 @@ VOLUME ["/app/data", "/root/.arduino15", "/root/Arduino"]
 
 EXPOSE 80
 
+# Without this, Python block-buffers stdout when it is a pipe, so `docker logs`
+# flushes a whole build's print() output and uvicorn's access lines together
+# under one timestamp. That makes the log useless for telling apart "the client
+# stopped polling" from "the polls are still sitting in the buffer".
+ENV PYTHONUNBUFFERED=1
+
 CMD ["/app/entrypoint.sh"]
