@@ -146,28 +146,36 @@ export const EditorMenuBar: React.FC = () => {
     {
       kind: 'command',
       id: 'project.exportBom',
+      // No PRO pill: this fork implements the export itself (handleExportBom in
+      // EditorToolbar) and charges nothing for it.
       label: t('editor.toolbar.exportBomLabel', 'Bill of Materials (CSV)'),
-      pro: true,
     },
     {
       kind: 'command',
       id: 'project.exportScreenshot',
+      // Same — handleExportScreenshot renders the PNG locally.
       label: t('editor.toolbar.exportScreenshotLabel', 'Schematic image (PNG)'),
-      pro: true,
     },
     { kind: 'separator' },
-    // The toolbar's "..." menu folded in here — same actions, same PRO
-    // pills, one button fewer in the strip.
+    // The toolbar's "..." menu folded in here — same actions, one button fewer
+    // in the strip.
+    //
+    // Share, Sync to GitHub and Record only ever dispatched a window event for
+    // the pro overlay to catch. Nothing in this fork listens, so they are marked
+    // optional and no handler is registered: the filter below drops the rows
+    // instead of leaving buttons that swallow a click in silence.
     {
       kind: 'command',
       id: 'project.share',
       label: t('editor.toolbar.shareLabel', 'Share / Embed'),
+      optional: true,
     },
     {
       kind: 'command',
       id: 'project.githubSync',
       label: t('editor.toolbar.githubSyncLabel', 'Sync to GitHub'),
       pro: true,
+      optional: true,
     },
     {
       kind: 'command',
@@ -188,6 +196,7 @@ export const EditorMenuBar: React.FC = () => {
       id: 'sim.record',
       label: t('editor.toolbar.recordLabel', 'Record simulation'),
       pro: true,
+      optional: true,
     },
   ];
 

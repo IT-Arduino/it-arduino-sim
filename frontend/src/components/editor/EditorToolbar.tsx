@@ -1536,27 +1536,11 @@ export const EditorToolbar = ({
     bom: () => void handleExportBom(),
     screenshot: () => void handleExportScreenshot(),
     firmware: () => firmwareInputRef.current?.click(),
-    // Pro actions fire the same window events the old "..." menu items
-    // fired; without the overlay they are silent no-ops, which is fine —
-    // OSS builds cannot have linked repos or shared projects anyway.
-    share: () =>
-      window.dispatchEvent(
-        new CustomEvent('velxio-pro-share-prompt', {
-          detail: { projectId: currentProject?.id ?? null },
-        }),
-      ),
-    githubSync: () =>
-      window.dispatchEvent(
-        new CustomEvent('velxio-pro-github-sync-prompt', {
-          detail: { projectId: currentProject?.id ?? null },
-        }),
-      ),
-    record: () =>
-      window.dispatchEvent(
-        new CustomEvent('velxio-pro-replay-record-toggle', {
-          detail: { projectId: currentProject?.id ?? null },
-        }),
-      ),
+    // Share / Sync to GitHub / Record used to dispatch velxio-pro-* window
+    // events for the pro overlay to catch. Nothing in this fork listens, so the
+    // handlers are gone and those commands stay unregistered - EditorMenuBar
+    // marks the rows `optional` and drops them, rather than showing buttons that
+    // swallow the click. Re-add both halves together if an overlay ever lands.
     compile: () => void handleCompile(),
     run: () => void handleRun(),
     stop: () => handleStop(),
@@ -1572,9 +1556,6 @@ export const EditorToolbar = ({
       registerEditorCommand('project.exportBom', () => menuCommandsRef.current.bom()),
       registerEditorCommand('project.exportScreenshot', () => menuCommandsRef.current.screenshot()),
       registerEditorCommand('firmware.upload', () => menuCommandsRef.current.firmware()),
-      registerEditorCommand('project.share', () => menuCommandsRef.current.share()),
-      registerEditorCommand('project.githubSync', () => menuCommandsRef.current.githubSync()),
-      registerEditorCommand('sim.record', () => menuCommandsRef.current.record()),
       registerEditorCommand('sim.compile', () => menuCommandsRef.current.compile()),
       registerEditorCommand('sim.run', () => menuCommandsRef.current.run()),
       registerEditorCommand('sim.stop', () => menuCommandsRef.current.stop()),
