@@ -61,16 +61,41 @@ import { showConfirmDialog } from '../../store/useMessageDialogStore';
 // dialog file can eventually retire without orphaning them.
 import './ComponentPropertyDialog.css';
 import './PartInspectorDialog.css';
+import { propertyLabelRu } from '../../lib/componentPropertiesRu';
+import { categoryLabelRu } from '../../lib/componentNamesRu';
+
+/**
+ * Свойство логическое — включено или выключено.
+ *
+ * В метаданных апстрима это записано двумя способами, и оба приходится
+ * учитывать: у пятидесяти четырёх свойств стоит `control: "text"` при
+ * логическом `defaultValue` (тип при этом объявлен строкой — несогласованность
+ * апстрима), и лишь у одного, `include_flyback`, честный `control: "boolean"`.
+ *
+ * Первые показывались текстовым полем: ученик видел слово `true` и должен был
+ * вписать `false` без единой подсказки, что писать. Второе не редактировалось
+ * вовсе — `control: "boolean"` в isEditable не входил.
+ */
+function isBooleanProp(prop: any): boolean {
+  return prop.control === 'boolean' || typeof prop.defaultValue === 'boolean';
+}
 
 function isEditable(prop: any): boolean {
+  if (isBooleanProp(prop)) return true;
   if (prop.control === 'select' && prop.options) return true;
   if (prop.control === 'text' || prop.control === 'number') return true;
   return false;
 }
 
-/** "input" -> "Input" — the picker formats categories for display; match it. */
+/**
+ * Подпись категории.
+ *
+ * Апстрим просто поднимал первую букву: `boards` показывалось как `Boards`.
+ * Берём русскую подпись из общей таблицы форка — той же, по которой подписаны
+ * категории в окне выбора деталей, чтобы значок здесь и фильтр там совпадали.
+ */
 function displayCategory(cat: string): string {
-  return cat ? cat.charAt(0).toUpperCase() + cat.slice(1) : cat;
+  return categoryLabelRu(cat);
 }
 
 /**
@@ -324,9 +349,7 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
       // crowd past the art width; as side columns the labels stack
       // vertically, where the taller art box has room.
       const rotate = w > h * 1.25 && pins.length >= 40;
-      const layoutPins = rotate
-        ? pins.map((p) => ({ ...p, x: h - p.y, y: p.x }))
-        : pins;
+      const layoutPins = rotate ? pins.map((p) => ({ ...p, x: h - p.y, y: p.x })) : pins;
       const natural = rotate ? { width: h, height: w } : { width: w, height: h };
       const result = layoutInspectorPins(layoutPins, natural, {
         maxArtWidth: PINS_ART,
@@ -496,11 +519,13 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
           <span className="pid-badges">
             <span className="pid-cat">{panelData.category}</span>
             {componentMetadata.pro_only && <span className="pid-pro">PRO</span>}
+            {/* «Выводов: 8», как в подсказке списка компонентов: склонять
+                «вывод / вывода / выводов» ради значка незачем. */}
             {componentMetadata.pinCount > 0 && (
-              <span className="pid-pins-badge">{componentMetadata.pinCount} pins</span>
+              <span className="pid-pins-badge">Выводов: {componentMetadata.pinCount}</span>
             )}
           </span>
-          {doc?.brand && <span className="pid-brand">by {doc.brand}</span>}
+          {doc?.brand && <span className="pid-brand">от {doc.brand}</span>}
         </div>
         <button className="pid-close" onClick={onClose} title={t('editor.componentProps.close')}>
           ×
@@ -528,7 +553,10 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
             />
             {previewFailed && !svgThumb && <div className="pid-preview-missing">—</div>}
             {previewFailed && svgThumb && (
-              <div className="pid-preview-fallback" dangerouslySetInnerHTML={{ __html: svgThumb }} />
+              <div
+                className="pid-preview-fallback"
+                dangerouslySetInnerHTML={{ __html: svgThumb }}
+              />
             )}
 
             {/* Pin markers + labels, at their true positions. */}
@@ -597,7 +625,6 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
                   : t('editor.componentProps.pinRoles')}
             </div>
           )}
-
         </div>
 
         {/* Right column: tabs. */}
@@ -638,10 +665,41 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
               {/* Editable properties (select / text / number) */}
               {editableProps.map((prop: any) => {
                 const current = String(componentProperties[prop.name] ?? prop.defaultValue ?? '');
+
+                // Логические — флажком. Проверка стоит ПЕРЕД select и text:
+                // у большинства таких свойств в метаданных control === 'text',
+                // и без этой ветки они снова стали бы полем ввода.
+                if (isBooleanProp(prop)) {
+                  return (
+                    <div key={prop.name} className="pid-row">
+                      <label className="pid-row-label" htmlFor={`pid-${componentId}-${prop.name}`}>
+                        {propertyLabelRu(prop, componentMetadata.id)}
+                      </label>
+                      <input
+                        id={`pid-${componentId}-${prop.name}`}
+                        type="checkbox"
+                        className="pid-checkbox"
+                        checked={current === 'true'}
+                        onChange={(e) =>
+                          // Строка, а не булево: DynamicComponent приводит
+                          // значение сравнением value === 'true'.
+                          onPropertyChange?.(
+                            componentId,
+                            prop.name,
+                            e.target.checked ? 'true' : 'false',
+                          )
+                        }
+                      />
+                    </div>
+                  );
+                }
+
                 if (prop.control === 'select' && prop.options) {
                   return (
                     <div key={prop.name} className="pid-row">
-                      <label className="pid-row-label">{prop.description || prop.name}</label>
+                      <label className="pid-row-label">
+                        {propertyLabelRu(prop, componentMetadata.id)}
+                      </label>
                       <select
                         className="pid-select"
                         value={current}
@@ -658,7 +716,9 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
                 }
                 return (
                   <div key={prop.name} className="pid-row">
-                    <label className="pid-row-label">{prop.description || prop.name}</label>
+                    <label className="pid-row-label">
+                      {propertyLabelRu(prop, componentMetadata.id)}
+                    </label>
                     <input
                       type={prop.control === 'number' ? 'number' : 'text'}
                       className="pid-input"
@@ -673,7 +733,9 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
               {isKeyBindable(componentMetadata.id) && (
                 <div className="pid-keybind">
                   <div className="pid-row">
-                    <label className="pid-row-label">{t('editor.componentProps.keyboardKey')}</label>
+                    <label className="pid-row-label">
+                      {t('editor.componentProps.keyboardKey')}
+                    </label>
                     <div className="keybind-controls">
                       <button
                         type="button"
@@ -736,9 +798,7 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
                   is never disturbed. */}
               {partExamples.length > 0 && (
                 <div className="pid-examples">
-                  <div className="pid-examples-title">
-                    {t('editor.inspector.examplesTitle')}
-                  </div>
+                  <div className="pid-examples-title">{t('editor.inspector.examplesTitle')}</div>
                   {partExamples.slice(0, 8).map((ex) => (
                     <a
                       key={ex.id}
@@ -777,72 +837,70 @@ export const PartInspectorDialog: React.FC<PartInspectorDialogProps> = ({
         </div>
       </div>
 
-        <div className="pid-actions">
-          {/* Boards pass no onRotate (they do not rotate); they pass
+      <div className="pid-actions">
+        {/* Boards pass no onRotate (they do not rotate); they pass
               Board Options / Flash as extraActions instead. */}
-          {onRotate && (
-            <button
-              className="pid-action-button"
-              onClick={() => onRotate(componentId)}
-              title={t('editor.componentProps.rotate90')}
-            >
-              {t('editor.componentProps.rotate')}
-            </button>
-          )}
-          {extraActions?.map((a) => (
-            <button
-              key={a.id}
-              className="pid-action-button"
-              onClick={a.disabled ? undefined : a.onSelect}
-              disabled={a.disabled}
-              title={a.title}
-            >
-              {a.label}
-            </button>
-          ))}
+        {onRotate && (
           <button
-            className="pid-action-button pid-action-delete"
-            onClick={handleDeleteClick}
-            title={t('editor.componentProps.deleteTitle')}
+            className="pid-action-button"
+            onClick={() => onRotate(componentId)}
+            title={t('editor.componentProps.rotate90')}
           >
-            {deleteLabel ?? t('editor.componentProps.delete')}
+            {t('editor.componentProps.rotate')}
           </button>
+        )}
+        {extraActions?.map((a) => (
+          <button
+            key={a.id}
+            className="pid-action-button"
+            onClick={a.disabled ? undefined : a.onSelect}
+            disabled={a.disabled}
+            title={a.title}
+          >
+            {a.label}
+          </button>
+        ))}
+        <button
+          className="pid-action-button pid-action-delete"
+          onClick={handleDeleteClick}
+          title={t('editor.componentProps.deleteTitle')}
+        >
+          {deleteLabel ?? t('editor.componentProps.delete')}
+        </button>
 
-          {/* Buy lives here, right-aligned, so it is reachable from BOTH
+        {/* Buy lives here, right-aligned, so it is reachable from BOTH
               tabs — it used to sit at the end of the datasheet body, which
               meant scrolling to the bottom of the right tab to find it. */}
-          {buyHref && (
-            <div className="pid-actions-right">
-              <a
-                className="pid-buy-button"
-                href={productPageHref(buyHref, componentMetadata.id)}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={buyHref}
-                onClick={() =>
-                  trackProductPageClick(componentMetadata.id, doc?.brand, buyHref)
-                }
+        {buyHref && (
+          <div className="pid-actions-right">
+            <a
+              className="pid-buy-button"
+              href={productPageHref(buyHref, componentMetadata.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={buyHref}
+              onClick={() => trackProductPageClick(componentMetadata.id, doc?.brand, buyHref)}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
               >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                  <polyline points="15 3 21 3 21 9" />
-                  <line x1="10" y1="14" x2="21" y2="3" />
-                </svg>
-                {t('editor.inspector.productPage')}
-              </a>
-            </div>
-          )}
-        </div>
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+              {t('editor.inspector.productPage')}
+            </a>
+          </div>
+        )}
+      </div>
     </div>,
     document.body,
   );

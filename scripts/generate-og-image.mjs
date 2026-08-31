@@ -32,9 +32,19 @@ const { Resvg } = await ensureDep('@resvg/resvg-js');
 const svgPath = join(PUBLIC, 'og-image.svg');
 const svgSrc  = readFileSync(svgPath);
 
+// loadSystemFonts was `false` upstream, with no fontFiles to make up for it.
+// resvg's font database was therefore EMPTY and every <text> in the SVG got
+// dropped silently — the generated og-image.png carried the shapes and no
+// words at all. Loading system fonts is what makes the card readable.
+//
+// The SVG asks for Rubik first and falls back through Segoe UI (Windows) and
+// DejaVu Sans (most Linux images); all three carry Cyrillic. defaultFontFamily
+// catches anything the stack misses. This script is run by hand when the
+// artwork changes — it is not part of the Docker build — so depending on the
+// operator's installed fonts is acceptable here.
 const resvg = new Resvg(svgSrc, {
   fitTo: { mode: 'width', value: 1200 },
-  font:  { loadSystemFonts: false },
+  font: { loadSystemFonts: true, defaultFontFamily: 'Segoe UI' },
 });
 
 const pngData   = resvg.render();

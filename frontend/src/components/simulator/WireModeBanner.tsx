@@ -58,7 +58,7 @@ export const WireModeBanner: React.FC<WireModeBannerProps> = ({ message, onCance
     <div ref={containerRef} className="wire-mode-banner" style={{ touchAction: 'none' }}>
       <span>{message}</span>
       <button ref={buttonRef} type="button" onClick={onCancel}>
-        Cancel
+        Отмена
       </button>
     </div>
   );

@@ -13,7 +13,8 @@ import {
   type ExampleProject,
 } from '../../data/examples';
 import { subscribeProBoards, getProBoardsVersion } from '../../lib/proBoardRegistry';
-import { BOARD_KIND_LABELS } from '../../types/board';
+import { BOARD_KIND_LABELS, isKnownBoardKind } from '../../types/board';
+import { isAllowedBoardKind } from '../../lib/boardAllowlist';
 import { ExampleThumbnail } from './ExampleThumbnail';
 import './ExamplesGallery.css';
 
@@ -32,7 +33,7 @@ interface BoardTab {
 
 const BOARD_TABS: BoardTab[] = [
   { id: 'all', label: 'All', color: '#ffffff', bg: '#444444' },
-  { id: 'retro', label: 'Retro', color: '#1a1a1a', bg: '#e0a82e' },
+  { id: 'retro', label: 'Ретро', color: '#1a1a1a', bg: '#e0a82e' },
   { id: 'arduino-uno', label: 'Arduino Uno', color: '#ffffff', bg: '#007acc' },
   { id: 'arduino-nano', label: 'Arduino Nano', color: '#ffffff', bg: '#0055aa' },
   { id: 'arduino-mega', label: 'Arduino Mega', color: '#ffffff', bg: '#003388' },
@@ -45,9 +46,9 @@ const BOARD_TABS: BoardTab[] = [
   { id: 'stm32-bluepill', label: 'STM32 Blue Pill', color: '#ffffff', bg: '#0a7ea4' },
   { id: 'stm32-blackpill', label: 'STM32 Black Pill', color: '#ffffff', bg: '#2d3436' },
   { id: 'attiny85', label: 'ATtiny85', color: '#ffffff', bg: '#5d4037' },
-  { id: 'multi', label: 'Multi-Board', color: '#ffffff', bg: '#7b2d8b' },
-  { id: 'analog', label: 'Analog', color: '#ffffff', bg: '#0ea5a5' },
-  { id: 'digital', label: 'Digital', color: '#ffffff', bg: '#6366f1' },
+  { id: 'multi', label: 'Несколько плат', color: '#ffffff', bg: '#7b2d8b' },
+  { id: 'analog', label: 'Аналоговые', color: '#ffffff', bg: '#0ea5a5' },
+  { id: 'digital', label: 'Цифровые', color: '#ffffff', bg: '#6366f1' },
 ];
 
 /** The "Retro" tab is tag-based (not board-kind based) so it can collect the
@@ -90,7 +91,19 @@ export const ExamplesGallery: React.FC<ExamplesGalleryProps> = ({ onLoadExample 
   // from the board registry. Without this, examples for runtime-registered
   // boards (XIAO, M5Stack, Raspberry Pi, ...) were reachable only via "All".
   const boardTabs: BoardTab[] = (() => {
-    const known = new Set(BOARD_TABS.map((tab) => tab.id));
+    // Fork filter. BOARD_TABS is upstream's static list and still names every
+    // board it shipped, so without this the picker offered "ESP32", "Pico",
+    // "STM32 Blue Pill" and the rest — filters that match nothing now that the
+    // gallery itself is filtered. An empty filter is worse than a missing one:
+    // it looks like a broken search.
+    //
+    // Only BOARD tabs are filtered. `all`, `retro`, `multi`, `analog` and
+    // `digital` are categories, not board kinds — isKnownBoardKind is false for
+    // them, so they pass through untouched.
+    const forkTabs = BOARD_TABS.filter(
+      (tab) => !isKnownBoardKind(tab.id) || isAllowedBoardKind(tab.id),
+    );
+    const known = new Set(forkTabs.map((tab) => tab.id));
     const extra: BoardTab[] = [];
     for (const ex of exampleProjects) {
       const bf = getBoardFilter(ex);
@@ -104,7 +117,7 @@ export const ExamplesGallery: React.FC<ExamplesGalleryProps> = ({ onLoadExample 
       });
     }
     extra.sort((a, b) => a.label.localeCompare(b.label));
-    return [...BOARD_TABS, ...extra];
+    return [...forkTabs, ...extra];
   })();
 
   const handleCopyLink = useCallback((e: React.MouseEvent, exampleId: string) => {
@@ -119,15 +132,15 @@ export const ExamplesGallery: React.FC<ExamplesGalleryProps> = ({ onLoadExample 
   // Pre-tokenise the search string once per keystroke. Each token must match
   // somewhere in the example's haystack, so users can type "esp32 oled dht"
   // and find every project that hits all three.
-  const searchTokens = search
-    .trim()
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean);
+  const searchTokens = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
 
   const exampleHaystack = (example: ExampleProject): string =>
     [
       example.title,
+      // Названия переведены на русский, а идентификатор остался английским:
+      // держим его в наборе, иначе запрос «blink» или «servo» перестал бы
+      // находить примеры, которые студент знает по имени из документации.
+      example.id,
       example.description,
       example.category,
       example.difficulty,
@@ -143,17 +156,18 @@ export const ExamplesGallery: React.FC<ExamplesGalleryProps> = ({ onLoadExample 
       .join(' ')
       .toLowerCase();
 
-  const filteredExamples = exampleProjects.filter((example) => {
-    const boardMatch =
-      selectedBoard === 'all' ||
-      (selectedBoard === 'retro' ? isRetro(example) : getBoardFilter(example) === selectedBoard);
-    const catMatch = selectedCategory === 'all' || example.category === selectedCategory;
-    const diffMatch = selectedDifficulty === 'all' || example.difficulty === selectedDifficulty;
-    if (!boardMatch || !catMatch || !diffMatch) return false;
-    if (searchTokens.length === 0) return true;
-    const hay = exampleHaystack(example);
-    return searchTokens.every((tok) => hay.includes(tok));
-  })
+  const filteredExamples = exampleProjects
+    .filter((example) => {
+      const boardMatch =
+        selectedBoard === 'all' ||
+        (selectedBoard === 'retro' ? isRetro(example) : getBoardFilter(example) === selectedBoard);
+      const catMatch = selectedCategory === 'all' || example.category === selectedCategory;
+      const diffMatch = selectedDifficulty === 'all' || example.difficulty === selectedDifficulty;
+      if (!boardMatch || !catMatch || !diffMatch) return false;
+      if (searchTokens.length === 0) return true;
+      const hay = exampleHaystack(example);
+      return searchTokens.every((tok) => hay.includes(tok));
+    })
     .sort((a, b) => {
       // Order by board following the boardTabs order (so Arduino Uno comes
       // first), then alphabetically by title within each board.
@@ -366,12 +380,21 @@ export const ExamplesGallery: React.FC<ExamplesGalleryProps> = ({ onLoadExample 
           onChange={(e) => setSelectedBoard(e.target.value)}
           aria-label={t('examples.filters.boardLabel', 'Board')}
         >
-          {boardTabs.map((tab) => (
-            <option key={tab.id} value={tab.id}>
-              {tab.id === 'all' ? t('examples.filters.allBoards', 'All boards') : tab.label}
-              {boardCounts[tab.id] != null ? ` (${boardCounts[tab.id]})` : ''}
-            </option>
-          ))}
+          {/* Hide a filter that matches nothing. The board tabs are already
+              cut down by the allowlist above, but the category tabs (Retro,
+              Multi-Board, Analog, Digital) are data-dependent: with no
+              multi-board example left in the gallery, "Multi-Board" was an
+              option that silently returned an empty grid. Same reasoning as
+              the board filter — an empty filter reads as a broken search.
+              "All boards" always stays, it is the way back. */}
+          {boardTabs
+            .filter((tab) => tab.id === 'all' || (boardCounts[tab.id] ?? 0) > 0)
+            .map((tab) => (
+              <option key={tab.id} value={tab.id}>
+                {tab.id === 'all' ? t('examples.filters.allBoards', 'All boards') : tab.label}
+                {boardCounts[tab.id] != null ? ` (${boardCounts[tab.id]})` : ''}
+              </option>
+            ))}
         </select>
 
         <select
@@ -453,10 +476,11 @@ export const ExamplesGallery: React.FC<ExamplesGalleryProps> = ({ onLoadExample 
                     className="example-difficulty"
                     style={{ backgroundColor: getDifficultyColor(example.difficulty) }}
                   >
-                    {example.difficulty}
+                    {t(`examples.filters.difficulty.${example.difficulty}`)}
                   </span>
                   <span className="example-category">
-                    {getCategoryIcon(example.category)} {example.category}
+                    {getCategoryIcon(example.category)}{' '}
+                    {t(`examples.filters.category.${example.category}`)}
                   </span>
                   {boardBadge && (
                     <span

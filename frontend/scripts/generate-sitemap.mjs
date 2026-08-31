@@ -9,7 +9,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DOMAIN = 'https://velxio.dev';
+const DOMAIN = 'https://sim.it-arduino.ru';
 const TODAY = new Date().toISOString().slice(0, 10);
 
 // Extract top-level ExampleProject ids from examples.ts.
@@ -38,7 +38,7 @@ if (!match) {
 // Evaluate the array (safe: only contains string/number/boolean literals)
 // Convert TS-style comments and trailing commas to valid JSON-ish
 const arrayStr = match[1]
-  .replace(/\/\/.*$/gm, '')   // remove line comments
+  .replace(/\/\/.*$/gm, '') // remove line comments
   .replace(/\/\*[\s\S]*?\*\//g, ''); // remove block comments
 
 // Use Function constructor to evaluate the JS array literal.
@@ -51,11 +51,8 @@ const indexable = routes.filter((r) => !r.noindex);
 // Reads both examples.ts (legacy) and examples-circuits.ts (analog/digital/
 // electromech examples added in circuitExamples).
 const examplesSource = readFileSync(resolve(__dirname, '../src/data/examples.ts'), 'utf-8');
-const circuitSource  = readFileSync(resolve(__dirname, '../src/data/examples-circuits.ts'), 'utf-8');
-const exampleIds = [
-  ...parseExampleIds(examplesSource),
-  ...parseExampleIds(circuitSource),
-];
+const circuitSource = readFileSync(resolve(__dirname, '../src/data/examples-circuits.ts'), 'utf-8');
+const exampleIds = [...parseExampleIds(examplesSource), ...parseExampleIds(circuitSource)];
 
 // Pro overlay examples (e.g. the Pico W WiFi showcase) live in
 // <PRO_OVERLAY_PATH>/data/proExamples.ts and are spread into examples.ts via the
@@ -101,7 +98,7 @@ ${indexable
     <loc>${DOMAIN}${r.path}${r.path.endsWith('/') ? '' : '/'}</loc>
     <changefreq>${r.changefreq ?? 'monthly'}</changefreq>
     <priority>${r.priority ?? 0.5}</priority>
-  </url>`
+  </url>`,
   )
   .join('')}
 ${exampleUrls
@@ -111,7 +108,7 @@ ${exampleUrls
     <loc>${u.loc}/</loc>
     <changefreq>${u.changefreq}</changefreq>
     <priority>${u.priority}</priority>
-  </url>`
+  </url>`,
   )
   .join('')}
 
@@ -120,7 +117,9 @@ ${exampleUrls
 
 const outPath = resolve(__dirname, '../public/sitemap.xml');
 writeFileSync(outPath, xml.trimStart(), 'utf-8');
-console.log(`sitemap.xml generated → ${indexable.length + exampleIds.length} URLs (${TODAY}) [${indexable.length} routes + ${exampleIds.length} examples]`);
+console.log(
+  `sitemap.xml generated → ${indexable.length + exampleIds.length} URLs (${TODAY}) [${indexable.length} routes + ${exampleIds.length} examples]`,
+);
 
 // Ping search engines (optional)
 if (process.argv.includes('--ping')) {
@@ -138,6 +137,6 @@ if (process.argv.includes('--ping')) {
       } catch (e) {
         console.log(`  FAIL ${url.split('?')[0]}: ${e.message}`);
       }
-    })
+    }),
   );
 }

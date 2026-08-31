@@ -140,7 +140,8 @@ export const LibraryManagerModal: React.FC<LibraryManagerModalProps> = ({ isOpen
     } catch (e: unknown) {
       setStatusMsg({
         type: 'error',
-        text: e instanceof Error ? e.message : 'Failed to load installed libraries',
+        text:
+          e instanceof Error ? e.message : 'Не удалось загрузить список установленных библиотек',
       });
     } finally {
       setLoadingInstalled(false);
@@ -192,7 +193,7 @@ export const LibraryManagerModal: React.FC<LibraryManagerModalProps> = ({ isOpen
         if (isMpy) setMpyResults(await searchMpyPackages(searchQuery));
         else setSearchResults(await searchLibraries(searchQuery));
       } catch (e: unknown) {
-        setStatusMsg({ type: 'error', text: e instanceof Error ? e.message : 'Search failed' });
+        setStatusMsg({ type: 'error', text: e instanceof Error ? e.message : 'Поиск не удался' });
         if (isMpy) setMpyResults([]);
         else setSearchResults([]);
       } finally {
@@ -232,7 +233,10 @@ export const LibraryManagerModal: React.FC<LibraryManagerModalProps> = ({ isOpen
         setStatusMsg({ type: 'error', text: result.error || `Failed to install "${name}"` });
         return false;
       } catch (e: unknown) {
-        setStatusMsg({ type: 'error', text: e instanceof Error ? e.message : 'Installation failed' });
+        setStatusMsg({
+          type: 'error',
+          text: e instanceof Error ? e.message : 'Не удалось установить',
+        });
         return false;
       } finally {
         setBusyLib(null);
@@ -249,7 +253,10 @@ export const LibraryManagerModal: React.FC<LibraryManagerModalProps> = ({ isOpen
         if (!ok) return;
       }
       addToManifest(row.name);
-      setStatusMsg({ type: 'success', text: `"${row.name}" added to ${activeBoard ? boardDisplayName(activeBoard) : 'this board'}.` });
+      setStatusMsg({
+        type: 'success',
+        text: `"${row.name}" added to ${activeBoard ? boardDisplayName(activeBoard) : 'this board'}.`,
+      });
     },
     [install, addToManifest, activeBoard],
   );
@@ -316,8 +323,7 @@ export const LibraryManagerModal: React.FC<LibraryManagerModalProps> = ({ isOpen
         });
         setMpyTick((n) => n + 1);
       } catch (e: unknown) {
-        const detail =
-          (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
         setStatusMsg({
           type: 'error',
           text: detail || (e instanceof Error ? e.message : `Failed to add "${name}"`),
@@ -406,7 +412,7 @@ export const LibraryManagerModal: React.FC<LibraryManagerModalProps> = ({ isOpen
               <span
                 title={
                   isMpy
-                    ? 'MicroPython: a library is a .py file in this board\'s workspace'
+                    ? "MicroPython: a library is a .py file in this board's workspace"
                     : 'Libraries apply to this board (its libraries.json = compile scope)'
                 }
                 style={{
@@ -425,7 +431,15 @@ export const LibraryManagerModal: React.FC<LibraryManagerModalProps> = ({ isOpen
             )}
           </div>
           <button className="lib-close-btn" onClick={onClose}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
@@ -454,7 +468,14 @@ export const LibraryManagerModal: React.FC<LibraryManagerModalProps> = ({ isOpen
             autoFocus
           />
           {loadingSearch && (
-            <svg className="lib-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <svg
+              className="lib-spinner"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            >
               <path d="M21 12a9 9 0 1 1-6.219-8.56" />
             </svg>
           )}
@@ -469,9 +490,9 @@ export const LibraryManagerModal: React.FC<LibraryManagerModalProps> = ({ isOpen
             {isMpy && browsing && (
               <div className="lib-empty" style={{ padding: '10px 14px 4px' }}>
                 <p className="lib-empty-sub" style={{ margin: 0 }}>
-                  A MicroPython library is a .py file in the project — adding one
-                  writes it into this board's workspace, next to main.py. Search
-                  the official micropython-lib index above.
+                  A MicroPython library is a .py file in the project — adding one writes it into
+                  this board's workspace, next to main.py. Search the official micropython-lib index
+                  above.
                 </p>
               </div>
             )}
@@ -502,14 +523,17 @@ export const LibraryManagerModal: React.FC<LibraryManagerModalProps> = ({ isOpen
                     <div className="lib-item-actions">
                       {row.version && <span className="lib-item-version">{row.version}</span>}
                       {row.builtin ? (
-                        <span className="lib-item-version" title="No install needed — just import it">
+                        <span
+                          className="lib-item-version"
+                          title="Устанавливать не нужно — достаточно импортировать"
+                        >
                           import {row.name}
                         </span>
                       ) : row.inProject ? (
                         <span
                           className="lib-uninstall-btn"
                           style={{ color: '#a5d6a7', borderColor: '#2e7d32', cursor: 'default' }}
-                          title="Its .py file is in the workspace — edit or delete it from the file explorer"
+                          title="Файл .py лежит в рабочей области — правьте или удаляйте его через проводник"
                         >
                           In project ✓
                         </span>
@@ -518,7 +542,7 @@ export const LibraryManagerModal: React.FC<LibraryManagerModalProps> = ({ isOpen
                           className="lib-install-btn"
                           onClick={() => addMpyPackage(row.name)}
                           disabled={busy}
-                          title="Write this package's .py files into the board's workspace"
+                          title="Записать файлы .py этого пакета в рабочую область платы"
                         >
                           {busy ? '…' : '+ Add to project'}
                         </button>
@@ -531,8 +555,8 @@ export const LibraryManagerModal: React.FC<LibraryManagerModalProps> = ({ isOpen
               <div className="lib-empty">
                 <p>{t('editor.libraryManager.noResultsFor', { query: searchQuery })}</p>
                 <p className="lib-empty-sub">
-                  Not in micropython-lib? Paste the driver as a .py file in the
-                  workspace — that is all an install does.
+                  Not in micropython-lib? Paste the driver as a .py file in the workspace — that is
+                  all an install does.
                 </p>
               </div>
             )}
@@ -550,90 +574,99 @@ export const LibraryManagerModal: React.FC<LibraryManagerModalProps> = ({ isOpen
                       ? t('editor.libraryManager.noResultsFor', { query: searchQuery })
                       : t('editor.libraryManager.noResults')}
                 </p>
-                {browsing && <p className="lib-empty-sub">Search above to find and add a library.</p>}
+                {browsing && (
+                  <p className="lib-empty-sub">
+                    Найдите библиотеку в поле поиска выше и добавьте её.
+                  </p>
+                )}
               </div>
             )}
-            {!isMpy && rows.map((row, i) => {
-              const inProj = inManifest(row.name);
-              const busy = busyLib === row.name;
-              return (
-                <div key={`${row.name}-${i}`} className="lib-item">
-                  <div className="lib-item-info">
-                    <div className="lib-item-header">
-                      <span className="lib-item-name">{row.name}</span>
-                      {row.custom && (
-                        <span
-                          style={{
-                            fontSize: 10,
-                            color: '#ffd60a',
-                            background: '#3a330f',
-                            borderRadius: 6,
-                            padding: '0 6px',
-                          }}
-                        >
-                          custom
-                        </span>
-                      )}
-                      {row.author && (
-                        <span className="lib-item-author">
-                          {t('editor.libraryManager.byAuthor', { author: row.custom ? 'you' : row.author })}
-                        </span>
-                      )}
+            {!isMpy &&
+              rows.map((row, i) => {
+                const inProj = inManifest(row.name);
+                const busy = busyLib === row.name;
+                return (
+                  <div key={`${row.name}-${i}`} className="lib-item">
+                    <div className="lib-item-info">
+                      <div className="lib-item-header">
+                        <span className="lib-item-name">{row.name}</span>
+                        {row.custom && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              color: '#ffd60a',
+                              background: '#3a330f',
+                              borderRadius: 6,
+                              padding: '0 6px',
+                            }}
+                          >
+                            custom
+                          </span>
+                        )}
+                        {row.author && (
+                          <span className="lib-item-author">
+                            {t('editor.libraryManager.byAuthor', {
+                              author: row.custom ? 'you' : row.author,
+                            })}
+                          </span>
+                        )}
+                      </div>
+                      {row.desc && <p className="lib-item-desc">{row.desc}</p>}
                     </div>
-                    {row.desc && <p className="lib-item-desc">{row.desc}</p>}
-                  </div>
-                  <div className="lib-item-actions">
-                    {row.version && <span className="lib-item-version">{row.version}</span>}
-                    {!row.installed && row.releases && Object.keys(row.releases).length > 1 && (
-                      <select
-                        className="lib-version-select"
-                        value={selectedVersions[row.name] ?? row.version}
-                        onChange={(e) => setSelectedVersions((p) => ({ ...p, [row.name]: e.target.value }))}
-                      >
-                        {Object.keys(row.releases).map((ver) => (
-                          <option key={ver} value={ver}>
-                            {ver}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    {inProj ? (
-                      <button
-                        className="lib-uninstall-btn"
-                        style={{ color: '#a5d6a7', borderColor: '#2e7d32' }}
-                        onClick={() => removeFromManifest(row.name)}
-                        title="Remove from this board (libraries.json)"
-                      >
-                        In project ✓
-                      </button>
-                    ) : (
-                      <button
-                        className="lib-install-btn"
-                        onClick={() => addToProject(row)}
-                        disabled={busy}
-                        title="Install if needed and add to this board"
-                      >
-                        {busy ? '…' : '+ Add to project'}
-                      </button>
-                    )}
-                    {/* Only CUSTOM uploads can be removed (per-user store). Index
+                    <div className="lib-item-actions">
+                      {row.version && <span className="lib-item-version">{row.version}</span>}
+                      {!row.installed && row.releases && Object.keys(row.releases).length > 1 && (
+                        <select
+                          className="lib-version-select"
+                          value={selectedVersions[row.name] ?? row.version}
+                          onChange={(e) =>
+                            setSelectedVersions((p) => ({ ...p, [row.name]: e.target.value }))
+                          }
+                        >
+                          {Object.keys(row.releases).map((ver) => (
+                            <option key={ver} value={ver}>
+                              {ver}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {inProj ? (
+                        <button
+                          className="lib-uninstall-btn"
+                          style={{ color: '#a5d6a7', borderColor: '#2e7d32' }}
+                          onClick={() => removeFromManifest(row.name)}
+                          title="Убрать с этой платы (файл libraries.json)"
+                        >
+                          В проекте ✓
+                        </button>
+                      ) : (
+                        <button
+                          className="lib-install-btn"
+                          onClick={() => addToProject(row)}
+                          disabled={busy}
+                          title="Установить при необходимости и добавить к этой плате"
+                        >
+                          {busy ? '…' : '+ Добавить в проект'}
+                        </button>
+                      )}
+                      {/* Only CUSTOM uploads can be removed (per-user store). Index
                         libraries live in the shared content-addressed cache — you
                         add/remove them from THIS project, but never "uninstall" a
                         copy everyone shares, so no Uninstall button for them. */}
-                    {row.custom && (
-                      <button
-                        className="lib-uninstall-btn"
-                        onClick={() => removeCustom(row.name)}
-                        disabled={busy}
-                        title="Remove your custom upload"
-                      >
-                        {busy ? '…' : 'Remove'}
-                      </button>
-                    )}
+                      {row.custom && (
+                        <button
+                          className="lib-uninstall-btn"
+                          onClick={() => removeCustom(row.name)}
+                          disabled={busy}
+                          title="Удалить свою загруженную библиотеку"
+                        >
+                          {busy ? '…' : 'Удалить'}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </div>
       </div>

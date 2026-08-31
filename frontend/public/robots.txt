@@ -11,8 +11,11 @@ Disallow: /api/
 # noindex meta tag, and a page has to be crawlable for that tag to be seen —
 # a disallowed URL can still be indexed from links, title-less.
 
-# Sitemaps (static build-time routes + dynamic public projects + the docs
-# portal, which is a separate Astro build shipping its own sitemap index)
-Sitemap: https://velxio.dev/sitemap.xml
-Sitemap: https://velxio.dev/sitemap-projects.xml
-Sitemap: https://velxio.dev/docs/sitemap-index.xml
+# Карта сайта — маршруты, известные на момент сборки (генерирует
+# scripts/generate-sitemap.ts из frontend/src/seoRoutes.ts).
+#
+# У апстрима здесь было ещё две карты: sitemap-projects.xml для публичных
+# проектов пользователей и docs/sitemap-index.xml от отдельной сборки портала
+# документации. Ни того, ни другого в форке нет, а ссылка на несуществующую
+# карту — это ошибка 404 в отчёте вебмастера при каждом обходе.
+Sitemap: https://sim.it-arduino.ru/sitemap.xml

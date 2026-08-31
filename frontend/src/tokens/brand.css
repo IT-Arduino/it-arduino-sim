@@ -1,0 +1,64 @@
+/* IT-Arduino brand palette.
+ *
+ * Loaded after colors.css and overrides only what carries brand identity.
+ * Everything else — the neutral gray ramp the panels, borders and surfaces
+ * are built from — is upstream's and stays upstream's. A simulator is a dense
+ * technical instrument; tinting every surface navy would cost legibility and
+ * buy nothing.
+ *
+ * Keeping the overrides in their own file means upstream can keep evolving
+ * colors.css without ever conflicting with us.
+ *
+ * Source of truth for the values: tailwind.config.js in the main it-arduino.ru
+ * repository.
+ *
+ *   primary        #1A1A40   dark navy, the wordmark colour
+ *   primary.light  #00B8D4   cyan, the interactive accent
+ *   secondary      #00C853   green, success
+ *   background     #F5F5F5   light background (main site only — see below)
+ *   dark           #121212   dark background
+ *   text           #1A1A40
+ *
+ * Note on themes: upstream has ONE theme, dark. There is no light-theme block
+ * anywhere in tokens/ — `[data-theme=light]` appears once, in a comment in
+ * elevation.css, as a hypothetical. So --brand-background below is recorded
+ * for completeness and used only where a light surface is deliberately drawn;
+ * a full light theme would be new work, not a port.
+ */
+
+:root {
+  /* Brand primitives. Named after the brand, not after a role, so a component
+   * that genuinely needs "the navy from the logo" can say so. */
+  --brand-navy:       #1a1a40;
+  --brand-cyan:       #00b8d4;
+  --brand-cyan-hover: #22cfe8;
+  --brand-green:      #00c853;
+  --brand-background: #f5f5f5;
+  --brand-dark:       #121212;
+
+  /* Canvas — the brand's dark, replacing upstream's #0a0a0c. Still darker
+   * than the #141416 card surfaces above it, so the surface separation
+   * upstream tuned for still reads. */
+  --color-bg-canvas: var(--brand-dark);
+
+  /* Interactive accent. Upstream used #0071e3 (Apple blue); the brand's
+   * accent is cyan. */
+  --color-action-primary:       var(--brand-cyan);
+  --color-action-primary-hover: var(--brand-cyan-hover);
+
+  /* Text ON a primary button. This one is NOT cosmetic: the brand cyan is a
+   * light colour (relative luminance ~0.38), so upstream's white label on it
+   * lands near 2.4:1 and fails WCAG AA outright. The brand navy on the same
+   * cyan measures about 6.9:1, comfortably past the 4.5:1 floor — and it is
+   * the brand's own pairing, not an invention. */
+  --color-action-primary-fg: var(--brand-navy);
+  --color-fg-on-action:      var(--brand-navy);
+
+  /* Success feedback uses the brand green. Error and warning stay upstream's:
+   * red and amber carry meaning that a brand palette has no business
+   * redefining. */
+  --color-feedback-success: var(--brand-green);
+
+  /* Badge colour the pro overlay reads. Follows the accent. */
+  --color-tier-pro: var(--brand-cyan);
+}

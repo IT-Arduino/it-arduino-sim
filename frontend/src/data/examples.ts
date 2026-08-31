@@ -21,6 +21,11 @@ import { microsdExamples } from './examples-storage-microsd';
 import { esp32MqttExamples } from './examples-esp32-mqtt';
 import { esp32s3TftExamples } from './examples-esp32s3-tft';
 import { jsemuChipExamples } from './examples-jsemu-chips';
+// Fork: keeps examples for boards we removed out of the gallery. Safe to
+// import from here — boardAllowlist depends only on types/board, so there is
+// no cycle back into this file.
+import { exampleRunsOnAllowedBoards } from '../lib/boardAllowlist';
+import { translateExamples } from '../lib/exampleTextRu';
 
 /** Per-board setup for multi-board examples */
 export interface ExampleBoard {
@@ -112,7 +117,7 @@ const legacyExamples: ExampleProject[] = [
     id: 'uno-oled-4pin-i2c',
     title: 'Arduino Uno: SSD1306 OLED (4-pin I2C)',
     description:
-      'Drive the cheap 4-pin SSD1306 OLED module (GND/VCC/SCL/SDA) over I2C from an Arduino Uno (SDA=A4, SCL=A5). Shows "Hello Velxio!" with a live counter.',
+      'Drive the cheap 4-pin SSD1306 OLED module (GND/VCC/SCL/SDA) over I2C from an Arduino Uno (SDA=A4, SCL=A5). Shows "Hello IT-Arduino!" with a live counter.',
     libraries: ['Adafruit SSD1306', 'Adafruit GFX Library'],
     category: 'displays',
     difficulty: 'intermediate',
@@ -149,7 +154,7 @@ void loop() {
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
   display.println("Hello");
-  display.println("Velxio!");
+  display.println("IT-Arduino!");
   display.setTextSize(1);
   display.setCursor(0, 48);
   display.print("Count: ");
@@ -229,7 +234,7 @@ void loop() {
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
   display.println("Hello");
-  display.println("Velxio!");
+  display.println("IT-Arduino!");
   display.setTextSize(1);
   display.setCursor(0, 48);
   display.printf("Count: %d", n);
@@ -272,7 +277,7 @@ void loop() {
     id: 'esp32-micropython-external-library',
     title: 'ESP32 + MicroPython: use an external library',
     description:
-      "How a MicroPython project uses a library in Velxio: there is no requirements.txt and no package manager — the driver is a .py file in the workspace. Every file here is copied onto the board's filesystem before main.py runs, so `import ssd1306` picks up the ssd1306.py next to it and draws on the wired OLED. The toolbar's Library Manager installs ARDUINO libraries and has no effect in MicroPython mode.",
+      "How a MicroPython project uses a library in IT-Arduino: there is no requirements.txt and no package manager — the driver is a .py file in the workspace. Every file here is copied onto the board's filesystem before main.py runs, so `import ssd1306` picks up the ssd1306.py next to it and draws on the wired OLED. The toolbar's Library Manager installs ARDUINO libraries and has no effect in MicroPython mode.",
     category: 'displays',
     difficulty: 'beginner',
     boardType: 'esp32',
@@ -296,7 +301,7 @@ from machine import Pin, I2C
 import ssd1306
 import time
 
-# Velxio decodes the hardware I2C controller (no bit-banged buses):
+# IT-Arduino decodes the hardware I2C controller (no bit-banged buses):
 # ESP32 SDA = GPIO21, SCL = GPIO22.
 i2c = I2C(0, sda=Pin(21), scl=Pin(22))
 oled = ssd1306.SSD1306_I2C(128, 64, i2c)
@@ -616,7 +621,7 @@ void loop() {
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
   display.println("Hello");
-  display.println("Velxio!");
+  display.println("IT-Arduino!");
   display.setTextSize(1);
   display.setCursor(0, 48);
   display.print("Count: ");
@@ -696,7 +701,7 @@ void loop() {
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
   display.println("Hello");
-  display.println("Velxio!");
+  display.println("IT-Arduino!");
   display.setTextSize(1);
   display.setCursor(0, 48);
   display.print("Count: ");
@@ -1499,7 +1504,7 @@ void loop() {
     id: 'stm32-bluepill-oled',
     title: 'STM32: SSD1306 OLED Display (I2C)',
     description:
-      'Drive a 128x64 SSD1306 OLED over I2C1 from an STM32 Blue Pill (SCL=PB6, SDA=PB7). The framebuffer writes are captured by the QEMU I2C slave and rendered on the canvas. Shows "Hello Velxio!" with a live frame counter.',
+      'Drive a 128x64 SSD1306 OLED over I2C1 from an STM32 Blue Pill (SCL=PB6, SDA=PB7). The framebuffer writes are captured by the QEMU I2C slave and rendered on the canvas. Shows "Hello IT-Arduino!" with a live frame counter.',
     libraries: ['Adafruit SSD1306', 'Adafruit GFX Library'],
     category: 'displays',
     difficulty: 'intermediate',
@@ -1536,7 +1541,7 @@ void setup() {
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
   display.println("Hello");
-  display.println("Velxio!");
+  display.println("IT-Arduino!");
   display.display();
   Serial.println("OLED ready");
 }
@@ -1548,7 +1553,7 @@ void loop() {
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
   display.println("Hello");
-  display.println("Velxio!");
+  display.println("IT-Arduino!");
   display.setTextSize(1);
   display.setCursor(0, 48);
   display.print("Count: ");
@@ -1865,7 +1870,7 @@ void loop() {
   float p = bmp.readPressure() / 100.0F;   // hPa
   display.clearDisplay();
   display.setTextSize(1); display.setCursor(0, 0);
-  display.println("Velxio Weather");
+  display.println("IT-Arduino Weather");
   display.setTextSize(2); display.setCursor(0, 16);
   display.print(t, 1); display.println(" C");
   display.setTextSize(1); display.setCursor(0, 52);
@@ -3864,7 +3869,7 @@ void setup() {
   // Print a message to the LCD.
   lcd.print("Hello, Arduino!");
   lcd.setCursor(0, 1);
-  lcd.print("Velxio Emulator");
+  lcd.print("IT-Arduino Emulator");
   lcd.setCursor(0, 2);
   lcd.print("LCD 2004 Test");
 }
@@ -8166,7 +8171,7 @@ const float NOM_TEMP_K  = 298.15;   // 25 °C in Kelvin
 float readTempC() {
   int   raw  = analogRead(NTC_PIN);
   float v    = raw * (VCC / 1023.0);
-  // Divider modelled by Velxio's ntc-temperature-sensor:
+  // Divider modelled by IT-Arduino's ntc-temperature-sensor:
   //   VCC → R_pull (10k) → A1 → R_NTC → GND.
   // Higher temperature → R_NTC drops → V FALLS, so
   //   r = R_pull * v / (VCC - v)
@@ -8499,7 +8504,7 @@ const float NOM_TEMP_K = 298.15; // 25 °C
 float readTempC() {
   int   raw = analogRead(NTC_PIN);
   float v   = raw * (VCC / 1023.0);
-  // VCC → R_pull → A1 → R_NTC → GND (the divider Velxio models)
+  // VCC → R_pull → A1 → R_NTC → GND (the divider IT-Arduino models)
   float r   = SERIES_R * v / (VCC - v);
   float st  = log(r / NOM_R) / B_COEFF + 1.0 / NOM_TEMP_K;
   return (1.0 / st) - 273.15;
@@ -9434,7 +9439,7 @@ void handleRoot() {
   html += ".card{background:#16213e;padding:20px;border-radius:10px;margin:10px 0}";
   html += ".stat{color:#00d4ff;font-size:1.2em}</style></head><body>";
   html += "<h1>Hello from ESP32-C3!</h1>";
-  html += "<div class='card'><p>This page is served by an ESP32-C3 (RISC-V) running in the Velxio simulator.</p>";
+  html += "<div class='card'><p>This page is served by an ESP32-C3 (RISC-V) running in the IT-Arduino simulator.</p>";
   html += "<p>Requests served: <span class='stat'>" + String(requestCount) + "</span></p>";
   html += "<p>Uptime: <span class='stat'>" + String(millis() / 1000) + "s</span></p>";
   html += "<p>Free heap: <span class='stat'>" + String(ESP.getFreeHeap()) + " bytes</span></p>";
@@ -9516,7 +9521,7 @@ void setup() {
   Serial.println("BLE init is detected but communication is not emulated.");
   Serial.println();
 
-  BLEDevice::init("Velxio-ESP32C3");
+  BLEDevice::init("IT-Arduino-ESP32C3");
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
 
@@ -9528,7 +9533,7 @@ void setup() {
     BLECharacteristic::PROPERTY_NOTIFY
   );
   pCharacteristic->addDescriptor(new BLE2902());
-  pCharacteristic->setValue("Hello from Velxio C3!");
+  pCharacteristic->setValue("Hello from IT-Arduino C3!");
 
   pService->start();
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
@@ -9537,7 +9542,7 @@ void setup() {
   pAdvertising->start();
 
   Serial.println("BLE advertising started!");
-  Serial.println("Device name: Velxio-ESP32C3");
+  Serial.println("Device name: IT-Arduino-ESP32C3");
   Serial.printf("Service UUID: %s\\n", SERVICE_UUID);
 }
 
@@ -9680,7 +9685,7 @@ void handleRoot() {
   html += ".card{background:#16213e;padding:20px;border-radius:10px;margin:10px 0}";
   html += ".stat{color:#00d4ff;font-size:1.2em}</style></head><body>";
   html += "<h1>Hello from ESP32!</h1>";
-  html += "<div class='card'><p>This page is served by an ESP32 running in the Velxio simulator.</p>";
+  html += "<div class='card'><p>This page is served by an ESP32 running in the IT-Arduino simulator.</p>";
   html += "<p>Requests served: <span class='stat'>" + String(requestCount) + "</span></p>";
   html += "<p>Uptime: <span class='stat'>" + String(millis() / 1000) + "s</span></p>";
   html += "<p>Free heap: <span class='stat'>" + String(ESP.getFreeHeap()) + " bytes</span></p>";
@@ -9763,7 +9768,7 @@ void setup() {
   Serial.println("is not emulated in the simulator.");
   Serial.println();
 
-  BLEDevice::init("Velxio-ESP32");
+  BLEDevice::init("IT-Arduino-ESP32");
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
 
@@ -9775,7 +9780,7 @@ void setup() {
     BLECharacteristic::PROPERTY_NOTIFY
   );
   pCharacteristic->addDescriptor(new BLE2902());
-  pCharacteristic->setValue("Hello from Velxio!");
+  pCharacteristic->setValue("Hello from IT-Arduino!");
 
   pService->start();
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
@@ -9784,7 +9789,7 @@ void setup() {
   pAdvertising->start();
 
   Serial.println("BLE advertising started!");
-  Serial.println("Device name: Velxio-ESP32");
+  Serial.println("Device name: IT-Arduino-ESP32");
   Serial.printf("Service UUID: %s\\n", SERVICE_UUID);
 }
 
@@ -9921,7 +9926,7 @@ void setup() {
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
   display.println("Hello");
-  display.println("Velxio!");
+  display.println("IT-Arduino!");
   display.display();
   Serial.println("OLED ready!");
 }
@@ -9933,7 +9938,7 @@ void loop() {
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
   display.println("Hello");
-  display.println("Velxio!");
+  display.println("IT-Arduino!");
   display.setTextSize(1);
   display.setCursor(0, 48);
   display.printf("Count: %d", counter);
@@ -10299,7 +10304,7 @@ void loop() {
     difficulty: 'beginner',
     boardType: 'esp32-cam',
     boardFilter: 'esp32-cam',
-    code: `// Velxio ESP32-CAM webcam demo — minimal
+    code: `// IT-Arduino ESP32-CAM webcam demo — minimal
 // Click the "Camera" button in the canvas header to start streaming
 // your webcam frames into the emulated OV2640.
 
@@ -10326,7 +10331,7 @@ void loop() {
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  Serial.println("=== Velxio ESP32-CAM webcam demo ===");
+  Serial.println("=== IT-Arduino ESP32-CAM webcam demo ===");
 
   camera_config_t cfg = {};
   cfg.ledc_channel = LEDC_CHANNEL_0;
@@ -10645,7 +10650,7 @@ void loop() {
     code: `/*
  * VELXIO DOOM - ESP32 raycaster on an ILI9341 320x240 color TFT.
  *
- * Purpose: stress-test Velxio's QEMU ESP32 emulation by redrawing the whole
+ * Purpose: stress-test IT-Arduino's QEMU ESP32 emulation by redrawing the whole
  * 320x240 screen every frame with a Wolfenstein/early-Doom style raycaster.
  * Rendering uses Adafruit_ILI9341 over HARDWARE SPI (VSPI) with the fast
  * block-transfer transaction API: a single startWrite()/endWrite() per frame
@@ -11590,7 +11595,8 @@ except KeyboardInterrupt:
 // electromechanical) plus the board-less analog SPICE suite. Declared after
 // all arrays exist so the export is a single immutable value — safe from
 // tree-shaking quirks.
-export const exampleProjects: ExampleProject[] = [
+/** Every example upstream ships, before this fork's board filter. */
+const ALL_EXAMPLES: ExampleProject[] = [
   ...legacyExamples,
   ...circuitExamples,
   ...analogExamples,
@@ -11605,6 +11611,23 @@ export const exampleProjects: ExampleProject[] = [
   ...esp32s3TftExamples,
   ...jsemuChipExamples,
 ];
+
+/**
+ * The gallery, filtered to what this fork can actually run.
+ *
+ * An example for a removed board is worse than a missing one: it opens, the
+ * canvas fills with a board that never boots, and the student is left with an
+ * error nobody explained. The source lists above stay exactly as upstream
+ * wrote them so a merge stays cheap; the filter is the one line that differs.
+ *
+ * The titles and descriptions are then swapped for Russian ones here, at the
+ * one point every example passes through — see `lib/exampleTextRu.ts`. The
+ * data files keep their English strings, so a merge is still just the filter
+ * and this call.
+ */
+export const exampleProjects: ExampleProject[] = translateExamples(
+  ALL_EXAMPLES.filter(exampleRunsOnAllowedBoards),
+);
 
 // Get examples by category
 export function getExamplesByCategory(category: ExampleProject['category']): ExampleProject[] {

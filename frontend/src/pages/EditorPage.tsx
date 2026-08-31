@@ -19,17 +19,15 @@ import { SerialMonitor } from '../components/simulator/SerialMonitor';
 import { Oscilloscope } from '../components/simulator/Oscilloscope';
 import { AppHeader } from '../components/layout/AppHeader';
 import { triggerSaveAction } from '../lib/proSaveAction';
-import { GitHubStarBanner } from '../components/layout/GitHubStarBanner';
+import { AboutDialog } from '../components/layout/AboutDialog';
+import { ItArduinoDialogs } from '../components/layout/ItArduinoDialogs';
 import { NewsAnnouncer } from '../components/layout/NewsAnnouncer';
 import { useSimulatorStore } from '../store/useSimulatorStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useCompileLogsStore } from '../store/useCompileLogsStore';
 import { useOscilloscopeStore } from '../store/useOscilloscopeStore';
 import { useProjectStore } from '../store/useProjectStore';
-import {
-  NewProjectDialog,
-  clearWorkspaceForStarter,
-} from '../components/editor/NewProjectDialog';
+import { NewProjectDialog, clearWorkspaceForStarter } from '../components/editor/NewProjectDialog';
 import { useAutoSaveProject } from '../hooks/useAutoSaveProject';
 import { registerEditorCommand } from '../lib/editorCommands';
 import { whenNewsClear } from '../lib/newsGate';
@@ -69,10 +67,10 @@ const resizeHandleStyle: React.CSSProperties = {
 export const EditorPage: React.FC = () => {
   const { t } = useTranslation();
   useSEO({
-    title: 'Multi-Board Simulator Editor — Arduino, ESP32, RP2040, RISC-V | Velxio',
+    title: 'Редактор — IT-Arduino Симулятор',
     description:
-      'Write, compile and simulate Arduino, ESP32, Raspberry Pi Pico, ESP32-C3, and Raspberry Pi 3 code in your browser. 19 boards, 5 CPU architectures, 48+ components. Free and open-source.',
-    url: 'https://velxio.dev/editor',
+      'Соберите схему и запустите скетч на Arduino Uno, Nano, Mega 2560 или ATtiny85 прямо в браузере. Компиляция на нашем сервере, установка не нужна.',
+    url: 'https://sim.it-arduino.ru/editor',
   });
 
   // Silent auto-save for the loaded project (only fires when authed AND
@@ -99,8 +97,6 @@ export const EditorPage: React.FC = () => {
   const compileLogs = useCompileLogsStore((s) => s.logs);
   const setCompileLogs = useCompileLogsStore((s) => s.setLogs);
   const [bottomPanelHeight, setBottomPanelHeight] = useState(BOTTOM_PANEL_DEFAULT);
-  const [showStarBanner, setShowStarBanner] = useState(false);
-  const [starRound, setStarRound] = useState<1 | 2>(1);
 
   // ── Electrical simulation (one-time mount) ────────────────────────────────
   // `startSimulation()` is the single entry point: it constructs the
@@ -161,72 +157,10 @@ export const EditorPage: React.FC = () => {
     };
   }, []);
 
-  // ── GitHub star prompt (show twice at most: 2nd visit OR after 3 min) ──────
-  // Three localStorage flags drive this:
-  //   velxio_star_prompted     → dismissed the first ask
-  //   velxio_star_prompted_v2  → dismissed the follow-up ask (stop forever)
-  //   velxio_star_clicked      → clicked through to the repo (stop forever)
-  // Anyone who dismissed the first ask WITHOUT clicking through gets one
-  // follow-up (round 2) with a stronger message; clicking the repo link at
-  // any time opts them out permanently.
-  useEffect(() => {
-    const STAR_KEY = 'velxio_star_prompted';
-    const STAR_KEY_V2 = 'velxio_star_prompted_v2';
-    const STAR_CLICKED_KEY = 'velxio_star_clicked';
-    const VISITS_KEY = 'velxio_editor_visits';
-    const FIRST_VISIT_KEY = 'velxio_editor_first_visit';
-    const THREE_MIN = 3 * 60 * 1000;
-
-    // Never bother people who already starred or already saw the follow-up.
-    if (localStorage.getItem(STAR_CLICKED_KEY)) return;
-    if (localStorage.getItem(STAR_KEY_V2)) return;
-
-    // Round 2 = they dismissed the first ask (without clicking through).
-    const round = localStorage.getItem(STAR_KEY) ? 2 : 1;
-    setStarRound(round);
-
-    // Increment visit counter
-    const visits = parseInt(localStorage.getItem(VISITS_KEY) ?? '0', 10) + 1;
-    localStorage.setItem(VISITS_KEY, String(visits));
-
-    // Record timestamp of first visit
-    if (!localStorage.getItem(FIRST_VISIT_KEY)) {
-      localStorage.setItem(FIRST_VISIT_KEY, String(Date.now()));
-    }
-    const firstVisit = parseInt(localStorage.getItem(FIRST_VISIT_KEY)!, 10);
-
-    // Show immediately on second+ visit
-    if (visits >= 2) {
-      setShowStarBanner(true);
-      return;
-    }
-
-    // Otherwise schedule after the 3-minute mark
-    const elapsed = Date.now() - firstVisit;
-    const delay = Math.max(0, THREE_MIN - elapsed);
-    const timer = setTimeout(() => {
-      if (!localStorage.getItem(STAR_CLICKED_KEY) && !localStorage.getItem(STAR_KEY_V2)) {
-        setShowStarBanner(true);
-      }
-    }, delay);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleDismissStarBanner = () => {
-    // First dismiss → mark round 1; second dismiss → mark round 2 (stop forever).
-    if (localStorage.getItem('velxio_star_prompted')) {
-      localStorage.setItem('velxio_star_prompted_v2', '1');
-    } else {
-      localStorage.setItem('velxio_star_prompted', '1');
-    }
-    setShowStarBanner(false);
-  };
-
-  const handleStarClick = () => {
-    // They went to the repo — opt them out of any further prompts.
-    localStorage.setItem('velxio_star_clicked', '1');
-    setShowStarBanner(false);
-  };
+  // Upstream tracked editor visits in localStorage to time a "star us on
+  // GitHub" banner. The banner is gone (see the render below) and so is the
+  // bookkeeping: five keys, a visit counter and a three-minute timer that
+  // existed only to schedule the ask.
   const [explorerWidth, setExplorerWidth] = useState(EXPLORER_DEFAULT);
   const [isMobile, setIsMobile] = useState(
     () => window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches,
@@ -443,109 +377,113 @@ export const EditorPage: React.FC = () => {
   ) : undefined;
 
   const unifiedToolbar = !isMobile ? (
-        <div className="unified-toolbar">
-          {/* View-mode toggle: explorer | Code / Both / Circuit — one
+    <div className="unified-toolbar">
+      {/* View-mode toggle: explorer | Code / Both / Circuit — one
               segmented group so the four pane switches read as one control.
               Hidden on mobile — there's already a code/circuit toggle in
               the mobile bottom-nav. */}
-          <div
-            role="group"
-            aria-label={t('editor.shell.viewMode')}
-            className="view-mode-toggle"
+      <div
+        role="group"
+        aria-label={t('editor.shell.viewMode')}
+        className="view-mode-toggle"
+        style={{
+          // display comes from App.css (flex; none on a narrow bar or mobile).
+          // Never squeezed below its buttons: flexbox used to crush
+          // this block to a third of its width and clip two of them.
+          flexShrink: 0,
+          gap: 1,
+          background: '#252526',
+          border: '1px solid #3c3c3c',
+          borderRadius: 4,
+          overflow: 'hidden',
+          alignSelf: 'center',
+          margin: '0 6px',
+        }}
+      >
+        <button
+          onClick={() => toggleExplorer()}
+          aria-pressed={explorerOpen}
+          title={
+            explorerOpen
+              ? t('editor.menu.hideExplorer', 'Hide file explorer')
+              : t('editor.menu.showExplorer', 'Show file explorer')
+          }
+          style={{
+            background: explorerOpen ? 'var(--color-action-primary)' : 'transparent',
+            color: explorerOpen ? 'white' : '#aaa',
+            border: 'none',
+            height: 28,
+            padding: '0 10px',
+            display: 'flex',
+            alignItems: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
+        </button>
+        <div style={{ width: 1, background: '#3c3c3c', alignSelf: 'stretch' }} />
+        {(
+          [
+            { key: 'code', label: t('editor.shell.code'), path: 'M16 18l6-6-6-6M8 6l-6 6 6 6' },
+            { key: 'both', label: t('editor.shell.both'), path: 'M3 3h7v18H3zM14 3h7v18h-7z' },
+            { key: 'circuit', label: t('editor.shell.circuit'), path: 'M5 12h14M12 5v14' },
+          ] as const
+        ).map((m) => (
+          <button
+            key={m.key}
+            onClick={() => setViewMode(m.key)}
+            aria-pressed={viewMode === m.key}
             style={{
-              // display comes from App.css (flex; none on a narrow bar or mobile).
-              // Never squeezed below its buttons: flexbox used to crush
-              // this block to a third of its width and clip two of them.
-              flexShrink: 0,
-              gap: 1,
-              background: '#252526',
-              border: '1px solid #3c3c3c',
-              borderRadius: 4,
-              overflow: 'hidden',
-              alignSelf: 'center',
-              margin: '0 6px',
+              background: viewMode === m.key ? 'var(--color-action-primary)' : 'transparent',
+              color: viewMode === m.key ? 'white' : '#aaa',
+              border: 'none',
+              height: 28,
+              padding: '0 10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              cursor: 'pointer',
+              fontSize: 12,
+              fontFamily: 'inherit',
             }}
           >
-            <button
-              onClick={() => toggleExplorer()}
-              aria-pressed={explorerOpen}
-              title={explorerOpen ? t('editor.menu.hideExplorer', 'Hide file explorer') : t('editor.menu.showExplorer', 'Show file explorer')}
-              style={{
-                background: explorerOpen ? 'var(--color-action-primary)' : 'transparent',
-                color: explorerOpen ? 'white' : '#aaa',
-                border: 'none',
-                height: 28,
-                padding: '0 10px',
-                display: 'flex',
-                alignItems: 'center',
-                cursor: 'pointer',
-              }}
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-              </svg>
-            </button>
-            <div style={{ width: 1, background: '#3c3c3c', alignSelf: 'stretch' }} />
-            {(
-              [
-                { key: 'code', label: t('editor.shell.code'), path: 'M16 18l6-6-6-6M8 6l-6 6 6 6' },
-                { key: 'both', label: t('editor.shell.both'), path: 'M3 3h7v18H3zM14 3h7v18h-7z' },
-                { key: 'circuit', label: t('editor.shell.circuit'), path: 'M5 12h14M12 5v14' },
-              ] as const
-            ).map((m) => (
-              <button
-                key={m.key}
-                onClick={() => setViewMode(m.key)}
-                aria-pressed={viewMode === m.key}
-                style={{
-                  background: viewMode === m.key ? 'var(--color-action-primary)' : 'transparent',
-                  color: viewMode === m.key ? 'white' : '#aaa',
-                  border: 'none',
-                  height: 28,
-                  padding: '0 10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  fontFamily: 'inherit',
-                }}
-              >
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d={m.path} />
-                </svg>
-                <span className="vm-label">{m.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="unified-toolbar-editor">
-            <EditorToolbar
-              consoleOpen={consoleOpen}
-              setConsoleOpen={setConsoleOpen}
-              compileLogs={compileLogs}
-              setCompileLogs={setCompileLogs}
-            />
-          </div>
-          <div className="unified-toolbar-canvas" ref={setCanvasHeaderSlot} />
-        </div>
+              <path d={m.path} />
+            </svg>
+            <span className="vm-label">{m.label}</span>
+          </button>
+        ))}
+      </div>
+      <div className="unified-toolbar-editor">
+        <EditorToolbar
+          consoleOpen={consoleOpen}
+          setConsoleOpen={setConsoleOpen}
+          compileLogs={compileLogs}
+          setCompileLogs={setCompileLogs}
+        />
+      </div>
+      <div className="unified-toolbar-canvas" ref={setCanvasHeaderSlot} />
+    </div>
   ) : undefined;
 
   return (
@@ -575,7 +513,10 @@ export const EditorPage: React.FC = () => {
               <polyline points="16 18 22 12 16 6" />
               <polyline points="8 6 2 12 8 18" />
             </svg>
-            <span>&lt;/&gt; {t('editor.shell.code')}</span>
+            {/* Литерал «</>» отсюда убран: слева уже стоит иконка из двух
+                шевронов, и знак получался дважды подряд. У соседней закладки
+                «Схема» — только иконка и подпись, теперь одинаково. */}
+            <span>{t('editor.shell.code')}</span>
           </button>
           <button
             className={`mobile-tab-btn${mobileView === 'circuit' ? ' mobile-tab-btn--active' : ''}`}
@@ -601,7 +542,6 @@ export const EditorPage: React.FC = () => {
         </nav>
       )}
 
-
       <div className="app-container" ref={containerRef}>
         {/* ── Editor side ── */}
         <div
@@ -610,10 +550,10 @@ export const EditorPage: React.FC = () => {
             width: isMobile
               ? '100%'
               : viewMode === 'code'
-              ? '100%'
-              : viewMode === 'circuit'
-              ? '0%'
-              : `${editorWidthPct}%`,
+                ? '100%'
+                : viewMode === 'circuit'
+                  ? '0%'
+                  : `${editorWidthPct}%`,
             display:
               (isMobile && mobileView !== 'code') || (!isMobile && viewMode === 'circuit')
                 ? 'none'
@@ -634,11 +574,13 @@ export const EditorPage: React.FC = () => {
                 }}
               >
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
-                  <FileExplorer onSaveClick={handleSaveClick} onNewClick={handleNewClick} autoSave={autoSave} />
+                  <FileExplorer
+                    onSaveClick={handleSaveClick}
+                    onNewClick={handleNewClick}
+                    autoSave={autoSave}
+                  />
                 </div>
-                {accountBlock && (
-                  <div className="explorer-account-footer">{accountBlock}</div>
-                )}
+                {accountBlock && <div className="explorer-account-footer">{accountBlock}</div>}
               </div>
               {!isMobile && (
                 <div
@@ -649,9 +591,7 @@ export const EditorPage: React.FC = () => {
             </>
           )}
 
-          {!explorerOpen && accountBlock && (
-            <div className="editor-corner-box">{accountBlock}</div>
-          )}
+          {!explorerOpen && accountBlock && <div className="editor-corner-box">{accountBlock}</div>}
 
           {/* Editor main area */}
           <div
@@ -670,7 +610,11 @@ export const EditorPage: React.FC = () => {
                 <button
                   className="explorer-toggle-btn"
                   onClick={() => toggleExplorer()}
-                  title={explorerOpen ? t('editor.menu.hideExplorer', 'Hide file explorer') : t('editor.menu.showExplorer', 'Show file explorer')}
+                  title={
+                    explorerOpen
+                      ? t('editor.menu.hideExplorer', 'Hide file explorer')
+                      : t('editor.menu.showExplorer', 'Show file explorer')
+                  }
                 >
                   <svg
                     width="16"
@@ -741,10 +685,10 @@ export const EditorPage: React.FC = () => {
             width: isMobile
               ? '100%'
               : viewMode === 'circuit'
-              ? '100%'
-              : viewMode === 'code'
-              ? '0%'
-              : `${100 - editorWidthPct}%`,
+                ? '100%'
+                : viewMode === 'code'
+                  ? '0%'
+                  : `${100 - editorWidthPct}%`,
             display:
               (isMobile && mobileView !== 'circuit') || (!isMobile && viewMode === 'code')
                 ? 'none'
@@ -782,14 +726,15 @@ export const EditorPage: React.FC = () => {
         </div>
       </div>
 
-      {showStarBanner && (
-        <GitHubStarBanner
-          onClose={handleDismissStarBanner}
-          onStarClick={handleStarClick}
-          round={starRound}
-        />
-      )}
+      {/* Upstream popped a banner here asking the user to star its GitHub
+          repository. It is gone: it carried the Velxio name, it pointed at the
+          author's repository rather than ours, and a school tool has no
+          business nagging students for stars on someone else's project. */}
       <NewsAnnouncer />
+      <AboutDialog />
+      {/* Окна форка: «Сохранить в проект» и «Мои схемы». Пусты, пока
+          закрыты; открываются из lib/itArduinoMount через швы апстрима. */}
+      <ItArduinoDialogs />
       <NewProjectDialog
         isOpen={showNewProjectDialog}
         onClose={() => setShowNewProjectDialog(false)}

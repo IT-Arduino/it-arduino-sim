@@ -122,13 +122,34 @@ describe('loadExample — multi-board to single-board leaves no residue (bug 3)'
   });
 
   it('a single-board example after a multi-board example ends with exactly one clean board', async () => {
-    // Multi-board example: STM32 Blue Pill + Arduino Uno.
-    await loadExample(findExample('stm32-uno-gpio-mirror'));
+    // Upstream loaded the gallery's `stm32-uno-gpio-mirror` here — a Blue Pill
+    // wired to an Uno. This fork has no STM32, and every remaining multi-board
+    // example in the gallery pairs an allowed board with a removed one, so
+    // there is no gallery fixture left for this case.
+    //
+    // The bug being guarded has nothing to do with STM32 anyway: it is about a
+    // stale board id surviving a multi-board → single-board transition. A
+    // synthetic two-board example exercises exactly that path and, as a bonus,
+    // stops the test depending on what the gallery happens to contain.
+    await loadExample({
+      id: 'test-two-avr-boards',
+      title: 'Две платы AVR',
+      description: 'Синтетический пример для проверки перехода с двух плат на одну.',
+      category: 'basics',
+      difficulty: 'beginner',
+      code: '',
+      components: [],
+      wires: [],
+      boards: [
+        { boardKind: 'arduino-nano', x: 0, y: 0, code: 'void setup(){}\nvoid loop(){}\n' },
+        { boardKind: 'arduino-mega', x: 400, y: 0, code: 'void setup(){}\nvoid loop(){}\n' },
+      ],
+    });
     expect(useSimulatorStore.getState().boards.length).toBe(2);
 
     // Single-board example must reduce the canvas back to one board, freshly
-    // built — its id must match its kind (no stale "stm32-bluepill" id left
-    // on what is now an Arduino Uno).
+    // built — its id must match its kind (no stale "arduino-nano" id left on
+    // what is now an Arduino Uno).
     await loadExample(findExample('blink-led'));
     const after = useSimulatorStore.getState();
     expect(after.boards.length).toBe(1);

@@ -24,6 +24,7 @@ import { useSimulatorStore } from '../../store/useSimulatorStore';
 import { buildWireNetMap } from '../../simulation/spice/NetlistBuilder';
 import { BOARD_PIN_GROUPS } from '../../simulation/spice/boardPinGroups';
 import { rms, isAC } from '../../simulation/spice/waveformStats';
+import { describeSpiceState } from '../../lib/spiceMessagesRu';
 
 function formatV(v: number): string {
   const abs = Math.abs(v);
@@ -120,7 +121,8 @@ export function ElectricalOverlay({
     return labels.filter(
       (l) =>
         l.id === hoveredWireId ||
-        (hoveredComponentId !== null && (l.a === hoveredComponentId || l.b === hoveredComponentId)) ||
+        (hoveredComponentId !== null &&
+          (l.a === hoveredComponentId || l.b === hoveredComponentId)) ||
         (hoveredBoardId !== null && (l.a === hoveredBoardId || l.b === hoveredBoardId)),
     );
   }, [labels, hoveredWireId, hoveredComponentId, hoveredBoardId]);
@@ -128,13 +130,18 @@ export function ElectricalOverlay({
   const modeBadge = analysisMode === 'tran' ? 'AC' : 'DC';
   const badgeColor = analysisMode === 'tran' ? '#4dd0e1' : '#ffa500';
 
-  const summaryLines: string[] = [];
-  if (error) summaryLines.push(`Warning: ${error}`);
-  else if (!converged) summaryLines.push('Warning: did not converge');
-  else {
-    const n = Object.keys(nodeVoltages).length;
-    summaryLines.push(`${n} nets | ${solveMs.toFixed(0)} ms`);
-  }
+  // Текст плашки и решение, показывать ли её вообще, вынесены в
+  // lib/spiceMessagesRu: строки здесь были английские, а сообщения ngspice —
+  // вывод библиотеки на C, до i18next они не доходят. Там же скрывается
+  // «нет узлов» на несобранной схеме: это не ошибка, а нормальное состояние
+  // холста, на котором ещё не проведено ни одного провода.
+  const summary = describeSpiceState({
+    error,
+    converged,
+    netCount: Object.keys(nodeVoltages).length,
+    solveMs,
+    wireCount: wires.length,
+  });
 
   return (
     <svg
@@ -148,50 +155,53 @@ export function ElectricalOverlay({
         zIndex: 20,
       }}
     >
-      {/* Summary pill with AC/DC badge */}
-      <g transform="translate(12, 12)">
-        <rect
-          x={0}
-          y={0}
-          rx={4}
-          ry={4}
-          width={250}
-          height={24}
-          fill="rgba(26, 26, 26, 0.85)"
-          stroke={error ? '#ff6666' : badgeColor}
-        />
-        <rect
-          x={4}
-          y={4}
-          rx={2}
-          ry={2}
-          width={22}
-          height={16}
-          fill={badgeColor}
-          opacity={0.2}
-          stroke={badgeColor}
-        />
-        <text
-          x={15}
-          y={16}
-          fontSize={10}
-          fill={badgeColor}
-          fontFamily="monospace"
-          textAnchor="middle"
-          fontWeight="bold"
-        >
-          {modeBadge}
-        </text>
-        <text
-          x={32}
-          y={17}
-          fontSize={11}
-          fill={error ? '#ff9999' : '#ffa500'}
-          fontFamily="monospace"
-        >
-          SPICE {summaryLines.join(' ')}
-        </text>
-      </g>
+      {/* Summary pill with AC/DC badge. Скрывается целиком, когда решателю
+          нечего сказать — см. describeSpiceState. */}
+      {summary.text !== null && (
+        <g transform="translate(12, 12)">
+          <rect
+            x={0}
+            y={0}
+            rx={4}
+            ry={4}
+            width={250}
+            height={24}
+            fill="rgba(26, 26, 26, 0.85)"
+            stroke={summary.isError ? '#ff6666' : badgeColor}
+          />
+          <rect
+            x={4}
+            y={4}
+            rx={2}
+            ry={2}
+            width={22}
+            height={16}
+            fill={badgeColor}
+            opacity={0.2}
+            stroke={badgeColor}
+          />
+          <text
+            x={15}
+            y={16}
+            fontSize={10}
+            fill={badgeColor}
+            fontFamily="monospace"
+            textAnchor="middle"
+            fontWeight="bold"
+          >
+            {modeBadge}
+          </text>
+          <text
+            x={32}
+            y={17}
+            fontSize={11}
+            fill={summary.isError ? '#ff9999' : '#ffa500'}
+            fontFamily="monospace"
+          >
+            SPICE {summary.text}
+          </text>
+        </g>
+      )}
 
       {/* Per-wire voltage labels — only for what the cursor is on */}
       {visibleLabels.map((l) => (

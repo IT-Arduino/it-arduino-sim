@@ -32,13 +32,15 @@ import { ExampleDetailPage } from './pages/ExampleDetailPage';
  * with the homepage head (Google had indexed the two as separate pages).
  */
 const EditorSeoSummary: React.FC = () => (
+  // Это тело читает поисковик на главной странице. Упоминались платы,
+  // которых в форке нет (ESP32, Pico, Raspberry Pi), — обещать их значит
+  // приводить человека на страницу, где их не окажется.
   <main>
-    <h1>Velxio Editor — multi-board circuit and code simulator</h1>
+    <h1>Редактор IT-Arduino Симулятора — схема и код в одном окне</h1>
     <p>
-      Write, compile and simulate Arduino, ESP32, ESP32-C3, ESP32-S3, Raspberry Pi
-      Pico and Raspberry Pi code in your browser, wired to a live circuit canvas
-      with SPICE analog simulation. Free, open source, no install and no account
-      needed.
+      Собирайте схему и пишите скетч на C++ прямо в браузере: Arduino Uno, Nano, Mega 2560 и
+      ATtiny85 с настоящей эмуляцией AVR, аналоговая часть считается решателем SPICE. Бесплатно, с
+      открытым исходным кодом, без установки и без регистрации.
     </p>
   </main>
 );
@@ -77,7 +79,11 @@ export async function loadRouteComponents(): Promise<Record<string, React.FC>> {
  * Returns all routes that have both seoMeta and a renderable component.
  */
 export function getPrerenderedRoutes() {
-  return SEO_ROUTES.filter((r) => r.seoMeta && routeComponents[r.path]);
+  // `noindex` отсекается и здесь, а не только в карте сайта: иначе nginx
+  // отдавал бы закрытой странице готовый статический HTML со всем её
+  // содержимым. Для /login, /register и /admin это ничего не меняет —
+  // у них нет seoMeta, и первое условие их уже отсекало.
+  return SEO_ROUTES.filter((r) => r.seoMeta && !r.noindex && routeComponents[r.path]);
 }
 
 /**
@@ -105,9 +111,12 @@ export function render(path: string): string {
 export function getPrerenderedExampleRoutes() {
   return exampleProjects.map((e) => ({
     path: `/examples/${e.id}`,
-    title: `${e.title} — Free Arduino Simulator Example | Velxio`,
-    description: `${e.description}. Run this example free in your browser — no install, no account required.`,
-    url: `https://velxio.dev/examples/${e.id}`,
+    // Заголовок и описание уходят в <title> и <meta name="description">
+    // 158 пререндеренных страниц — это первое, что видит поисковик.
+    // Шаблон upstream был английским и нёс его марку.
+    title: `${e.title} — пример для IT-Arduino Симулятора`,
+    description: `${e.description} Запустите пример прямо в браузере: без установки и регистрации.`,
+    url: `https://sim.it-arduino.ru/examples/${e.id}`,
   }));
 }
 

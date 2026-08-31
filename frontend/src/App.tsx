@@ -12,6 +12,7 @@ import { ExampleEditorPage } from './pages/ExampleEditorPage';
 import { LocaleSync } from './i18n/LocaleSync';
 import { NON_DEFAULT_LOCALES } from './i18n/config';
 import { useProRoutes, useProRoutesSettled } from './lib/proRoutes';
+import { ItArduinoAdminOnly } from './components/ItArduinoAdminOnly';
 import { triggerSessionCheck } from './lib/proSession';
 import { MessageDialogHost } from './components/ui/MessageDialogHost';
 import './App.css';
@@ -47,7 +48,17 @@ const ROOT_ELEMENT: ReactElement = <RootRoute />;
 const ROUTES: { path: string; element: ReactElement; index?: boolean }[] = [
   { path: '/', element: ROOT_ELEMENT, index: true },
   { path: 'editor', element: <EditorPage /> },
-  { path: 'examples', element: <ExamplesPage /> },
+  // Галерея «Избранные проекты» — только администратору сайта.
+  // Отдельные страницы примеров ниже намеренно остаются открытыми: на
+  // них ведут ссылки из окна детали в редакторе.
+  {
+    path: 'examples',
+    element: (
+      <ItArduinoAdminOnly>
+        <ExamplesPage />
+      </ItArduinoAdminOnly>
+    ),
+  },
   // /examples/<id> = SEO landing (preview, badges, "Open in Simulator" CTA).
   // /example/<id>  = live editor with the example pre-loaded; the URL
   //                  stays pinned so links are shareable + bookmarkable.
@@ -106,7 +117,7 @@ function App() {
               <Route key="root" path="/" element={r.element} />
             ) : (
               <Route key={r.path} path={`/${r.path}`} element={r.element} />
-            )
+            ),
           )}
 
           {/*
@@ -121,12 +132,8 @@ function App() {
                 r.index ? (
                   <Route key={`${locale}-root`} index element={r.element} />
                 ) : (
-                  <Route
-                    key={`${locale}-${r.path}`}
-                    path={r.path}
-                    element={r.element}
-                  />
-                )
+                  <Route key={`${locale}-${r.path}`} path={r.path} element={r.element} />
+                ),
               )}
             </Route>
           ))}

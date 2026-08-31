@@ -7,7 +7,7 @@ import { useSEO } from '../utils/useSEO';
 import { EditorPage } from './EditorPage';
 import type { BoardInstance, BoardKind } from '../types/board';
 
-const DOMAIN = 'https://velxio.dev';
+const DOMAIN = 'https://sim.it-arduino.ru';
 
 interface ProjectMeta {
   name: string;
@@ -31,16 +31,16 @@ export const ProjectByIdPage: React.FC = () => {
   useSEO(
     projectMeta && projectMeta.isPublic
       ? {
-          title: `${projectMeta.name} by ${projectMeta.ownerUsername} | Velxio`,
+          title: `${projectMeta.name} — проект пользователя ${projectMeta.ownerUsername}`,
           description: projectMeta.description
-            ? `${projectMeta.description} — Simulate and remix this Arduino project on Velxio.`
-            : `Arduino project by ${projectMeta.ownerUsername}. View and simulate it free on Velxio.`,
+            ? `${projectMeta.description} — откройте и переделайте этот проект Arduino в IT-Arduino Симуляторе.`
+            : `Проект Arduino пользователя ${projectMeta.ownerUsername}. Откройте и запустите его в IT-Arduino Симуляторе.`,
           url: `${DOMAIN}/project/${id}`,
         }
       : {
-          title: 'Project — Velxio Arduino Emulator',
+          title: 'Проект — IT-Arduino Симулятор',
           description:
-            'View and simulate this Arduino project on Velxio — free, open-source multi-board emulator.',
+            'Откройте и запустите этот проект Arduino в IT-Arduino Симуляторе — бесплатно и с открытым исходным кодом.',
           url: `${DOMAIN}/editor`,
           noindex: true,
         },
@@ -75,7 +75,7 @@ export const ProjectByIdPage: React.FC = () => {
       })
       .catch((err) => {
         const s = err?.response?.status;
-        if (s === 404) setError('Project not found.');
+        if (s === 404) setError('Схема не найдена.');
         else if (s === 403) setError('This project is private.');
         else setError('Failed to load project.');
         clearCurrentProject();

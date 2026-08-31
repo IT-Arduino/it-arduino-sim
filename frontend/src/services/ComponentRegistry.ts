@@ -10,6 +10,7 @@ import type {
   ComponentCategory,
   ComponentMetadataCollection,
 } from '../types/component-metadata';
+import { applyCatalogConfig } from '../lib/componentCatalog';
 
 export class ComponentRegistry {
   private static instance: ComponentRegistry;
@@ -216,7 +217,10 @@ export class ComponentRegistry {
         tags: ['custom', 'chip', 'wasm', 'c', 'wokwi', 'eeprom', 'rtc', 'logic', 'cpu', '8080', 'z80'],
       });
 
-      this.processMetadata(data.components);
+      // Fork seam: drop parts belonging to boards this fork does not
+      // simulate, then apply the administrator's components-config.json.
+      // Everything about that lives in lib/componentCatalog.
+      this.processMetadata(await applyCatalogConfig(data.components));
       this.loaded = true;
 
       console.log(`Loaded ${this.allComponents.length} components from metadata`);

@@ -40,14 +40,14 @@ export function starterBoard(id: string | undefined): string | undefined {
 
 /** <title> for a starter's editor page. */
 export function starterTitle(board: string): string {
-  return `New ${board} project — free online ${board} simulator | Velxio`;
+  return `Новый проект ${board} — IT-Arduino Симулятор`;
 }
 
 /** Meta description for a starter's editor page. */
 export function starterDescription(board: string): string {
   return (
-    `Start a new ${board} project in your browser: the editor opens with a ${board} ` +
-    `and a working blink sketch — edit the code, wire components and run the ` +
-    `simulation. Free, no install, no account needed.`
+    `Начните проект на ${board} в браузере: редактор откроется с платой и готовым ` +
+    `скетчем мигания светодиодом — правьте код, подключайте детали и запускайте ` +
+    `симуляцию. Бесплатно, без установки и регистрации.`
   );
 }

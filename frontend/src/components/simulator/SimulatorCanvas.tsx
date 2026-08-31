@@ -136,7 +136,9 @@ function carrySeatedBoards(
   const dx = nx - dragged.x;
   const dy = ny - dragged.y;
   if (!dx && !dy) return;
-  const el = document.getElementById(dragged.id) as (HTMLElement & { boardSocket?: unknown }) | null;
+  const el = document.getElementById(dragged.id) as
+    | (HTMLElement & { boardSocket?: unknown })
+    | null;
   if (!el?.boardSocket) return;
   const st = useSimulatorStore.getState();
   for (const b of st.boards) {
@@ -275,35 +277,31 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
   // loop — any event arriving inside the 500 ms re-attach window is lost
   // (one-shot streams like a display list never recover, unlike the
   // continuously-repainting SPI LCD decoders that masked this).
-  const attachKey = boards
-    .map((b) => `${b.id}:${b.boardKind}:${b.running ? 1 : 0}`)
-    .join('|');
+  const attachKey = boards.map((b) => `${b.id}:${b.boardKind}:${b.running ? 1 : 0}`).join('|');
   useEffect(() => {
     const cleanups: (() => void)[] = [];
-    useSimulatorStore
-      .getState()
-      .boards.forEach((board) => {
-        const attachBuiltins = getBoardBuiltins(board.boardKind);
-        if (!attachBuiltins || !board.running) return;
-        const timeout = setTimeout(() => {
-          const el = document.getElementById(board.id);
-          if (!el) return;
-          try {
-            cleanups.push(
-              attachBuiltins({
-                el,
-                sim: getBoardSimulator(board.id),
-                // ESP32-family boards get their QEMU/JS bridge; QEMU-Linux
-                // (piFamily) boards get the Raspberry Pi bridge instead.
-                bridge: getEsp32Bridge(board.id) ?? getBoardBridge(board.id),
-              }),
-            );
-          } catch (e) {
-            console.warn(`[${board.boardKind}] built-in peripheral attach failed:`, e);
-          }
-        }, 500);
-        cleanups.push(() => clearTimeout(timeout));
-      });
+    useSimulatorStore.getState().boards.forEach((board) => {
+      const attachBuiltins = getBoardBuiltins(board.boardKind);
+      if (!attachBuiltins || !board.running) return;
+      const timeout = setTimeout(() => {
+        const el = document.getElementById(board.id);
+        if (!el) return;
+        try {
+          cleanups.push(
+            attachBuiltins({
+              el,
+              sim: getBoardSimulator(board.id),
+              // ESP32-family boards get their QEMU/JS bridge; QEMU-Linux
+              // (piFamily) boards get the Raspberry Pi bridge instead.
+              bridge: getEsp32Bridge(board.id) ?? getBoardBridge(board.id),
+            }),
+          );
+        } catch (e) {
+          console.warn(`[${board.boardKind}] built-in peripheral attach failed:`, e);
+        }
+      }, 500);
+      cleanups.push(() => clearTimeout(timeout));
+    });
     return () => cleanups.forEach((fn) => fn());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attachKey]);
@@ -1124,14 +1122,8 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                   .querySelector('.canvas-content')
                   ?.getBoundingClientRect();
                 setPropertyDialogPosition({
-                  x:
-                    component.x * zoomRef.current +
-                    panRef.current.x +
-                    (canvasRect?.left ?? 0),
-                  y:
-                    component.y * zoomRef.current +
-                    panRef.current.y +
-                    (canvasRect?.top ?? 0),
+                  x: component.x * zoomRef.current + panRef.current.x + (canvasRect?.left ?? 0),
+                  y: component.y * zoomRef.current + panRef.current.y + (canvasRect?.top ?? 0),
                 });
                 setShowPropertyDialog(true);
               }
@@ -2517,11 +2509,12 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
               top: 0,
               // Drag-to-front rank applies HERE (the group is the stacking
               // context that competes with boards) — see the parts branch.
-              zIndex: (zOrders[component.id] ?? 0) > 0
-                ? 10 + (zOrders[component.id] ?? 0)
-                : isSelected
-                  ? 2
-                  : 1,
+              zIndex:
+                (zOrders[component.id] ?? 0) > 0
+                  ? 10 + (zOrders[component.id] ?? 0)
+                  : isSelected
+                    ? 2
+                    : 1,
               pointerEvents: 'auto',
             }}
           >
@@ -2797,8 +2790,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                     Sense (OV2640-compatible over LCD_CAM). */}
                 {(activeBoard?.boardKind === 'esp32-cam' ||
                   activeBoard?.boardKind === 'xiao-esp32s3-sense' ||
-                  (activeBoard &&
-                    Boolean(getProBoard(activeBoard.boardKind)?.builtInCamera))) && (
+                  (activeBoard && Boolean(getProBoard(activeBoard.boardKind)?.builtInCamera))) && (
                   <CameraToggle
                     boardId={activeBoard.id}
                     // The S3 esp32-camera build allocates width*height/5 bytes
@@ -2826,10 +2818,9 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                     Off = the bridge's 440 Hz test tone keeps mic sketches
                     alive, so no auto-start: taking the user's microphone is
                     an explicit click. */}
-                {activeBoard &&
-                  getProBoard(activeBoard.boardKind)?.builtInMicrophone === true && (
-                    <MicrophoneToggle boardId={activeBoard.id} />
-                  )}
+                {activeBoard && getProBoard(activeBoard.boardKind)?.builtInMicrophone === true && (
+                  <MicrophoneToggle boardId={activeBoard.id} />
+                )}
 
                 {/* Tilt pad + battery slider, for boards whose def declares an
                     IMU or a battery gauge. Purely simulation inputs: the
@@ -2930,35 +2921,35 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                     };
                     return (
                       <>
-                      <span
-                        className={`canvas-wifi-badge canvas-wifi-${status}${hasIp || (window as unknown as { __velxio_wifi_panel_toggle__?: unknown }).__velxio_wifi_panel_toggle__ ? ' canvas-wifi-clickable' : ''}`}
-                        onClick={openGateway}
-                        title={
-                          hasIp
-                            ? `WiFi: ${activeBoard.wifiStatus?.ssid ?? 'Velxio-GUEST'} — IP: ${activeBoard.wifiStatus?.ip}\nClick to open IoT Gateway ↗`
-                            : status === 'connected'
-                              ? `WiFi: ${activeBoard.wifiStatus?.ssid ?? 'Velxio-GUEST'} — Connecting...`
-                              : status === 'initializing'
-                                ? 'WiFi: Initializing...'
-                                : 'WiFi: Disconnected'
-                        }
-                      >
-                        <svg
-                          width="18"
-                          height="18"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
+                        <span
+                          className={`canvas-wifi-badge canvas-wifi-${status}${hasIp || (window as unknown as { __velxio_wifi_panel_toggle__?: unknown }).__velxio_wifi_panel_toggle__ ? ' canvas-wifi-clickable' : ''}`}
+                          onClick={openGateway}
+                          title={
+                            hasIp
+                              ? `WiFi: ${activeBoard.wifiStatus?.ssid ?? 'Velxio-GUEST'} — IP: ${activeBoard.wifiStatus?.ip}\nClick to open IoT Gateway ↗`
+                              : status === 'connected'
+                                ? `WiFi: ${activeBoard.wifiStatus?.ssid ?? 'Velxio-GUEST'} — Connecting...`
+                                : status === 'initializing'
+                                  ? 'WiFi: Initializing...'
+                                  : 'WiFi: Disconnected'
+                          }
                         >
-                          <path d="M5 12.55a11 11 0 0 1 14.08 0" />
-                          <path d="M1.42 9a16 16 0 0 1 21.16 0" />
-                          <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-                          <circle cx="12" cy="20" r="1" />
-                        </svg>
-                      </span>
+                          <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+                            <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+                            <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+                            <circle cx="12" cy="20" r="1" />
+                          </svg>
+                        </span>
                         {/* Split-button caret: the badge keeps its one-click
                             gateway action; the caret is the WiFi panel's
                             handle — always reachable, run or not. Rendered
@@ -2975,7 +2966,16 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
                               togglePanel();
                             }}
                           >
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <svg
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
                               <path d="M6 9l6 6 6-6" />
                             </svg>
                           </span>
@@ -3095,7 +3095,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
             setPan({ ...panRef.current });
             setDraggedComponentId(null);
             raisedThisDragRef.current = null;
-      carriedSocketRef.current = null;
+            carriedSocketRef.current = null;
           }}
           onContextMenu={(e) => {
             e.preventDefault();
@@ -3283,7 +3283,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
           {/* Wire creation mode banner — visible on both desktop and mobile */}
           {wireInProgress && (
             <WireModeBanner
-              message="Tap a pin to connect — tap canvas for waypoints"
+              message="Нажмите на вывод, чтобы соединить. Нажатие на пустом месте добавит излом провода"
               onCancel={() => cancelWireCreation()}
             />
           )}
@@ -3429,7 +3429,9 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
             const meta = c ? registry.getById(c.metadataId) : null;
             if (meta) title = meta.name;
           }
-          const subtitle = wireInProgress ? 'Tap a pin to connect' : 'Tap a pin to start a wire';
+          const subtitle = wireInProgress
+            ? 'Нажмите на вывод, чтобы соединить'
+            : 'Нажмите на вывод, чтобы начать провод';
           // Rotate is only meaningful for components (boards have no rotation).
           const handlePickerRotate =
             pinPicker.kind === 'component'
@@ -3590,8 +3592,7 @@ export const SimulatorCanvas = ({ headerSlot }: SimulatorCanvasProps = {}) => {
             // + raw-REPL file upload); no compile step is required there,
             // the workspace files are always available.
             const isMpy = board.languageMode === 'micropython';
-            const mpyWebOk =
-              isMpy && !isTauriRuntime && webFlashMpyAvailable(board.boardKind);
+            const mpyWebOk = isMpy && !isTauriRuntime && webFlashMpyAvailable(board.boardKind);
             // Arduino/ESP-IDF boards are always flashable: the Flash dialog
             // compiles first when there is no build (or a stale one).
             actions.push({

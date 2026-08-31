@@ -30,10 +30,22 @@
  * wire a real wokwi-led + wokwi-resistor to PB1 like the c3-blink one does.
  */
 
+import attiny85Raw from '../../../public/component-svgs/attiny85.svg?raw';
+
+/**
+ * Картинка вшита в сборку, а не запрашивается по адресу
+ * /component-svgs/attiny85.svg во время отрисовки. Прежний вариант
+ * ломался, если запрос не проходил (перезапуск сервера, обрыв связи):
+ * браузер показывал значок битого изображения и запоминал неудачу.
+ * Кодирование через encodeURIComponent, а не base64: файл в UTF-8,
+ * и btoa на кириллице в комментариях исходника выбросил бы ошибку.
+ */
+const ATTINY85_ART = `data:image/svg+xml,${encodeURIComponent(attiny85Raw)}`;
+
 const W = 160;
 const H = 132;
-const TOP_Y = 6;     // CSS px — y of all four top-edge pin tips
-const BOT_Y = 126;   // CSS px — y of all four bottom-edge pin tips
+const TOP_Y = 6; // CSS px — y of all four top-edge pin tips
+const BOT_Y = 126; // CSS px — y of all four bottom-edge pin tips
 const PIN_X = [20, 60, 100, 140] as const;
 
 const PIN_INFO: ReadonlyArray<{ name: string; x: number; y: number; description?: string }> = [
@@ -82,7 +94,7 @@ class Attiny85Element extends HTMLElement {
       <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
         <!-- Fritzing ATtiny85 DIP-8 artwork (CC-BY-SA). Scaled to fill
              the 160x132 box; aspect ratio matches the source 1.211:1. -->
-        <image href="/component-svgs/attiny85.svg" x="0" y="0" width="${W}" height="${H}" />
+        <image href="${ATTINY85_ART}" x="0" y="0" width="${W}" height="${H}" />
 
         <!-- Pin labels overlaid above/below the connector pads. -->
         <text class="pin-label power" x="${PIN_X[0]}" y="${TOP_Y - 22}">VCC</text>

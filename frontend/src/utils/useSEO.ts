@@ -26,7 +26,7 @@ function qs(selector: string): HTMLMetaElement | null {
  */
 function withTrailingSlash(u: string): string {
   try {
-    const parsed = new URL(u, 'https://velxio.dev');
+    const parsed = new URL(u, 'https://sim.it-arduino.ru');
     if (!parsed.pathname.endsWith('/')) parsed.pathname += '/';
     return parsed.toString();
   } catch {
@@ -34,7 +34,7 @@ function withTrailingSlash(u: string): string {
   }
 }
 
-const DOMAIN = 'https://velxio.dev';
+const DOMAIN = 'https://sim.it-arduino.ru';
 const HREFLANG_ATTR = 'data-seo-hreflang';
 
 /**
@@ -45,7 +45,9 @@ const HREFLANG_ATTR = 'data-seo-hreflang';
  * canonical and no hreflang.
  */
 const LOCALIZED_ROUTE_PATHS = new Set(
-  SEO_ROUTES.filter((r) => !r.noindex).map((r) => (r.path === '/' ? '/' : r.path.replace(/\/$/, ''))),
+  SEO_ROUTES.filter((r) => !r.noindex).map((r) =>
+    r.path === '/' ? '/' : r.path.replace(/\/$/, ''),
+  ),
 );
 
 function isLocalizedRoute(strippedPath: string): boolean {
@@ -61,7 +63,10 @@ function isLocalizedRoute(strippedPath: string): boolean {
  * Spanish page was a duplicate while it was ranking on its own; this
  * matches what Google already does with the pages.
  */
-function localeLinks(url: string): { canonical: string; alternates: { hreflang: string; href: string }[] } {
+function localeLinks(url: string): {
+  canonical: string;
+  alternates: { hreflang: string; href: string }[];
+} {
   const canonicalDefault = withTrailingSlash(url);
   let strippedPath: string;
   try {
@@ -77,8 +82,10 @@ function localeLinks(url: string): { canonical: string; alternates: { hreflang: 
     const urlPath = strippedPath.replace(/\/+$/, '') || '/';
     if (herePath !== urlPath) return { canonical: canonicalDefault, alternates: [] };
   }
-  const current = typeof window !== 'undefined' ? getLocaleFromPath(window.location.pathname) : DEFAULT_LOCALE;
-  const variant = (l: (typeof LOCALES)[number]) => withTrailingSlash(`${DOMAIN}${localizedPath(strippedPath, l)}`);
+  const current =
+    typeof window !== 'undefined' ? getLocaleFromPath(window.location.pathname) : DEFAULT_LOCALE;
+  const variant = (l: (typeof LOCALES)[number]) =>
+    withTrailingSlash(`${DOMAIN}${localizedPath(strippedPath, l)}`);
   return {
     canonical: variant(current),
     alternates: [
@@ -139,7 +146,9 @@ export function useSEO({ title, description, url, ogImage, jsonLd, noindex }: SE
     const { canonical: canonicalUrl, alternates } = localeLinks(url);
     // hreflang: replace whatever the server/prerender put there (it may be
     // another page's set — the shell is shared) with this page's own set.
-    const staleHreflang = Array.from(document.head.querySelectorAll('link[rel="alternate"][hreflang]'));
+    const staleHreflang = Array.from(
+      document.head.querySelectorAll('link[rel="alternate"][hreflang]'),
+    );
     const removedHreflang = staleHreflang.map((el) => {
       const clone = el.cloneNode(true) as HTMLLinkElement;
       el.remove();

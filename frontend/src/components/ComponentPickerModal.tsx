@@ -14,7 +14,12 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { ComponentRegistry } from '../services/ComponentRegistry';
 import type { ComponentMetadata, ComponentCategory } from '../types/component-metadata';
-import { ComponentInfoPanel, HOVER_DELAY, type HoverTarget, type PanelData } from './ComponentInfoPanel';
+import {
+  ComponentInfoPanel,
+  HOVER_DELAY,
+  type HoverTarget,
+  type PanelData,
+} from './ComponentInfoPanel';
 
 // Grace period after the pointer leaves a card before the datasheet popover
 // hides — long enough to cross the gap onto the (interactive) panel. Must be
@@ -33,6 +38,8 @@ interface CardHoverApi {
 import type { BoardKind } from '../types/board';
 import { BOARD_KIND_LABELS } from '../types/board';
 import { isProBoardKind } from '../lib/proBoardGate';
+import { ALLOWED_BOARD_KINDS } from '../lib/boardAllowlist';
+import { boardDescriptionRu, categoryLabelRu } from '../lib/componentNamesRu';
 import {
   getProBoard,
   listProBoards,
@@ -143,38 +150,11 @@ function categoryRank(category: string): number {
   return i === -1 ? CATEGORY_ORDER.indexOf('other') : i;
 }
 
-const ALL_BOARDS: BoardKind[] = [
-  'arduino-uno',
-  'arduino-nano',
-  'arduino-mega',
-  'raspberry-pi-pico',
-  'pi-pico-w',
-  'raspberry-pi-zero',
-  'raspberry-pi-1',
-  'raspberry-pi-2',
-  'raspberry-pi-3',
-  'raspberry-pi-4',
-  'raspberry-pi-5',
-  'esp32',
-  'esp32-devkit-c-v4',
-  'esp32-cam',
-  'wemos-lolin32-lite',
-  'esp32-s3',
-  'xiao-esp32-s3',
-  'arduino-nano-esp32',
-  'esp32-c3',
-  'xiao-esp32-c3',
-  'aitewinrobot-esp32c3-supermini',
-  'stm32-bluepill',
-  'stm32-blackpill',
-  'stm32-bluepill-f103cb',
-  'stm32-blackpill-f401',
-  'stm32-f4-discovery',
-  'stm32-olimex-h405',
-  'stm32-netduino-plus2',
-  'stm32-netduino2',
-  'attiny85',
-];
+// Upstream listed all thirty BoardKinds here. This fork simulates four AVR
+// boards; the list lives in lib/boardAllowlist so the picker and the catalog
+// filter agree on one source of truth. types/board.ts is left untouched —
+// see the note in that module for why.
+const ALL_BOARDS: BoardKind[] = [...ALLOWED_BOARD_KINDS];
 
 export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
   isOpen,
@@ -296,7 +276,6 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, selectedCategory, registry, isLoading, registryVersion, proBoardsVersion]);
 
-
   // Boards list: static OSS kinds + overlay-registered boards (proBoardRegistry).
   const allBoards = useMemo(() => {
     return [...ALL_BOARDS, ...(listProBoards().map((d) => d.kind) as BoardKind[])];
@@ -322,9 +301,7 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
   // Get available categories — same maker-first order as the grid.
   const categories = useMemo(() => {
     if (isLoading) return [];
-    return [...registry.getCategories()].sort(
-      (a, b) => categoryRank(a) - categoryRank(b),
-    );
+    return [...registry.getCategories()].sort((a, b) => categoryRank(a) - categoryRank(b));
   }, [registry, isLoading]);
 
   // Handle ESC key to close modal
@@ -396,22 +373,24 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
               setSelectedCategory(e.target.value as ComponentCategory | 'all' | 'boards');
               clearHover();
             }}
-            aria-label="Filter by category"
+            aria-label="Фильтр по категории"
           >
             <option value="all">{t('editor.componentPicker.allComponents')}</option>
             {categories
               .filter((c) => c !== 'boards')
               .map((category) => (
                 <option key={category} value={category}>
-                  {ComponentRegistry.getCategoryDisplayName(category)}
+                  {categoryLabelRu(category)}
                 </option>
               ))}
-            {onSelectBoard && (
-              <option value="boards">{t('editor.componentPicker.boards')}</option>
-            )}
+            {onSelectBoard && <option value="boards">{t('editor.componentPicker.boards')}</option>}
           </select>
 
-          <button className="close-btn" onClick={onClose} aria-label={t('editor.componentPicker.close')}>
+          <button
+            className="close-btn"
+            onClick={onClose}
+            aria-label={t('editor.componentPicker.close')}
+          >
             X
           </button>
         </div>
@@ -445,27 +424,31 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
                   className="components-grid components-grid--inline"
                   style={{ borderBottom: '1px solid #333', paddingBottom: 8, marginBottom: 4 }}
                 >
-                  {allBoards.filter(
-                    (k) =>
-                      !searchQuery ||
-                      BOARD_KIND_LABELS[k].toLowerCase().includes(searchQuery.toLowerCase()),
-                  ).map((kind) => (
-                    <BoardCard
-                      key={kind}
-                      kind={kind}
-                      onSelect={() => {
-                        onSelectBoard(kind);
-                        onClose();
-                      }}
-                      hoverApi={hoverApi}
-                    />
-                  ))}
-                  {visibleBoardAds().filter(
-                    (ad) =>
-                      !searchQuery || ad.label.toLowerCase().includes(searchQuery.toLowerCase()),
-                  ).map((ad) => (
-                    <OnlineOnlyBoardCard key={ad.id} ad={ad} />
-                  ))}
+                  {allBoards
+                    .filter(
+                      (k) =>
+                        !searchQuery ||
+                        BOARD_KIND_LABELS[k].toLowerCase().includes(searchQuery.toLowerCase()),
+                    )
+                    .map((kind) => (
+                      <BoardCard
+                        key={kind}
+                        kind={kind}
+                        onSelect={() => {
+                          onSelectBoard(kind);
+                          onClose();
+                        }}
+                        hoverApi={hoverApi}
+                      />
+                    ))}
+                  {visibleBoardAds()
+                    .filter(
+                      (ad) =>
+                        !searchQuery || ad.label.toLowerCase().includes(searchQuery.toLowerCase()),
+                    )
+                    .map((ad) => (
+                      <OnlineOnlyBoardCard key={ad.id} ad={ad} />
+                    ))}
                 </div>
               )}
 
@@ -501,9 +484,11 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
                         // components by setting window.__velxio_pro_gate__.
                         // Returning true means "handled — do not pass through".
                         if (component.pro_only) {
-                          const gate = (window as unknown as {
-                            __velxio_pro_gate__?: (c: typeof component) => boolean;
-                          }).__velxio_pro_gate__;
+                          const gate = (
+                            window as unknown as {
+                              __velxio_pro_gate__?: (c: typeof component) => boolean;
+                            }
+                          ).__velxio_pro_gate__;
                           if (gate && gate(component)) return;
                         }
                         onSelectComponent(component);
@@ -512,17 +497,17 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
                   ))
                 )}
                 {!isLoading &&
-                  visibleComponentAds.map((ad) => (
-                    <OnlineOnlyComponentCard key={ad.id} ad={ad} />
-                  ))}
+                  visibleComponentAds.map((ad) => <OnlineOnlyComponentCard key={ad.id} ad={ad} />)}
               </div>
             </div>
 
             {/* Footer Info */}
             <div className="modal-footer">
               <span className="component-count">
-                {filteredComponents.length} component{filteredComponents.length !== 1 ? 's' : ''}{' '}
-                available
+                {/* Было зашито по-английски вместе с окончанием множественного
+                    числа: `component{s}`. В русском форм три, и правило
+                    сложнее — отдаёт i18next по ключам _one / _few / _many. */}
+                {t('editor.componentPicker.availableCount', { count: filteredComponents.length })}
               </span>
             </div>
           </>
@@ -542,7 +527,7 @@ export const ComponentPickerModal: React.FC<ComponentPickerModalProps> = ({
         />
       )}
     </div>,
-    document.body
+    document.body,
   );
 };
 
@@ -609,7 +594,11 @@ const PI_BOARD_ART: Record<string, string> = {
 /** Gold PRO pill shown on cards for paid-gated boards (Pi Linux + STM32). */
 const ProBadge: React.FC = () => (
   <span
-    title="Pro feature — paid plan or Velxio Desktop"
+    // Было «Pro feature — paid plan or Velxio Desktop»: и по-английски, и с
+    // товарным знаком автора апстрима, которого в интерфейсе форка быть не
+    // должно. Значок рисуется только у платных плат, а их здесь нет, — но
+    // строка всё равно уезжает в сборку.
+    title="Недоступно в этой версии симулятора"
     style={{
       position: 'absolute',
       top: 8,
@@ -635,7 +624,7 @@ const ComponentCard: React.FC<ComponentCardProps> = ({ component, onSelect, hove
     () => ({
       id: component.id,
       name: component.name,
-      category: ComponentRegistry.getCategoryDisplayName(component.category),
+      category: categoryLabelRu(component.category),
       description: component.description,
       pinCount: component.pinCount,
       properties: component.properties,
@@ -710,7 +699,12 @@ const ComponentCard: React.FC<ComponentCardProps> = ({ component, onSelect, hove
   }, [component.tagName, component.defaultValues, usePresetSvg, boardArt]);
 
   return (
-    <button className="component-card" onClick={onSelect} style={{ position: 'relative' }} {...hover}>
+    <button
+      className="component-card"
+      onClick={onSelect}
+      style={{ position: 'relative' }}
+      {...hover}
+    >
       {isProBoardKind(component.id) && <ProBadge />}
       <div className="card-thumbnail">
         {boardArt ? (
@@ -732,7 +726,7 @@ const ComponentCard: React.FC<ComponentCardProps> = ({ component, onSelect, hove
         <div className="card-name">{component.name}</div>
         {component.description && <div className="card-description">{component.description}</div>}
         <div className="card-meta">
-          <span className="card-category">{component.category}</span>
+          <span className="card-category">{categoryLabelRu(component.category)}</span>
           {component.pinCount > 0 && <span className="card-pins">{component.pinCount} pins</span>}
         </div>
       </div>
@@ -781,7 +775,11 @@ const BoardCard: React.FC<BoardCardProps> = ({ kind, onSelect, hoverApi }) => {
       id: kind,
       name: BOARD_KIND_LABELS[kind],
       category: 'Boards',
-      description: BOARD_DESCRIPTIONS[kind] ?? getProBoard(kind)?.description ?? '',
+      description:
+        boardDescriptionRu(kind) ??
+        BOARD_DESCRIPTIONS[kind] ??
+        getProBoard(kind)?.description ??
+        '',
       pinCount: 0,
       properties: [],
       tags: [],
@@ -834,28 +832,28 @@ const BoardCard: React.FC<BoardCardProps> = ({ kind, onSelect, hoverApi }) => {
   };
 
   const reactThumbnail = piArt[kind] ? (
-      <img
-        src={piArt[kind]}
-        alt={BOARD_KIND_LABELS[kind]}
-        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-      />
-    ) : kind === 'raspberry-pi-4' ? (
-      <img
-        src={raspberryPi4Png}
-        alt="Raspberry Pi 4"
-        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-      />
-    ) : kind === 'raspberry-pi-5' ? (
-      <img
-        src={raspberryPi5Png}
-        alt="Raspberry Pi 5"
-        style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-      />
-    ) : kind === 'attiny85' ? (
-      <div style={{ transform: 'scale(0.55)', transformOrigin: 'center center' }}>
-        <Attiny85 />
-      </div>
-    ) : null;
+    <img
+      src={piArt[kind]}
+      alt={BOARD_KIND_LABELS[kind]}
+      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+    />
+  ) : kind === 'raspberry-pi-4' ? (
+    <img
+      src={raspberryPi4Png}
+      alt="Raspberry Pi 4"
+      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+    />
+  ) : kind === 'raspberry-pi-5' ? (
+    <img
+      src={raspberryPi5Png}
+      alt="Raspberry Pi 5"
+      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+    />
+  ) : kind === 'attiny85' ? (
+    <div style={{ transform: 'scale(0.55)', transformOrigin: 'center center' }}>
+      <Attiny85 />
+    </div>
+  ) : null;
 
   return (
     <button
@@ -870,7 +868,9 @@ const BoardCard: React.FC<BoardCardProps> = ({ kind, onSelect, hoverApi }) => {
       </div>
       <div className="card-content">
         <div className="card-name">{BOARD_KIND_LABELS[kind]}</div>
-        <div className="card-description">{BOARD_DESCRIPTIONS[kind] ?? getProBoard(kind)?.description}</div>
+        <div className="card-description">
+          {boardDescriptionRu(kind) ?? BOARD_DESCRIPTIONS[kind] ?? getProBoard(kind)?.description}
+        </div>
       </div>
     </button>
   );
@@ -889,7 +889,11 @@ const visibleBoardAds = () =>
 /** Teal "ONLINE" pill: the board runs (free) in the hosted editor. */
 const OnlineBadge: React.FC = () => (
   <span
-    title="Free in the online editor — velxio.com"
+    // Было «Free in the online editor — velxio.com» — реклама облака автора
+    // апстрима. Карточки с этим значком форк не показывает (списки
+    // рекламных предложений в lib/onlineOnlyBoards опустошены), но адрес
+    // всё равно попадал в сборку.
+    title="Недоступно в этой версии симулятора"
     style={{
       position: 'absolute',
       top: 8,

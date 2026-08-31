@@ -21,12 +21,24 @@
  * (Adafruit BMP180 breakout, variant 3).
  */
 
-const W = 80;          // CSS px
+import bmp280Raw from '../../../public/component-svgs/bmp280.svg?raw';
+
+/**
+ * Картинка вшита в сборку, а не запрашивается по адресу
+ * /component-svgs/bmp280.svg во время отрисовки. Прежний вариант
+ * ломался, если запрос не проходил (перезапуск сервера, обрыв связи):
+ * браузер показывал значок битого изображения и запоминал неудачу.
+ * Кодирование через encodeURIComponent, а не base64: файл в UTF-8,
+ * и btoa на кириллице в комментариях исходника выбросил бы ошибку.
+ */
+const BMP280_ART = `data:image/svg+xml,${encodeURIComponent(bmp280Raw)}`;
+
+const W = 80; // CSS px
 const H = 100;
-const PIN_Y = 13.6;    // CSS px — y of all four pin tips
+const PIN_Y = 13.6; // CSS px — y of all four pin tips
 
 const PIN_INFO = [
-  { name: 'SDA', x: 9.5,  y: PIN_Y, number: 1, signals: [] as Array<unknown> },
+  { name: 'SDA', x: 9.5, y: PIN_Y, number: 1, signals: [] as Array<unknown> },
   { name: 'SCL', x: 29.8, y: PIN_Y, number: 2, signals: [] as Array<unknown> },
   { name: 'GND', x: 50.2, y: PIN_Y, number: 3, signals: [{ type: 'power', signal: 'GND' }] },
   { name: 'VCC', x: 70.5, y: PIN_Y, number: 4, signals: [{ type: 'power', signal: 'VCC' }] },
@@ -51,7 +63,7 @@ class Bmp280Element extends HTMLElement {
       <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
         <!-- Fritzing BMP180 breakout artwork (CC-BY-SA). The asset
              ships as a public static file so it stays editable separately. -->
-        <image href="/component-svgs/bmp280.svg" x="0" y="0" width="${W}" height="${H}" />
+        <image href="${BMP280_ART}" x="0" y="0" width="${W}" height="${H}" />
 
         <!-- Pin labels overlaid above the connector circles. The Fritzing
              source has no silkscreen labels on the pins themselves. -->

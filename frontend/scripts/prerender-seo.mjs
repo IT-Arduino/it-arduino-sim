@@ -31,7 +31,7 @@ if (!existsSync(join(distDir, 'index.html'))) {
 }
 
 const baseHtml = readFileSync(join(distDir, 'index.html'), 'utf-8');
-const DOMAIN = 'https://velxio.dev';
+const DOMAIN = 'https://sim.it-arduino.ru';
 
 // nginx serves each prerendered route as `<route>/index.html` and
 // 301-redirects the slash-less URL to add the trailing slash. Canonical +
@@ -51,7 +51,10 @@ function replaceRootSeo(html, seoBody) {
   const start = html.indexOf('<div id="root-seo"');
   if (start === -1) {
     // No fallback block in this template: add ours before </body>.
-    return html.replace('</body>', `<div id="root-seo" aria-hidden="true">${seoBody}</div>\n  </body>`);
+    return html.replace(
+      '</body>',
+      `<div id="root-seo" aria-hidden="true">${seoBody}</div>\n  </body>`,
+    );
   }
   const bodyEnd = html.indexOf('</body>', start);
   const end = html.lastIndexOf('</div>', bodyEnd === -1 ? html.length : bodyEnd);
@@ -82,7 +85,11 @@ if (typeof globalThis.navigator === 'undefined') {
   globalThis.navigator = { userAgent: 'prerender-seo' };
 }
 if (typeof globalThis.matchMedia === 'undefined') {
-  globalThis.matchMedia = () => ({ matches: false, addListener: () => {}, removeListener: () => {} });
+  globalThis.matchMedia = () => ({
+    matches: false,
+    addListener: () => {},
+    removeListener: () => {},
+  });
 }
 
 // ── Start Vite in SSR mode ──────────────────────────────────────────────────
@@ -98,9 +105,13 @@ let generated = 0;
 
 try {
   // Load entry-server.tsx through Vite's transform pipeline
-  const { getPrerenderedRoutes, render, getPrerenderedExampleRoutes, renderExample,
-          loadRouteComponents } =
-    await vite.ssrLoadModule('/src/entry-server.tsx');
+  const {
+    getPrerenderedRoutes,
+    render,
+    getPrerenderedExampleRoutes,
+    renderExample,
+    loadRouteComponents,
+  } = await vite.ssrLoadModule('/src/entry-server.tsx');
 
   // Pull in the overlay's marketing pages (pro builds) before asking for
   // the route list — without this the prerender would silently cover only
@@ -122,7 +133,10 @@ try {
   const hreflangTags = (routePath) => {
     const variant = (l) => withSlash(`${DOMAIN}${localizedPath(routePath, l)}`);
     return [
-      ...LOCALES.map((l) => `<link rel="alternate" hreflang="${LOCALE_META[l].htmlLang}" href="${variant(l)}" />`),
+      ...LOCALES.map(
+        (l) =>
+          `<link rel="alternate" hreflang="${LOCALE_META[l].htmlLang}" href="${variant(l)}" />`,
+      ),
       `<link rel="alternate" hreflang="x-default" href="${variant(DEFAULT_LOCALE)}" />`,
     ].join('\n  ');
   };
@@ -138,7 +152,8 @@ try {
     join(distDir, 'starters.json'),
     JSON.stringify(
       starters.STARTER_EXAMPLES.map((st) => ({
-        id: st.id, board: st.board,
+        id: st.id,
+        board: st.board,
         title: starters.starterTitle(st.board),
         description: starters.starterDescription(st.board),
       })),
@@ -151,13 +166,17 @@ try {
     join(distDir, 'seo-routes.json'),
     JSON.stringify(
       SEO_ROUTES.filter((r) => r.seoMeta && !r.noindex).map((r) => ({
-        path: r.path, title: r.seoMeta.title, description: r.seoMeta.description,
+        path: r.path,
+        title: r.seoMeta.title,
+        description: r.seoMeta.description,
       })),
     ),
     'utf-8',
   );
 
-  console.log(`📄 Prerendering ${routes.length} SEO pages + ${exampleRoutes.length} example pages...\n`);
+  console.log(
+    `📄 Prerendering ${routes.length} SEO pages + ${exampleRoutes.length} example pages...\n`,
+  );
 
   for (const route of routes) {
     const { seoMeta } = route;
@@ -175,7 +194,7 @@ try {
     // Replace meta description
     html = html.replace(
       /<meta name="description" content="[^"]*"/,
-      `<meta name="description" content="${seoMeta.description}"`
+      `<meta name="description" content="${seoMeta.description}"`,
     );
 
     // Add/replace canonical URL
@@ -194,25 +213,25 @@ try {
     // Replace OG tags
     html = html.replace(
       /<meta property="og:title" content="[^"]*"/,
-      `<meta property="og:title" content="${seoMeta.title}"`
+      `<meta property="og:title" content="${seoMeta.title}"`,
     );
     html = html.replace(
       /<meta property="og:description" content="[^"]*"/,
-      `<meta property="og:description" content="${seoMeta.description}"`
+      `<meta property="og:description" content="${seoMeta.description}"`,
     );
     html = html.replace(
       /<meta property="og:url" content="[^"]*"/,
-      `<meta property="og:url" content="${withSlash(seoMeta.url)}"`
+      `<meta property="og:url" content="${withSlash(seoMeta.url)}"`,
     );
 
     // Replace Twitter tags
     html = html.replace(
       /<meta name="twitter:title" content="[^"]*"/,
-      `<meta name="twitter:title" content="${seoMeta.title}"`
+      `<meta name="twitter:title" content="${seoMeta.title}"`,
     );
     html = html.replace(
       /<meta name="twitter:description" content="[^"]*"/,
-      `<meta name="twitter:description" content="${seoMeta.description}"`
+      `<meta name="twitter:description" content="${seoMeta.description}"`,
     );
 
     // Replace #root-seo content with SSR-rendered body (or fallback to title+description)
@@ -251,7 +270,7 @@ try {
     html = html.replace(/<title>[^<]*<\/title>/, `<title>${exRoute.title}</title>`);
     html = html.replace(
       /<meta name="description" content="[^"]*"/,
-      `<meta name="description" content="${exRoute.description}"`
+      `<meta name="description" content="${exRoute.description}"`,
     );
 
     const canonicalTag = `<link rel="canonical" href="${withSlash(exRoute.url)}" />`;
@@ -261,13 +280,29 @@ try {
       html = html.replace('</head>', `  ${canonicalTag}\n  </head>`);
     }
 
-    html = html.replace(/<meta property="og:title" content="[^"]*"/, `<meta property="og:title" content="${exRoute.title}"`);
-    html = html.replace(/<meta property="og:description" content="[^"]*"/, `<meta property="og:description" content="${exRoute.description}"`);
-    html = html.replace(/<meta property="og:url" content="[^"]*"/, `<meta property="og:url" content="${withSlash(exRoute.url)}"`);
-    html = html.replace(/<meta name="twitter:title" content="[^"]*"/, `<meta name="twitter:title" content="${exRoute.title}"`);
-    html = html.replace(/<meta name="twitter:description" content="[^"]*"/, `<meta name="twitter:description" content="${exRoute.description}"`);
+    html = html.replace(
+      /<meta property="og:title" content="[^"]*"/,
+      `<meta property="og:title" content="${exRoute.title}"`,
+    );
+    html = html.replace(
+      /<meta property="og:description" content="[^"]*"/,
+      `<meta property="og:description" content="${exRoute.description}"`,
+    );
+    html = html.replace(
+      /<meta property="og:url" content="[^"]*"/,
+      `<meta property="og:url" content="${withSlash(exRoute.url)}"`,
+    );
+    html = html.replace(
+      /<meta name="twitter:title" content="[^"]*"/,
+      `<meta name="twitter:title" content="${exRoute.title}"`,
+    );
+    html = html.replace(
+      /<meta name="twitter:description" content="[^"]*"/,
+      `<meta name="twitter:description" content="${exRoute.description}"`,
+    );
 
-    const seoBody = bodyHtml || `<h1>${exRoute.title.split(' — ')[0]}</h1><p>${exRoute.description}</p>`;
+    const seoBody =
+      bodyHtml || `<h1>${exRoute.title.split(' — ')[0]}</h1><p>${exRoute.description}</p>`;
     html = replaceRootSeo(html, seoBody);
 
     const dir = join(distDir, 'examples', exampleId);
@@ -293,6 +328,47 @@ try {
     writeFileSync(join(distDir, 'index.html'), rootHtml, 'utf-8');
   }
 
+  // ── Форк: точная карта сайта ────────────────────────────────────────
+  // generate-sitemap.mjs строит её ДО сборки, вытаскивая идентификаторы
+  // регулярным выражением всего из двух файлов с примерами и ничего не зная
+  // о форковом фильтре плат. В итоге в карту попадали примеры для убранных
+  // плат (ESP32, Pico, STM32, Raspberry Pi): 172 адреса против 158 реально
+  // существующих страниц, а лишние отдают 404.
+  //
+  // Здесь же список точен по построению — это ровно те маршруты, по которым
+  // страницы только что созданы. Файл в dist перезаписывается последним,
+  // так что в образ уходит именно он.
+  const today = new Date().toISOString().slice(0, 10);
+  const urls = [
+    ...routes
+      .filter((r) => !r.noindex)
+      .map((r) => ({
+        loc: withSlash(`${DOMAIN}${r.path}`),
+        priority: r.priority ?? 0.5,
+        changefreq: r.changefreq ?? 'monthly',
+      })),
+    ...exampleRoutes.map((r) => ({
+      loc: withSlash(`${DOMAIN}${r.path}`),
+      priority: 0.6,
+      changefreq: 'monthly',
+    })),
+  ];
+  const sitemap = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...urls.flatMap((u) => [
+      '  <url>',
+      `    <loc>${u.loc}</loc>`,
+      `    <lastmod>${today}</lastmod>`,
+      `    <changefreq>${u.changefreq}</changefreq>`,
+      `    <priority>${u.priority}</priority>`,
+      '  </url>',
+    ]),
+    '</urlset>',
+    '',
+  ].join('\n');
+  writeFileSync(join(distDir, 'sitemap.xml'), sitemap, 'utf-8');
+  console.log(`\n🗺️  sitemap.xml переписан: ${urls.length} адресов (только существующие страницы)`);
 } finally {
   await vite.close();
 }

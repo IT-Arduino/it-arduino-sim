@@ -20,6 +20,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { BoardKind } from '../../types/board';
 import { BOARD_KIND_LABELS } from '../../types/board';
+import { isAllowedBoardKind } from '../../lib/boardAllowlist';
 import {
   boardGateDecision,
   isProBoardKind,
@@ -47,11 +48,15 @@ interface NewProjectDialogProps {
   onClose: () => void;
 }
 
-/** Card blurbs (same voice as the component picker's board descriptions). */
+/** Card blurbs (same voice as the component picker's board descriptions).
+ *  The four boards this fork ships read in Russian, like the rest of the
+ *  interface; the entries below them belong to boards the fork filters out
+ *  and are left in English exactly as upstream wrote them. */
 const BOARD_BLURBS: Record<string, string> = {
-  'arduino-uno': '8-bit AVR, 32KB flash, 14 digital I/O',
-  'arduino-mega': '8-bit AVR, 256KB flash, 54 digital I/O',
-  'arduino-nano': '8-bit AVR, 32KB flash, breadboard-size Uno',
+  'arduino-uno': '8-битный AVR, 32 КБ флеш-памяти, 14 цифровых выводов',
+  'arduino-mega': '8-битный AVR, 256 КБ флеш-памяти, 54 цифровых вывода',
+  'arduino-nano': '8-битный AVR, 32 КБ флеш-памяти, размер под макетную плату',
+  attiny85: '8-битный AVR, 8 КБ флеш-памяти, 6 выводов',
   'arduino-nano-esp32': 'ESP32-S3 in the Nano footprint, WiFi+BT (QEMU)',
   esp32: 'Xtensa LX6 dual-core, WiFi+BT, 38 GPIO (QEMU)',
   'esp32-cam': 'ESP32 + OV2640 camera, streams to LCD (QEMU)',
@@ -134,6 +139,12 @@ const PREFERRED_BLINK_EXAMPLE: Record<string, string> = {
   'arduino-uno': 'blink-led',
   'arduino-mega': 'mega-blink',
   'arduino-nano': 'nano-blink',
+  // Added by the fork along with the ATtiny85 starter card. Without it the
+  // card looked for a `starter-attiny85` thumbnail that never existed —
+  // upstream had no ATtiny85 card to shoot one for — and 404'd on every open.
+  // Pointing at the gallery's blink example fixes the picture AND makes the
+  // card open a working sketch, like the other three boards do.
+  attiny85: 'attiny85-blink',
   // Camera board: the webcam demo IS its "blink" — the board exists to
   // show the sensor, a bare LED sketch would be a misleading first run.
   'esp32-cam': 'esp32cam-webcam-demo',
@@ -244,75 +255,91 @@ export function buildStarterSections(defs: ProBoardDef[]): StarterSection[] {
     const d = defs.find((x) => x.kind === k);
     return d ? [{ kind: d.kind, blurb: d.description }] : [];
   };
-  return [
-    {
-      title: 'Arduino',
-      entries: [
-        oss('arduino-uno'),
-        oss('arduino-mega'),
-        oss('arduino-nano'),
-        oss('arduino-nano-esp32'),
-      ],
-    },
-    // One card per ESP32 chip generation, XIAO variant preferred where
-    // Seeed makes one: classic → DevKit V1, S3/C3 → XIAO, C6 → XIAO (overlay).
-    // The S3 Sense sits here next to its sibling — a separate Seeed section
-    // would repeat a brand this section already carries (operator call,
-    // 2026-08-28).
-    {
-      title: 'ESP32',
-      entries: [
-        oss('esp32'),
-        oss('esp32-cam'),
-        oss('xiao-esp32-s3'),
-        ...pro('xiao-esp32s3-sense'),
-        oss('xiao-esp32-c3'),
-        ...pro('xiao-esp32c6'),
-      ],
-    },
-    // M5Stack all-in-ones (overlay): ahead of STM32 by operator request —
-    // they run on Free and are a friendlier first pick than the Pro-gated
-    // STM32 family. Cardputer first, then the Core.
-    { title: 'M5Stack', entries: [...pro('cardputer-adv'), ...pro('m5stack-core')] },
-    // Hardware partners (overlay kinds, same shape as M5Stack): each section
-    // lists only the boards the overlay actually registered, so an OSS build
-    // and launch-embargoed items simply render nothing. Seeed gets no section
-    // of its own — its boards live in the chip-family sections above.
-    { title: 'DFRobot', entries: [...pro('unihiker-m10')] },
-    {
-      title: 'Pimoroni',
-      entries: [
-        ...pro('pimoroni-pico-plus-2w'),
-        ...pro('badger-2350'),
-        ...pro('stellar-unicorn'),
-      ],
-    },
-    {
-      title: 'Espressif',
-      entries: [
-        ...pro('esp32-c3-lcdkit'),
-        ...pro('esp32-s3-eye'),
-        ...pro('esp-vocat'),
-        ...pro('esp32-p4'),
-        ...pro('esp-sensairshuttle'),
-      ],
-    },
-    { title: 'STM32', entries: STM32_BOARDS.map(oss) },
-    {
-      title: 'Raspberry Pi',
-      entries: [
-        oss('raspberry-pi-pico'),
-        ...pro('xiao-rp2040'),
-        oss('raspberry-pi-3'),
-        oss('raspberry-pi-4'),
-        oss('raspberry-pi-5'),
-      ],
-    },
-  ];
+  return (
+    [
+      {
+        title: 'Arduino',
+        entries: [
+          oss('arduino-uno'),
+          oss('arduino-mega'),
+          oss('arduino-nano'),
+          // Added by the fork: ATtiny85 is one of our four boards and upstream
+          // never gave it a starter card.
+          oss('attiny85'),
+          oss('arduino-nano-esp32'),
+        ],
+      },
+      // One card per ESP32 chip generation, XIAO variant preferred where
+      // Seeed makes one: classic → DevKit V1, S3/C3 → XIAO, C6 → XIAO (overlay).
+      // The S3 Sense sits here next to its sibling — a separate Seeed section
+      // would repeat a brand this section already carries (operator call,
+      // 2026-08-28).
+      {
+        title: 'ESP32',
+        entries: [
+          oss('esp32'),
+          oss('esp32-cam'),
+          oss('xiao-esp32-s3'),
+          ...pro('xiao-esp32s3-sense'),
+          oss('xiao-esp32-c3'),
+          ...pro('xiao-esp32c6'),
+        ],
+      },
+      // M5Stack all-in-ones (overlay): ahead of STM32 by operator request —
+      // they run on Free and are a friendlier first pick than the Pro-gated
+      // STM32 family. Cardputer first, then the Core.
+      { title: 'M5Stack', entries: [...pro('cardputer-adv'), ...pro('m5stack-core')] },
+      // Hardware partners (overlay kinds, same shape as M5Stack): each section
+      // lists only the boards the overlay actually registered, so an OSS build
+      // and launch-embargoed items simply render nothing. Seeed gets no section
+      // of its own — its boards live in the chip-family sections above.
+      { title: 'DFRobot', entries: [...pro('unihiker-m10')] },
+      {
+        title: 'Pimoroni',
+        entries: [
+          ...pro('pimoroni-pico-plus-2w'),
+          ...pro('badger-2350'),
+          ...pro('stellar-unicorn'),
+        ],
+      },
+      {
+        title: 'Espressif',
+        entries: [
+          ...pro('esp32-c3-lcdkit'),
+          ...pro('esp32-s3-eye'),
+          ...pro('esp-vocat'),
+          ...pro('esp32-p4'),
+          ...pro('esp-sensairshuttle'),
+        ],
+      },
+      { title: 'STM32', entries: STM32_BOARDS.map(oss) },
+      {
+        title: 'Raspberry Pi',
+        entries: [
+          oss('raspberry-pi-pico'),
+          ...pro('xiao-rp2040'),
+          oss('raspberry-pi-3'),
+          oss('raspberry-pi-4'),
+          oss('raspberry-pi-5'),
+        ],
+      },
+    ]
+      // Fork filter. The sections above are upstream's, left as they are so a
+      // merge stays cheap; what reaches the dialog is only what this fork can
+      // actually simulate. Every ESP32, STM32 and Raspberry Pi section empties
+      // out and disappears, leaving the single Arduino section with four cards.
+      .map((section) => ({
+        ...section,
+        entries: section.entries.filter((e) => isAllowedBoardKind(e.kind)),
+      }))
+      .filter((section) => section.entries.length > 0)
+  );
 }
 
+// Товарный знак автора апстрима из подсказки убран: в интерфейсе форка его
+// быть не должно. Плашка рисуется только у платных плат, а их здесь нет.
 const ProPill: React.FC = () => (
-  <span className="new-project-pro" title="Pro feature — paid plan or Velxio Desktop">
+  <span className="new-project-pro" title="Недоступно в этой версии симулятора">
     PRO
   </span>
 );
@@ -381,12 +408,8 @@ export const NewProjectDialog: React.FC<NewProjectDialogProps> = ({ isOpen, onCl
             >
               <span className="new-project-card-thumb new-project-card-thumb-blank">+</span>
               <span className="new-project-card-info">
-                <span className="new-project-card-name">
-                  {t('editor.newProject.blankTitle')}
-                </span>
-                <span className="new-project-card-desc">
-                  {t('editor.newProject.blankDesc')}
-                </span>
+                <span className="new-project-card-name">{t('editor.newProject.blankTitle')}</span>
+                <span className="new-project-card-desc">{t('editor.newProject.blankDesc')}</span>
               </span>
             </button>
           </div>

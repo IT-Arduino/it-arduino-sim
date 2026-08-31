@@ -18,7 +18,6 @@ from app.core.hooks import (
     record_compile,
 )
 from app.services.arduino_cli import ArduinoCLIService
-from app.services.espidf_compiler import espidf_compiler
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +60,7 @@ def _toolchain_epoch() -> str:
     """
     h = hashlib.sha256()
     here = Path(__file__).resolve().parents[2] / "services"
-    for name in ("espidf_compiler.py", "arduino_cli.py"):
+    for name in ("arduino_cli.py",):
         try:
             h.update((here / name).read_bytes())
         except OSError:
@@ -138,44 +137,22 @@ _TARGET_LOCKS: dict[str, asyncio.Lock] = {}
 
 
 def _is_heavy_compile(board_fqbn: str) -> bool:
-    """ESP32 boards compile with ESP-IDF when the toolchain is present."""
-    return board_fqbn.startswith("esp32:") and espidf_compiler.available
+    """Upstream routed ESP32 boards through ESP-IDF, a minutes-long build that
+    needed its own smaller semaphore. This fork compiles AVR only, and every
+    AVR build goes through arduino-cli in seconds, so nothing is heavy."""
+    return False
 
 
 def _build_identity(board_fqbn: str) -> str:
     """The identity of the persistent BUILD DIRECTORY this FQBN compiles in.
 
-    The lock below has to be keyed on the shared resource, and that resource is
-    the build dir — which `_prepare_persistent_project_dir` keys on
-    (idf_target, variant), NOT on the FQBN. Several FQBNs map to one variant:
-    arduino-esp32's boards.txt gives both `esp32` and `esp32cam`
-    `build.variant=esp32`, so they land in the SAME directory.
-
-    Keying the lock on the FQBN therefore left the two of them free to run at
-    once inside one build dir. Measured: compiling `esp32:esp32:esp32` and
-    `esp32:esp32:esp32cam` concurrently returned BYTE-IDENTICAL firmware (same
-    sha256, 285504 bytes) and the esp32cam request got the other sketch's
-    binary — its serial printed the other example's output. In the app that
-    looked like an example running someone else's program: two gallery tabs
-    open, and the second one shows the first one's log and does nothing.
-
-    Falls back to the raw FQBN if the compiler cannot resolve the pair, which
-    is the previous behaviour and never less strict than it needs to be for a
-    board whose variant we could not read.
+    Upstream had to map several ESP32 FQBNs onto one shared ESP-IDF build dir,
+    keyed on (idf_target, variant), or two concurrent builds inside the same
+    directory returned each other's firmware. This fork has no ESP-IDF lane:
+    arduino-cli gives every AVR FQBN its own build directory, so the FQBN is
+    already the identity of the resource the lock protects.
     """
-    # Only the ESP-IDF lane HAS a shared build dir (the predicate is the same
-    # one _run_compile routes on). An AVR / RP2040 / STM32 FQBN has no IDF
-    # target at all, and _idf_target defaults unknown boards to 'esp32' — so
-    # every non-ESP32 board used to collapse onto the `esp32::esp32` key and
-    # queue behind unrelated ESP32 builds for no reason.
-    if not board_fqbn.startswith("esp32:"):
-        return board_fqbn
-    try:
-        target = espidf_compiler._idf_target(board_fqbn)
-        variant = espidf_compiler._arduino_variant(board_fqbn, target)
-        return f"{target}::{variant}"
-    except Exception:  # noqa: BLE001 - identity is best-effort; FQBN is a safe fallback
-        return board_fqbn
+    return board_fqbn
 
 
 def _target_lock(board_fqbn: str) -> asyncio.Lock:
@@ -478,55 +455,18 @@ async def _run_compile(
     else:
         allowed_libraries, owner_id = scope
 
-    pure_idf = request.language == "espidf"
-    if pure_idf and not request.board_fqbn.startswith("esp32:"):
+    # Upstream branched here into the ESP-IDF compiler for esp32:* FQBNs.
+    # This fork ships AVR boards only, so arduino-cli is the single lane and
+    # the 'espidf' language mode has no board that can request it.
+    if request.language == "espidf":
         return CompileResponse(
             success=False,
             stdout="",
             stderr="",
-            error="ESP-IDF language mode is only supported on ESP32 boards.",
-        )
-    if pure_idf and not espidf_compiler.available:
-        return CompileResponse(
-            success=False,
-            stdout="",
-            stderr="",
-            error="ESP-IDF toolchain is not available on this server.",
+            error="ESP-IDF language mode is not available in this simulator.",
         )
 
-    if request.board_fqbn.startswith("esp32:") and espidf_compiler.available:
-        logger.info(
-            f"[compile] Using ESP-IDF for {request.board_fqbn}"
-            + (" (pure ESP-IDF mode)" if pure_idf else "")
-        )
-        spiffs_dicts = (
-            [f.model_dump() for f in request.spiffs_files]
-            if request.spiffs_files else None
-        )
-        result = await espidf_compiler.compile(
-            files, request.board_fqbn,
-            progress_callback=progress_callback,
-            board_options=request.board_options,
-            spiffs_files=spiffs_dicts,
-            allowed_libraries=allowed_libraries,
-            owner_id=owner_id,
-            pure_idf=pure_idf,
-            custom_wifi_ssids=request.custom_wifi_ssids,
-        )
-        return CompileResponse(
-            success=result["success"],
-            hex_content=result.get("hex_content"),
-            binary_content=result.get("binary_content"),
-            binary_type=result.get("binary_type"),
-            has_wifi=result.get("has_wifi", False),
-            stdout=result.get("stdout", ""),
-            stderr=result.get("stderr", ""),
-            error=result.get("error"),
-            manifest_incomplete=result.get("manifest_incomplete", False),
-            manifest_suggested_libraries=result.get("manifest_suggested_libraries"),
-        )
-
-    # AVR, RP2040, and ESP32 fallback: use arduino-cli
+    # AVR: use arduino-cli
     core_status = await arduino_cli.ensure_core_for_board(request.board_fqbn)
     core_log = core_status.get("log", "")
     if core_status.get("needed") and not core_status.get("installed"):

@@ -48,17 +48,23 @@ function parseAttributes(chipJson: string): AttributeDef[] {
   try {
     const obj = JSON.parse(chipJson);
     if (Array.isArray(obj.attributes)) {
-      return obj.attributes.map((a: any): AttributeDef => ({
-        name: String(a.name ?? ''),
-        label: typeof a.label === 'string' ? a.label : undefined,
-        type: a.type === 'float' || a.type === 'int' ? a.type : 'number',
-        default: typeof a.default === 'number' ? a.default : undefined,
-        min: typeof a.min === 'number' ? a.min : undefined,
-        max: typeof a.max === 'number' ? a.max : undefined,
-        step: typeof a.step === 'number' ? a.step : undefined,
-      })).filter((a: AttributeDef) => a.name);
+      return obj.attributes
+        .map(
+          (a: any): AttributeDef => ({
+            name: String(a.name ?? ''),
+            label: typeof a.label === 'string' ? a.label : undefined,
+            type: a.type === 'float' || a.type === 'int' ? a.type : 'number',
+            default: typeof a.default === 'number' ? a.default : undefined,
+            min: typeof a.min === 'number' ? a.min : undefined,
+            max: typeof a.max === 'number' ? a.max : undefined,
+            step: typeof a.step === 'number' ? a.step : undefined,
+          }),
+        )
+        .filter((a: AttributeDef) => a.name);
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return [];
 }
 
@@ -67,7 +73,7 @@ type Tab = 'examples' | 'editor';
 // Placeholder chip names that are treated as "not user-named" — chip.json's
 // `name` may seed over any of these. 'My Chip' is the dialog default; 'Custom
 // Chip' is the file-explorer empty-rename fallback. Keep both in sync here.
-const BLANK_CHIP_NAMES = new Set(['', 'My Chip', 'Custom Chip']);
+const BLANK_CHIP_NAMES = new Set(['', 'My Chip', 'Своя микросхема']);
 
 export const CustomChipDialog = ({ initial, onClose, onSave }: CustomChipDialogProps) => {
   const { t } = useTranslation();
@@ -122,7 +128,9 @@ export const CustomChipDialog = ({ initial, onClose, onSave }: CustomChipDialogP
       try {
         const obj = JSON.parse(chipJson);
         if (obj && typeof obj.name === 'string' && obj.name.trim()) return obj.name;
-      } catch { /* user is mid-edit, ignore */ }
+      } catch {
+        /* user is mid-edit, ignore */
+      }
       return prev;
     });
   }, [chipJson]);
@@ -135,8 +143,10 @@ export const CustomChipDialog = ({ initial, onClose, onSave }: CustomChipDialogP
     try {
       const obj = JSON.parse(e.chipJson);
       if (obj && typeof obj.name === 'string' && obj.name.trim()) setChipName(obj.name);
-    } catch { /* keep current name */ }
-    setWasmBase64('');     // force re-compile so the binary matches the loaded source
+    } catch {
+      /* keep current name */
+    }
+    setWasmBase64(''); // force re-compile so the binary matches the loaded source
     setResult(null);
     setTab('editor');
   };
@@ -164,7 +174,9 @@ export const CustomChipDialog = ({ initial, onClose, onSave }: CustomChipDialogP
       <div style={dialogStyle} onClick={(e) => e.stopPropagation()}>
         <div style={headerStyle}>
           <strong style={{ flex: 1 }}>{t('editor.customChip.title', { chipName })}</strong>
-          <button style={closeBtn} onClick={onClose}>✕</button>
+          <button style={closeBtn} onClick={onClose}>
+            ✕
+          </button>
         </div>
 
         <div style={tabsRowStyle}>
@@ -186,7 +198,7 @@ export const CustomChipDialog = ({ initial, onClose, onSave }: CustomChipDialogP
           {tab === 'examples' && (
             <div style={{ overflow: 'auto', padding: 12 }}>
               <button style={blankBtn} onClick={() => loadExample(BLANK_CHIP)}>
-                + Start from blank
+                + Начать с пустой
               </button>
               {grouped.map(([cat, list]) => (
                 <div key={cat} style={{ marginTop: 18 }}>
@@ -219,7 +231,10 @@ export const CustomChipDialog = ({ initial, onClose, onSave }: CustomChipDialogP
                     language="cpp"
                     theme="vs-dark"
                     value={sourceC}
-                    onChange={(v) => { setSourceC(v ?? ''); setWasmBase64(''); }}
+                    onChange={(v) => {
+                      setSourceC(v ?? '');
+                      setWasmBase64('');
+                    }}
                     options={{
                       minimap: { enabled: false },
                       fontSize: 12,
@@ -265,14 +280,20 @@ export const CustomChipDialog = ({ initial, onClose, onSave }: CustomChipDialogP
 
         {tab === 'editor' && (
           <div style={resultPanelStyle}>
-            {compiling && <span style={{ color: '#ffa500' }}>{t('editor.customChip.compiling')}</span>}
+            {compiling && (
+              <span style={{ color: '#ffa500' }}>{t('editor.customChip.compiling')}</span>
+            )}
             {!compiling && result && result.success && (
               <span style={{ color: '#22c55e' }}>
                 {t('editor.customChip.compiledOk', { kb: (result.byte_size / 1024).toFixed(1) })}
               </span>
             )}
             {!compiling && result && !result.success && (
-              <pre style={errorPreStyle}>{result.error || t('editor.customChip.compileFailed')}{'\n'}{result.stderr}</pre>
+              <pre style={errorPreStyle}>
+                {result.error || t('editor.customChip.compileFailed')}
+                {'\n'}
+                {result.stderr}
+              </pre>
             )}
           </div>
         )}
@@ -296,7 +317,9 @@ export const CustomChipDialog = ({ initial, onClose, onSave }: CustomChipDialogP
             }}
           />
           <div style={{ flex: 1 }} />
-          <button style={cancelBtn} onClick={onClose}>{t('editor.customChip.cancel')}</button>
+          <button style={cancelBtn} onClick={onClose}>
+            {t('editor.customChip.cancel')}
+          </button>
           <button style={canSave ? saveBtn : saveBtnDisabled} disabled={!canSave} onClick={doSave}>
             {canSave ? t('editor.customChip.savePlace') : t('editor.customChip.compileFirst')}
           </button>
@@ -309,89 +332,174 @@ export const CustomChipDialog = ({ initial, onClose, onSave }: CustomChipDialogP
 // ── Inline styles (matches the visual language of other Velxio modals) ──
 
 const overlayStyle: React.CSSProperties = {
-  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-  zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(0,0,0,0.6)',
+  zIndex: 2000,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 };
 const dialogStyle: React.CSSProperties = {
-  width: '90vw', height: '85vh', maxWidth: 1280,
-  background: '#1f1f1f', color: '#e0e0e0', borderRadius: 6,
-  display: 'flex', flexDirection: 'column',
+  width: '90vw',
+  height: '85vh',
+  maxWidth: 1280,
+  background: '#1f1f1f',
+  color: '#e0e0e0',
+  borderRadius: 6,
+  display: 'flex',
+  flexDirection: 'column',
   boxShadow: '0 12px 36px rgba(0,0,0,0.5)',
 };
 const headerStyle: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', padding: '10px 14px',
-  borderBottom: '1px solid #333', background: '#252526',
+  display: 'flex',
+  alignItems: 'center',
+  padding: '10px 14px',
+  borderBottom: '1px solid #333',
+  background: '#252526',
 };
 const closeBtn: React.CSSProperties = {
-  background: 'transparent', border: 'none', color: '#999',
-  fontSize: 18, cursor: 'pointer', padding: '2px 8px',
+  background: 'transparent',
+  border: 'none',
+  color: '#999',
+  fontSize: 18,
+  cursor: 'pointer',
+  padding: '2px 8px',
 };
 const tabsRowStyle: React.CSSProperties = {
-  display: 'flex', gap: 4, padding: '6px 12px 0',
-  borderBottom: '1px solid #333', background: '#252526',
+  display: 'flex',
+  gap: 4,
+  padding: '6px 12px 0',
+  borderBottom: '1px solid #333',
+  background: '#252526',
 };
 const tabBtn: React.CSSProperties = {
-  padding: '6px 14px', background: 'transparent', color: '#999',
-  border: 'none', borderBottom: '2px solid transparent',
-  cursor: 'pointer', fontSize: 13,
+  padding: '6px 14px',
+  background: 'transparent',
+  color: '#999',
+  border: 'none',
+  borderBottom: '2px solid transparent',
+  cursor: 'pointer',
+  fontSize: 13,
 };
 const tabActive: React.CSSProperties = { color: '#e0e0e0', borderBottom: '2px solid #007acc' };
 const bodyStyle: React.CSSProperties = { flex: 1, overflow: 'hidden', display: 'flex' };
 const editorLayout: React.CSSProperties = {
-  display: 'flex', flex: 1, gap: 8, padding: 8, overflow: 'hidden',
+  display: 'flex',
+  flex: 1,
+  gap: 8,
+  padding: 8,
+  overflow: 'hidden',
 };
 const editorLabel: React.CSSProperties = {
-  padding: '4px 8px', fontSize: 11, color: '#888',
-  background: '#252526', borderTopLeftRadius: 4, borderTopRightRadius: 4,
+  padding: '4px 8px',
+  fontSize: 11,
+  color: '#888',
+  background: '#252526',
+  borderTopLeftRadius: 4,
+  borderTopRightRadius: 4,
 };
 const resultPanelStyle: React.CSSProperties = {
-  borderTop: '1px solid #333', padding: '6px 14px',
-  fontSize: 12, fontFamily: 'monospace', maxHeight: 120, overflow: 'auto',
+  borderTop: '1px solid #333',
+  padding: '6px 14px',
+  fontSize: 12,
+  fontFamily: 'monospace',
+  maxHeight: 120,
+  overflow: 'auto',
 };
 const errorPreStyle: React.CSSProperties = {
-  margin: 0, color: '#f87171', whiteSpace: 'pre-wrap', fontSize: 11,
+  margin: 0,
+  color: '#f87171',
+  whiteSpace: 'pre-wrap',
+  fontSize: 11,
 };
 const footerStyle: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px',
-  borderTop: '1px solid #333', background: '#252526',
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: '10px 14px',
+  borderTop: '1px solid #333',
+  background: '#252526',
 };
 const compileBtn: React.CSSProperties = {
-  padding: '6px 14px', background: '#007acc', color: 'white',
-  border: 'none', borderRadius: 3, cursor: 'pointer', fontSize: 13,
+  padding: '6px 14px',
+  background: '#007acc',
+  color: 'white',
+  border: 'none',
+  borderRadius: 3,
+  cursor: 'pointer',
+  fontSize: 13,
 };
 const cancelBtn: React.CSSProperties = {
-  padding: '6px 14px', background: '#3a3a3a', color: '#e0e0e0',
-  border: 'none', borderRadius: 3, cursor: 'pointer', fontSize: 13,
+  padding: '6px 14px',
+  background: '#3a3a3a',
+  color: '#e0e0e0',
+  border: 'none',
+  borderRadius: 3,
+  cursor: 'pointer',
+  fontSize: 13,
 };
 const saveBtn: React.CSSProperties = {
-  padding: '6px 14px', background: '#22c55e', color: 'white',
-  border: 'none', borderRadius: 3, cursor: 'pointer', fontSize: 13,
+  padding: '6px 14px',
+  background: '#22c55e',
+  color: 'white',
+  border: 'none',
+  borderRadius: 3,
+  cursor: 'pointer',
+  fontSize: 13,
 };
-const saveBtnDisabled: React.CSSProperties = { ...saveBtn, background: '#3a3a3a', cursor: 'not-allowed' };
+const saveBtnDisabled: React.CSSProperties = {
+  ...saveBtn,
+  background: '#3a3a3a',
+  cursor: 'not-allowed',
+};
 const blankBtn: React.CSSProperties = {
-  padding: '8px 14px', background: '#2d2d30', color: '#e0e0e0',
-  border: '1px dashed #555', borderRadius: 4, cursor: 'pointer',
-  width: '100%', textAlign: 'left', fontSize: 13,
+  padding: '8px 14px',
+  background: '#2d2d30',
+  color: '#e0e0e0',
+  border: '1px dashed #555',
+  borderRadius: 4,
+  cursor: 'pointer',
+  width: '100%',
+  textAlign: 'left',
+  fontSize: 13,
 };
 const categoryStyle: React.CSSProperties = {
-  fontSize: 10, color: '#888', letterSpacing: 1, marginBottom: 6,
+  fontSize: 10,
+  color: '#888',
+  letterSpacing: 1,
+  marginBottom: 6,
 };
 const gridStyle: React.CSSProperties = {
-  display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8,
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+  gap: 8,
 };
 const cardBtn: React.CSSProperties = {
-  padding: '10px 12px', background: '#2d2d30', color: '#e0e0e0',
-  border: '1px solid #3a3a3a', borderRadius: 4, cursor: 'pointer',
+  padding: '10px 12px',
+  background: '#2d2d30',
+  color: '#e0e0e0',
+  border: '1px solid #3a3a3a',
+  borderRadius: 4,
+  cursor: 'pointer',
   textAlign: 'left',
 };
 const cardName: React.CSSProperties = { fontSize: 13, fontWeight: 'bold', marginBottom: 4 };
 const cardDesc: React.CSSProperties = { fontSize: 11, color: '#999', lineHeight: 1.4 };
 const attrPanelStyle: React.CSSProperties = {
-  marginTop: 8, padding: '8px 10px', background: '#252526',
-  borderRadius: 4, maxHeight: 220, overflow: 'auto',
+  marginTop: 8,
+  padding: '8px 10px',
+  background: '#252526',
+  borderRadius: 4,
+  maxHeight: 220,
+  overflow: 'auto',
 };
 const attrPanelHeader: React.CSSProperties = {
-  fontSize: 10, color: '#888', letterSpacing: 1, marginBottom: 6, textTransform: 'uppercase',
+  fontSize: 10,
+  color: '#888',
+  letterSpacing: 1,
+  marginBottom: 6,
+  textTransform: 'uppercase',
 };
 
 function AttrRow({
@@ -411,7 +519,9 @@ function AttrRow({
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-      <label style={{ flex: '0 0 96px', fontSize: 11, color: '#bbb' }}>{def.label || def.name}</label>
+      <label style={{ flex: '0 0 96px', fontSize: 11, color: '#bbb' }}>
+        {def.label || def.name}
+      </label>
       {showSlider && (
         <input
           type="range"
@@ -438,9 +548,13 @@ function AttrRow({
           onChange(isInt ? Math.round(v) : v);
         }}
         style={{
-          width: 76, padding: '2px 4px', fontSize: 11,
-          background: '#1f1f1f', color: '#e0e0e0',
-          border: '1px solid #444', borderRadius: 2,
+          width: 76,
+          padding: '2px 4px',
+          fontSize: 11,
+          background: '#1f1f1f',
+          color: '#e0e0e0',
+          border: '1px solid #444',
+          borderRadius: 2,
         }}
       />
     </div>

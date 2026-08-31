@@ -12,12 +12,14 @@
 import React from 'react';
 import { useSyncExternalStore } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useIsAdmin } from '../components/ItArduinoAdminOnly';
 import { exampleProjects, subscribeProExamples, getProExamplesVersion } from '../data/examples';
 import { AppHeader } from '../components/layout/AppHeader';
 import { ExampleThumbnail } from '../components/examples/ExampleThumbnail';
 import { useSEO } from '../utils/useSEO';
 
-const DOMAIN = 'https://velxio.dev';
+const DOMAIN = 'https://sim.it-arduino.ru';
 
 const BOARD_LABELS: Record<string, string> = {
   'arduino-uno': 'Arduino Uno',
@@ -27,15 +29,6 @@ const BOARD_LABELS: Record<string, string> = {
   esp32: 'ESP32',
   'esp32-s3': 'ESP32-S3',
   'esp32-c3': 'ESP32-C3',
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  basics: 'Basics',
-  sensors: 'Sensors',
-  displays: 'Displays',
-  communication: 'Communication',
-  games: 'Games',
-  robotics: 'Robotics',
 };
 
 const DIFFICULTY_COLOR: Record<string, string> = {
@@ -48,6 +41,10 @@ export const ExampleDetailPage: React.FC = () => {
   // Re-render when the pro overlay registers late examples (dynamic import).
   useSyncExternalStore(subscribeProExamples, getProExamplesVersion, getProExamplesVersion);
 
+  const { t } = useTranslation();
+  // Галерея открыта только администратору: обычному пользователю ссылки
+  // на неё показывать незачем — они бы вернули его в редактор.
+  const isAdmin = useIsAdmin();
   const { exampleId } = useParams<{ exampleId: string }>();
   const navigate = useNavigate();
 
@@ -55,8 +52,8 @@ export const ExampleDetailPage: React.FC = () => {
 
   // SEO — called unconditionally (hooks must not be inside conditionals).
   const seoTitle = example
-    ? `${example.title} — Free Arduino Simulator Example | Velxio`
-    : 'Example Not Found | Velxio';
+    ? `${example.title} — пример для IT-Arduino Симулятора`
+    : 'Пример не найден — IT-Arduino Симулятор';
 
   const boardLabel = example
     ? (BOARD_LABELS[example.boardType ?? 'arduino-uno'] ?? example.boardType ?? 'Arduino Uno')
@@ -64,7 +61,7 @@ export const ExampleDetailPage: React.FC = () => {
 
   const seoDescription = example
     ? `${example.description}. Run this ${boardLabel} example free in your browser — no install, no account required.`
-    : 'This example was not found.';
+    : 'Такой пример не найден.';
 
   useSEO({
     title: seoTitle,
@@ -103,9 +100,9 @@ export const ExampleDetailPage: React.FC = () => {
           }}
         >
           <div style={{ fontSize: 48, color: '#555' }}>404</div>
-          <div style={{ fontSize: 16, color: '#999' }}>Example "{exampleId}" not found.</div>
+          <div style={{ fontSize: 16, color: '#999' }}>Пример «{exampleId}» не найден.</div>
           <Link
-            to="/examples"
+            to={isAdmin ? '/examples' : '/editor'}
             style={{
               color: '#4fc3f7',
               textDecoration: 'none',
@@ -115,7 +112,7 @@ export const ExampleDetailPage: React.FC = () => {
               fontSize: 14,
             }}
           >
-            Browse all examples
+            {isAdmin ? 'Все примеры' : 'Открыть редактор'}
           </Link>
         </div>
       </div>
@@ -123,7 +120,9 @@ export const ExampleDetailPage: React.FC = () => {
   }
 
   const diffColor = DIFFICULTY_COLOR[example.difficulty] ?? '#999';
-  const categoryLabel = CATEGORY_LABELS[example.category] ?? example.category;
+  // Те же ключи, что и у фильтра в галерее, — чтобы значок здесь и
+  // пункт списка там назывались одинаково.
+  const categoryLabel = t(`examples.filters.category.${example.category}`, example.category);
 
   return (
     <div
@@ -150,12 +149,16 @@ export const ExampleDetailPage: React.FC = () => {
           style={{ width: '100%', maxWidth: 760, marginBottom: 32, fontSize: 13, color: '#666' }}
         >
           <Link to="/" style={{ color: '#666', textDecoration: 'none' }}>
-            Velxio
+            IT-Arduino Симулятор
           </Link>
           {' / '}
-          <Link to="/examples" style={{ color: '#666', textDecoration: 'none' }}>
-            Examples
-          </Link>
+          {isAdmin ? (
+            <Link to="/examples" style={{ color: '#666', textDecoration: 'none' }}>
+              Примеры
+            </Link>
+          ) : (
+            <span style={{ color: '#666' }}>Примеры</span>
+          )}
           {' / '}
           <span style={{ color: '#aaa' }}>{example.title}</span>
         </nav>
@@ -218,7 +221,7 @@ export const ExampleDetailPage: React.FC = () => {
                 color: diffColor,
               }}
             >
-              {example.difficulty}
+              {t(`examples.filters.difficulty.${example.difficulty}`)}
             </span>
             <span
               style={{
@@ -266,7 +269,7 @@ export const ExampleDetailPage: React.FC = () => {
                 margin: '0 0 12px',
               }}
             >
-              What you'll simulate
+              Что вы соберёте
             </h2>
             <ul
               style={{
@@ -288,7 +291,7 @@ export const ExampleDetailPage: React.FC = () => {
                 }}
               >
                 <span style={{ color: '#4fc3f7', fontWeight: 700 }}>✓</span>
-                Real {boardLabel} emulation — cycle-accurate, no hardware needed
+                {t('examples.detail.emulation', { board: boardLabel })}
               </li>
               <li
                 style={{
@@ -301,8 +304,8 @@ export const ExampleDetailPage: React.FC = () => {
               >
                 <span style={{ color: '#4fc3f7', fontWeight: 700 }}>✓</span>
                 {(example.components?.length ?? 0) > 0
-                  ? `${example.components.length} interactive component${example.components.length > 1 ? 's' : ''} on the canvas`
-                  : 'Interactive simulation canvas'}
+                  ? t('examples.detail.components', { count: example.components.length })
+                  : 'Интерактивный холст симулятора'}
               </li>
               {example.libraries && example.libraries.length > 0 && (
                 <li
@@ -315,7 +318,7 @@ export const ExampleDetailPage: React.FC = () => {
                   }}
                 >
                   <span style={{ color: '#4fc3f7', fontWeight: 700 }}>✓</span>
-                  Auto-installs: {example.libraries.join(', ')}
+                  {t('examples.detail.libraries', { list: example.libraries.join(', ') })}
                 </li>
               )}
               <li
@@ -327,8 +330,8 @@ export const ExampleDetailPage: React.FC = () => {
                   fontSize: 14,
                 }}
               >
-                <span style={{ color: '#4fc3f7', fontWeight: 700 }}>✓</span>
-                Serial Monitor included — see output in real time
+                <span style={{ color: '#4fc3f7', fontWeight: 700 }}>✓</span>С монитором порта —
+                вывод видно сразу
               </li>
             </ul>
           </section>
@@ -349,11 +352,13 @@ export const ExampleDetailPage: React.FC = () => {
                 letterSpacing: '0.02em',
               }}
             >
-              Open in Simulator
+              Открыть в симуляторе
             </button>
-            <Link to="/examples" style={{ color: '#666', textDecoration: 'none', fontSize: 14 }}>
-              ← Back to examples
-            </Link>
+            {isAdmin && (
+              <Link to="/examples" style={{ color: '#666', textDecoration: 'none', fontSize: 14 }}>
+                ← Назад к примерам
+              </Link>
+            )}
           </div>
         </article>
 
@@ -369,7 +374,7 @@ export const ExampleDetailPage: React.FC = () => {
               url: `${DOMAIN}/examples/${example.id}`,
               educationalLevel: example.difficulty,
               learningResourceType: 'Simulation',
-              provider: { '@type': 'Organization', name: 'Velxio', url: DOMAIN },
+              provider: { '@type': 'Organization', name: 'IT-Arduino', url: DOMAIN },
               about: { '@type': 'Thing', name: boardLabel },
             }),
           }}

@@ -195,3 +195,13 @@ backend/.venv/*
 # never land in the OSS repo. (micropython-*.bin are the legitimate OSS firmwares.)
 frontend/public/firmware/esp32*-rom.bin
 frontend/public/firmware/esp32*-drom.bin
+
+
+docs/*
+
+# Форк: спеки и планы работ ведём в git намеренно. Правило docs/* выше
+# принадлежит апстриму и ловит только НОВЫЕ файлы — 108 старых документов
+# при этом отслеживаются. Без этого исключения каталог оказался бы
+# наполовину внутри репозитория (spec прошёл), наполовину снаружи (plan
+# отвергнут), и разница ничем бы не объяснялась.
+!docs/superpowers/

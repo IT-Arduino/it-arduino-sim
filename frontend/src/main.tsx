@@ -7,6 +7,9 @@ import './index.css';
 import './i18n';
 import { markProExamplesSettled } from './data/examples';
 import { markProRoutesSettled } from './lib/proRoutes';
+// Fork: hooks it-arduino.ru accounts into the editor's own seams. See
+// lib/itArduinoMount.ts — nothing else in this file knows it exists.
+import { mountItArduino } from './lib/itArduinoMount';
 
 /** The overlay import has settled (either way): registries are final. */
 const markProOverlaySettled = (): void => {
@@ -34,6 +37,11 @@ import App from './App.tsx';
 const monacoVsPath = `${import.meta.env.BASE_URL}monaco/vs`;
 loader.config({ paths: { vs: monacoVsPath } });
 
+// Before the first render, deliberately. Auth start strips the one-time
+// `?ticket=` parameter from the address bar, and the sooner that happens the
+// smaller the window in which the ticket can leak through history or Referer.
+mountItArduino();
+
 createRoot(document.getElementById('root')!).render(<App />);
 
 // Tear down the Tauri-only splash now that React has mounted. Wait
@@ -58,36 +66,17 @@ requestAnimationFrame(() => {
 // VITE_PRO_BUILD=true at build time. The dynamic import keeps the pro chunk
 // out of the OSS bundle entirely (Vite tree-shakes the never-taken branch).
 //
-// Two desktop modes since v0.4.0:
-//   - VITE_PRO_BUILD + VITE_DESKTOP → slim pro entry (@pro/desktop_index)
-//     that ONLY mounts the AI agent + DiagnoseCompileButton, no analytics
-//     / sessions / billing / admin / save overrides (those talk to
-//     velxio.dev with cookies the desktop doesn't have).
-//   - VITE_PRO_BUILD only (web) → full mountPro with every surface.
-// VITE_DESKTOP alone (no pro) stays a pure-OSS desktop build.
+// Upstream also had two desktop build modes here, gated on VITE_DESKTOP.
+// This fork is a web simulator only — the Tauri shell and everything under
+// frontend/src/desktop/ are gone, so both branches went with them.
 if (import.meta.env.VITE_PRO_BUILD) {
-  if (import.meta.env.VITE_DESKTOP) {
-    import('@pro/desktop_index')
-      .then((m) => m.mountProDesktop?.())
-      .catch((err) => console.warn('[pro-desktop] failed to load slim overlay:', err))
-      .finally(markProOverlaySettled);
-  } else {
-    import('@pro/index')
-      .then((m) => m.mountPro?.())
-      .catch((err) => console.warn('[pro] failed to load overlay:', err))
-      .finally(markProOverlaySettled);
-  }
+  import('@pro/index')
+    .then((m) => m.mountPro?.())
+    .catch((err) => console.warn('[pro] failed to load overlay:', err))
+    .finally(markProOverlaySettled);
 } else {
   // No overlay is coming: what the registries have now is all there will be.
   markProOverlaySettled();
-}
-
-// Desktop-only hooks (ESP32 QEMU prompt now, welcome screen in Phase 3).
-// Dynamic import so the OSS bundle never pulls this in.
-if (import.meta.env.VITE_DESKTOP) {
-  import('./desktop/index')
-    .then((m) => m.mountDesktop?.())
-    .catch((err) => console.warn('[desktop] failed to load hooks:', err));
 }
 
 // DEV-only: expose the core stores for E2E harnesses (the platform-bugs QA

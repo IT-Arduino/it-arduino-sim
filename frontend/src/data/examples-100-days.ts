@@ -8,7 +8,7 @@
  *
  *     python test/test_100_days/_emit_examples_data.py
  *
- * Only the projects Velxio can run end-to-end are emitted (49/78 at the
+ * Only the projects IT-Arduino can run end-to-end are emitted (49/78 at the
  * time of generation — see test/test_100_days/README.md for the full
  * compatibility matrix). Each example is a MicroPython project; the
  * editor switches into MicroPython mode automatically when one of these
@@ -77,7 +77,7 @@ i2c = I2C(0, scl=Pin(22), sda=Pin(21))
 oled = ssd1306.SSD1306_I2C(128, 64, i2c)
 
 # ================= DHT =================
-# Velxio's simulator emulates the DHT22 waveform, so use dht.DHT22 here.
+# IT-Arduino's simulator emulates the DHT22 waveform, so use dht.DHT22 here.
 # On real hardware with a DHT11, switch back to dht.DHT11.
 dht_sensor = dht.DHT22(Pin(27))
 last_temp = 0
@@ -602,7 +602,7 @@ class Blynk(BlynkProtocol):
     def connect(self):
         print('Connecting to %s:%d...' % (self.server, self.port))
         s = socket.socket()
-        # Velxio patch: bound the blocking connect so an unreachable cloud
+        # IT-Arduino patch: bound the blocking connect so an unreachable cloud
         # raises OSError instead of freezing the sketch forever.
         s.settimeout(10)
         s.connect(socket.getaddrinfo(self.server, self.port)[0][-1])
@@ -662,7 +662,7 @@ AUTH = "jXJlUYM2K8a5uA2c"
 # ADC
 # The original sketch targets a NodeMCU with a single 10-bit ADC (\`ADC(0)\`).
 # Here the ADC is per-pin and 12-bit: GPIO34 is ADC1 and input-only, which is
-# what the Velxio canvas wires the battery divider (potentiometer) to.
+# what the IT-Arduino canvas wires the battery divider (potentiometer) to.
 adc = ADC(Pin(34))
 adc.atten(ADC.ATTN_11DB)   # full 0-3.3 V range
 ADC_FULL_SCALE = 4095      # 12-bit here (the NodeMCU original used 1023)
@@ -701,8 +701,8 @@ while not sta_if.isconnected():
 print("WiFi Connected:", sta_if.ifconfig())
 
 # Blynk Init
-# ── Velxio adaptation ──────────────────────────────────────────────────────────────────
-# The vendored BlynkLib bounds its connect() with a timeout (Velxio patch),
+# ── IT-Arduino adaptation ──────────────────────────────────────────────────────────────────
+# The vendored BlynkLib bounds its connect() with a timeout (IT-Arduino patch),
 # so an unreachable cloud raises OSError here instead of freezing the demo;
 # fall back to an offline no-op Blynk object in that case.
 class _OfflineBlynk:
@@ -755,7 +755,7 @@ import sys
 import select
 
 # Upstream drives this from a phone over an HC-05, which reaches the ESP32 as
-# plain serial — the "Bluetooth" part is just the transport. Velxio has no HC-05
+# plain serial — the "Bluetooth" part is just the transport. IT-Arduino has no HC-05
 # on the canvas, so the Serial Monitor IS that link: type \`on\` / \`off\` into it.
 #
 # It has to be sys.stdin rather than UART(0). UART0 is the REPL's own channel on
@@ -765,7 +765,7 @@ import select
 # "Bluetooth Control Ready") and then ignored every command.
 #
 # There is no named "LED" pin on this port — GPIO2 is the DevKit v1 onboard LED
-# position, and the Velxio canvas wires an LED + 220R there.
+# position, and the IT-Arduino canvas wires an LED + 220R there.
 led = Pin(2, Pin.OUT)
 
 poll = select.poll()
@@ -1030,7 +1030,7 @@ class Blynk(BlynkProtocol):
     def connect(self):
         print('Connecting to %s:%d...' % (self.server, self.port))
         s = socket.socket()
-        # Velxio patch: bound the blocking connect so an unreachable cloud
+        # IT-Arduino patch: bound the blocking connect so an unreachable cloud
         # raises OSError instead of freezing the sketch forever.
         s.settimeout(10)
         s.connect(socket.getaddrinfo(self.server, self.port)[0][-1])
@@ -1101,8 +1101,8 @@ while not sta_if.isconnected():
 print("WiFi Connected:", sta_if.ifconfig())
 
 # -------- BLYNK INIT --------
-# ── Velxio adaptation ──────────────────────────────────────────────────────────────────
-# The vendored BlynkLib bounds its connect() with a timeout (Velxio patch),
+# ── IT-Arduino adaptation ──────────────────────────────────────────────────────────────────
+# The vendored BlynkLib bounds its connect() with a timeout (IT-Arduino patch),
 # so an unreachable cloud raises OSError here instead of freezing the demo;
 # fall back to an offline no-op Blynk object in that case.
 class _OfflineBlynk:
@@ -1376,7 +1376,7 @@ class Blynk(BlynkProtocol):
     def connect(self):
         print('Connecting to %s:%d...' % (self.server, self.port))
         s = socket.socket()
-        # Velxio patch: bound the blocking connect so an unreachable cloud
+        # IT-Arduino patch: bound the blocking connect so an unreachable cloud
         # raises OSError instead of freezing the sketch forever.
         s.settimeout(10)
         s.connect(socket.getaddrinfo(self.server, self.port)[0][-1])
@@ -1447,8 +1447,8 @@ while not wifi.isconnected():
 print("WiFi Connected:", wifi.ifconfig())
 
 # -------- BLYNK INIT --------
-# ── Velxio adaptation ──────────────────────────────────────────────────────────────────
-# The vendored BlynkLib bounds its connect() with a timeout (Velxio patch),
+# ── IT-Arduino adaptation ──────────────────────────────────────────────────────────────────
+# The vendored BlynkLib bounds its connect() with a timeout (IT-Arduino patch),
 # so an unreachable cloud raises OSError here instead of freezing the demo;
 # fall back to an offline no-op Blynk object in that case.
 class _OfflineBlynk:
@@ -1653,7 +1653,7 @@ import socket
 import dht
 
 # DHT11 sensor setup
-sensor = dht.DHT22(machine.Pin(4)) # GPIO4 — Velxio emulates the DHT22 waveform (use DHT11 on real hw)
+sensor = dht.DHT22(machine.Pin(4)) # GPIO4 — IT-Arduino emulates the DHT22 waveform (use DHT11 on real hw)
 
 # Wi-Fi credentials
 SSID = "kritish"
@@ -2221,7 +2221,7 @@ OWM_API_KEY = "key"
 CITY = "city"
 
 # ================= HARDWARE =================
-# Velxio decodes the hardware I2C controller only (no bit-banged buses)
+# IT-Arduino decodes the hardware I2C controller only (no bit-banged buses)
 i2c = I2C(0, scl=Pin(22), sda=Pin(21))
 oled = ssd1306.SSD1306_I2C(128, 64, i2c)
 
@@ -2859,7 +2859,7 @@ class Blynk(BlynkProtocol):
     def connect(self):
         print('Connecting to %s:%d...' % (self.server, self.port))
         s = socket.socket()
-        # Velxio patch: bound the blocking connect so an unreachable cloud
+        # IT-Arduino patch: bound the blocking connect so an unreachable cloud
         # raises OSError instead of freezing the sketch forever.
         s.settimeout(10)
         s.connect(socket.getaddrinfo(self.server, self.port)[0][-1])
@@ -2905,11 +2905,11 @@ class Blynk(BlynkProtocol):
 
 ` },
       { name: "bmp180.py", content: `'''
-bmp180.py — Velxio simulator adaptation.
+bmp180.py — IT-Arduino simulator adaptation.
 
 Keeps the classic BMP180 driver API the original project uses
 (BMP180(i2c), .oversample, .sealevel, .temperature, .pressure, .altitude)
-but talks to the BMP280 barometric sensor that the Velxio ESP32 simulator
+but talks to the BMP280 barometric sensor that the IT-Arduino ESP32 simulator
 emulates on the I2C bus (chip id 0x58, address 0x76/0x77) — the BMP180
 itself is not in the simulator's catalogue.
 
@@ -2925,7 +2925,7 @@ class BMP180:
     def __init__(self, i2c):
         self._i2c = i2c
         # Probe the two possible addresses directly instead of i2c.scan():
-        # a full-bus scan stalls on Velxio's in-browser ESP32 engine.
+        # a full-bus scan stalls on IT-Arduino's in-browser ESP32 engine.
         self._addr = 0x76
         for addr in (0x76, 0x77):
             try:
@@ -3018,8 +3018,8 @@ while not sta_if.isconnected():
 
 print("Connected to Wi-Fi:", sta_if.ifconfig())
 
-# ── Velxio adaptation ──────────────────────────────────────────────────
-# The vendored BlynkLib bounds its connect() with a timeout (Velxio patch),
+# ── IT-Arduino adaptation ──────────────────────────────────────────────────
+# The vendored BlynkLib bounds its connect() with a timeout (IT-Arduino patch),
 # so an unreachable cloud raises OSError here instead of freezing the demo;
 # fall back to an offline no-op Blynk object in that case.
 class _OfflineBlynk:
@@ -3306,7 +3306,7 @@ class Blynk(BlynkProtocol):
     def connect(self):
         print('Connecting to %s:%d...' % (self.server, self.port))
         s = socket.socket()
-        # Velxio patch: bound the blocking connect so an unreachable cloud
+        # IT-Arduino patch: bound the blocking connect so an unreachable cloud
         # raises OSError instead of freezing the sketch forever.
         s.settimeout(10)
         s.connect(socket.getaddrinfo(self.server, self.port)[0][-1])
@@ -3421,8 +3421,8 @@ while not sta_if.isconnected():
 print("WiFi Connected:", sta_if.ifconfig())
 
 # ─── Blynk Init ──────────────────────────────────────────────
-# ── Velxio adaptation ──────────────────────────────────────────────────────────────────
-# The vendored BlynkLib bounds its connect() with a timeout (Velxio patch),
+# ── IT-Arduino adaptation ──────────────────────────────────────────────────────────────────
+# The vendored BlynkLib bounds its connect() with a timeout (IT-Arduino patch),
 # so an unreachable cloud raises OSError here instead of freezing the demo;
 # fall back to an offline no-op Blynk object in that case.
 class _OfflineBlynk:
@@ -3759,7 +3759,7 @@ while True:
         blynk.virtual_write(6, round(pt, 1))
 
 ` },
-      { name: "main.py", content: `# Velxio entry point — the project ships two standalone variants:
+      { name: "main.py", content: `# IT-Arduino entry point — the project ships two standalone variants:
 #   dsm_code1_csv.py       — smart metering with CSV serial output (runs here)
 #   dsm_code2_peakshift.py — peak-shift automation variant (open it and copy
 #                            its contents over this import to try it instead)
@@ -3801,7 +3801,7 @@ BASE_URL = "http://api.thingspeak.com/update"
 # --------------------------a
 # Sensors Setup
 # --------------------------
-d = dht.DHT22(Pin(2))     # Velxio emulates the DHT22 waveform (use DHT11 on real hw)
+d = dht.DHT22(Pin(2))     # IT-Arduino emulates the DHT22 waveform (use DHT11 on real hw)
 ldr = ADC(0)              # A0 pin for LDR
 
 # --------------------------
@@ -4239,7 +4239,7 @@ class Blynk(BlynkProtocol):
     def connect(self):
         print('Connecting to %s:%d...' % (self.server, self.port))
         s = socket.socket()
-        # Velxio patch: bound the blocking connect so an unreachable cloud
+        # IT-Arduino patch: bound the blocking connect so an unreachable cloud
         # raises OSError instead of freezing the sketch forever.
         s.settimeout(10)
         s.connect(socket.getaddrinfo(self.server, self.port)[0][-1])
@@ -4335,8 +4335,8 @@ if wifi.isconnected():
     print("\\nWiFi OK:", wifi.ifconfig())
 
 # 📲 Blynk init
-# ── Velxio adaptation ──────────────────────────────────────────────────────────────────
-# The vendored BlynkLib bounds its connect() with a timeout (Velxio patch),
+# ── IT-Arduino adaptation ──────────────────────────────────────────────────────────────────
+# The vendored BlynkLib bounds its connect() with a timeout (IT-Arduino patch),
 # so an unreachable cloud raises OSError here instead of freezing the demo;
 # fall back to an offline no-op Blynk object in that case.
 class _OfflineBlynk:
@@ -4829,7 +4829,7 @@ from machine import Pin, I2C
 last_weather_time = 0
 weather_temp = 0
 
-# Velxio decodes the hardware I2C controller only (no bit-banged buses)
+# IT-Arduino decodes the hardware I2C controller only (no bit-banged buses)
 # GPIO6 is wired to the internal SPI flash on this module and is not
 # broken out on the DevKit header — use the canonical I2C pads instead.
 i2c = I2C(0, sda=Pin(21), scl=Pin(22), freq=100000)
@@ -5838,7 +5838,7 @@ password = "pas"
 
 url = "http://ip:5000/data"  # laptop IP
 
-sensor = dht.DHT22(Pin(15))  # Velxio emulates the DHT22 waveform (use DHT11 on real hw)
+sensor = dht.DHT22(Pin(15))  # IT-Arduino emulates the DHT22 waveform (use DHT11 on real hw)
 
 wlan = network.WLAN(network.STA_IF)
 wlan.active(True)
@@ -6318,7 +6318,7 @@ import ssd1306
 import time
 
 # OLED setup
-# Velxio decodes the hardware I2C controller only (no bit-banged buses)
+# IT-Arduino decodes the hardware I2C controller only (no bit-banged buses)
 i2c = I2C(0, scl=Pin(22), sda=Pin(21))
 oled = ssd1306.SSD1306_I2C(128, 64, i2c)
 
@@ -6647,7 +6647,7 @@ ACCESS_TOKEN = "tokenn"
 # --- Hardware Setup ---
 # Using "LED" for Pico W onboard LED, or Pin(15) for an external LED
 led = Pin("LED", Pin.OUT) 
-sensor = dht.DHT22(Pin(4))  # Velxio emulates the DHT22 waveform (use DHT11 on real hw)
+sensor = dht.DHT22(Pin(4))  # IT-Arduino emulates the DHT22 waveform (use DHT11 on real hw)
 led_state = False
 
 # --- MQTT Callback (Handles Switch Commands) ---
@@ -7386,7 +7386,7 @@ class Blynk(BlynkProtocol):
     def connect(self):
         print('Connecting to %s:%d...' % (self.server, self.port))
         s = socket.socket()
-        # Velxio patch: bound the blocking connect so an unreachable cloud
+        # IT-Arduino patch: bound the blocking connect so an unreachable cloud
         # raises OSError instead of freezing the sketch forever.
         s.settimeout(10)
         s.connect(socket.getaddrinfo(self.server, self.port)[0][-1])
@@ -7460,8 +7460,8 @@ while not sta_if.isconnected(): # Wait until connected to Wi-Fi
 print("Connected to Wi-Fi:", sta_if.ifconfig()) # Print the Wi-Fi connection details
 
 # Initialize Blynk Connection
-# ── Velxio adaptation ──────────────────────────────────────────────────────────────────
-# The vendored BlynkLib bounds its connect() with a timeout (Velxio patch),
+# ── IT-Arduino adaptation ──────────────────────────────────────────────────────────────────
+# The vendored BlynkLib bounds its connect() with a timeout (IT-Arduino patch),
 # so an unreachable cloud raises OSError here instead of freezing the demo;
 # fall back to an offline no-op Blynk object in that case.
 class _OfflineBlynk:
@@ -7487,7 +7487,7 @@ led2=Pin(5, Pin.OUT) # Initialize LED 2 on pin 5 (D1), set as output
 led3=Pin(4, Pin.OUT) # Initialize LED 3 on pin 4 (D2), set as output
 # GPIO0 is a boot-strap pin and is not broken out on the DevKit header.
 led4=Pin(23, Pin.OUT) # Initialize LED 4 on GPIO23, set as output
-sensor=dht.DHT22(Pin(14)) # DHT on pin 14 — Velxio emulates the DHT22 waveform (use DHT11 on real hw)
+sensor=dht.DHT22(Pin(14)) # DHT on pin 14 — IT-Arduino emulates the DHT22 waveform (use DHT11 on real hw)
 
 led1.value(1) # Turn off LED 1 initially (active low)
 led2.value(1) # Turn off LED 2 initially (active low)
@@ -7944,7 +7944,7 @@ soil = ADC(Pin(35))
 soil.atten(ADC.ATTN_11DB)
 
 # DHT
-d = dht.DHT22(Pin(4))  # Velxio emulates the DHT22 waveform (use DHT11 on real hw)
+d = dht.DHT22(Pin(4))  # IT-Arduino emulates the DHT22 waveform (use DHT11 on real hw)
 
 # WiFi
 wlan = network.WLAN(network.STA_IF)
@@ -8062,7 +8062,7 @@ while True:
 # mistake; the code below is the project's own listing from its README
 # (DHT22 on GPIO15, three LEDs on GPIO25/26/27).
 #
-# Velxio's simulator emulates the DHT22 waveform, so dht.DHT22 is used here.
+# IT-Arduino's simulator emulates the DHT22 waveform, so dht.DHT22 is used here.
 # On real hardware with a DHT11, switch back to dht.DHT11.
 
 from machine import Pin

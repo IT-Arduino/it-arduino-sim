@@ -24,7 +24,8 @@ export const ExamplesPage: React.FC = () => {
   useSyncExternalStore(subscribeProExamples, getProExamplesVersion, getProExamplesVersion);
 
   const localize = useLocalizedHref();
-  useSEO(getSeoMeta('/examples')!);
+  // noindex: страница видна только администратору, в поиске ей не место.
+  useSEO({ ...getSeoMeta('/examples')!, noindex: true });
 
   const navigate = useNavigate();
 

@@ -20,12 +20,9 @@
  */
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation, useNavigate } from 'react-router-dom';
 import { useSimulatorStore } from '../../store/useSimulatorStore';
 import { useOscilloscopeStore } from '../../store/useOscilloscopeStore';
 import { useEditorStore, type EditorViewMode } from '../../store/useEditorStore';
-import { LOCALES, LOCALE_META, type Locale } from '../../i18n/config';
-import { getLocaleFromPath, switchLocale } from '../../i18n/path';
 import {
   hasEditorCommand,
   runEditorCommand,
@@ -33,6 +30,8 @@ import {
   getEditorCommandsVersion,
   type EditorCommandId,
 } from '../../lib/editorCommands';
+import { openAboutDialog } from '../layout/AboutDialog';
+import { useIsAdmin } from '../ItArduinoAdminOnly';
 import './EditorMenuBar.css';
 
 type Item =
@@ -51,30 +50,36 @@ type Item =
       optional?: boolean;
     }
   | { kind: 'link'; href: string; label: string }
+  /** A plain in-app action. Upstream routed everything through the
+   *  editorCommands registry, which fits actions whose OWNER is some other
+   *  mounted component. The About dialog has no such owner — it is a
+   *  self-contained module — so it gets a direct handler instead of a
+   *  registration dance that would buy nothing. */
+  | { kind: 'action'; label: string; onClick: () => void }
   | { kind: 'separator' };
 
-// Same links the desktop app's Help menu opens (pro/desktop menu.rs) — the
-// web editor mirrors that structure so both feel like one product. They
-// replace the marketing nav this header no longer shows, opening in a new
-// tab so the editor (and any unsaved work) stays put.
-const GITHUB_URL = 'https://github.com/davidmonterocrespo24/velxio';
-const DISCORD_URL = 'https://discord.gg/3mARjJrh4E';
-// In the OSS build the marketing pages live on velxio.dev, not in this app
-// (the overlay registers them only in pro builds) — link absolute, exactly
-// like the desktop app's Help menu does.
-const SITE = import.meta.env.VITE_PRO_BUILD ? '' : 'https://velxio.dev';
+// Upstream's Help menu pointed at velxio.dev — docs, pricing, blog, about,
+// the author's Discord. None of those pages exist for this fork, and the ones
+// that do exist are not ours to advertise. What is left is what a student
+// here actually needs: the main site, and the source of the program they are
+// running.
+//
+// SOURCE_CODE_URL is a licence obligation, not a courtesy: AGPLv3 section 13
+// requires offering the corresponding source to anyone using the simulator
+// over a network. It appears twice on purpose — permanently in the header,
+// and again in the About dialog next to the licence.
+const SOURCE_CODE_URL = 'https://github.com/IT-Arduino/it-arduino-sim';
+const MAIN_SITE_URL = 'https://it-arduino.ru';
 
 export const EditorMenuBar: React.FC = () => {
   const { t } = useTranslation();
+  const isAdmin = useIsAdmin();
   const [open, setOpen] = useState<'file' | 'edit' | 'view' | 'account' | 'help' | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Re-render when owners (un)register their commands.
   useSyncExternalStore(subscribeEditorCommands, getEditorCommandsVersion);
 
-  const location = useLocation();
-  const navigate = useNavigate();
-  const currentLocale = getLocaleFromPath(location.pathname);
   const serialOpen = useSimulatorStore((s) => s.serialMonitorOpen);
   const toggleSerialMonitor = useSimulatorStore((s) => s.toggleSerialMonitor);
   const scopeOpen = useOscilloscopeStore((s) => s.open);
@@ -128,9 +133,22 @@ export const EditorMenuBar: React.FC = () => {
       shortcut: 'Ctrl+S',
     },
     { kind: 'separator' },
-    { kind: 'command', id: 'project.import', label: t('editor.toolbar.importLabel', 'Import project') },
-    { kind: 'command', id: 'project.export', label: t('editor.toolbar.exportLabel', 'Export project (.zip)') },
-    { kind: 'command', id: 'project.exportBom', label: t('editor.toolbar.exportBomLabel', 'Bill of Materials (CSV)'), pro: true },
+    {
+      kind: 'command',
+      id: 'project.import',
+      label: t('editor.toolbar.importLabel', 'Import project'),
+    },
+    {
+      kind: 'command',
+      id: 'project.export',
+      label: t('editor.toolbar.exportLabel', 'Export project (.zip)'),
+    },
+    {
+      kind: 'command',
+      id: 'project.exportBom',
+      label: t('editor.toolbar.exportBomLabel', 'Bill of Materials (CSV)'),
+      pro: true,
+    },
     {
       kind: 'command',
       id: 'project.exportScreenshot',
@@ -140,8 +158,17 @@ export const EditorMenuBar: React.FC = () => {
     { kind: 'separator' },
     // The toolbar's "..." menu folded in here — same actions, same PRO
     // pills, one button fewer in the strip.
-    { kind: 'command', id: 'project.share', label: t('editor.toolbar.shareLabel', 'Share / Embed') },
-    { kind: 'command', id: 'project.githubSync', label: t('editor.toolbar.githubSyncLabel', 'Sync to GitHub'), pro: true },
+    {
+      kind: 'command',
+      id: 'project.share',
+      label: t('editor.toolbar.shareLabel', 'Share / Embed'),
+    },
+    {
+      kind: 'command',
+      id: 'project.githubSync',
+      label: t('editor.toolbar.githubSyncLabel', 'Sync to GitHub'),
+      pro: true,
+    },
     {
       kind: 'command',
       id: 'project.connectAgent',
@@ -151,8 +178,17 @@ export const EditorMenuBar: React.FC = () => {
       // row in builds where connecting an external agent cannot exist.
       optional: true,
     },
-    { kind: 'command', id: 'firmware.upload', label: t('editor.toolbar.uploadFirmwareLabel', 'Upload firmware') },
-    { kind: 'command', id: 'sim.record', label: t('editor.toolbar.recordLabel', 'Record simulation'), pro: true },
+    {
+      kind: 'command',
+      id: 'firmware.upload',
+      label: t('editor.toolbar.uploadFirmwareLabel', 'Upload firmware'),
+    },
+    {
+      kind: 'command',
+      id: 'sim.record',
+      label: t('editor.toolbar.recordLabel', 'Record simulation'),
+      pro: true,
+    },
   ];
 
   // Sign in / My projects for the Account menu. The bottom-left account
@@ -183,16 +219,14 @@ export const EditorMenuBar: React.FC = () => {
       label: t('news.kicker', "What's new"),
       optional: true,
     },
-    { kind: 'link', href: `${SITE}/docs`, label: t('header.nav.documentation', 'Documentation') },
-    { kind: 'link', href: '/examples', label: t('header.nav.examples', 'Examples') },
-    { kind: 'link', href: `${SITE}/pricing`, label: t('header.nav.pricing', 'Pricing') },
+    // Галерея примеров открыта только администратору.
+    ...(isAdmin
+      ? [{ kind: 'link' as const, href: '/examples', label: t('header.nav.examples') }]
+      : []),
     { kind: 'separator' },
-    { kind: 'link', href: SITE || '/', label: t('editor.menu.home', 'Velxio Home') },
-    { kind: 'link', href: `${SITE}/blog/`, label: t('header.nav.blog', 'Blog') },
-    { kind: 'link', href: `${SITE}/about`, label: t('editor.menu.about', 'About Velxio') },
-    { kind: 'separator' },
-    { kind: 'link', href: DISCORD_URL, label: t('editor.menu.discord', 'Discord Community') },
-    { kind: 'link', href: GITHUB_URL, label: t('editor.menu.github', 'GitHub Repository') },
+    { kind: 'link', href: MAIN_SITE_URL, label: t('editor.menu.mainSite') },
+    { kind: 'link', href: SOURCE_CODE_URL, label: t('editor.menu.sourceCode') },
+    { kind: 'action', label: t('editor.menu.about'), onClick: openAboutDialog },
   ];
 
   // Edit is undo/redo only (they render specially, with live history state);
@@ -202,12 +236,21 @@ export const EditorMenuBar: React.FC = () => {
   // File Explorer is rendered as a checkmarked row in the View block below
   // (it reads the store), not as a plain command here.
   const viewItems: Item[] = [
-    { kind: 'command', id: 'sim.compile', label: t('editor.menu.compile', 'Compile'), shortcut: 'Ctrl+B' },
+    {
+      kind: 'command',
+      id: 'sim.compile',
+      label: t('editor.menu.compile', 'Compile'),
+      shortcut: 'Ctrl+B',
+    },
     { kind: 'command', id: 'sim.run', label: t('editor.menu.run', 'Run') },
     { kind: 'command', id: 'sim.stop', label: t('editor.toolbar.stop', 'Stop') },
     { kind: 'command', id: 'sim.resetBoard', label: t('editor.toolbar.reset', 'Reset') },
     { kind: 'separator' },
-    { kind: 'command', id: 'view.toggleConsole', label: t('editor.menu.toggleConsole', 'Output Console') },
+    {
+      kind: 'command',
+      id: 'view.toggleConsole',
+      label: t('editor.menu.toggleConsole', 'Output Console'),
+    },
     { kind: 'separator' },
     { kind: 'command', id: 'view.reset', label: t('editor.menu.centerView', 'Center canvas view') },
     { kind: 'command', id: 'view.zoomIn', label: t('editor.canvas.zoomIn', 'Zoom in') },
@@ -253,7 +296,11 @@ export const EditorMenuBar: React.FC = () => {
     </button>
   );
 
-  const menu = (which: 'file' | 'edit' | 'view' | 'account' | 'help', label: string, items: Item[]): React.ReactNode => (
+  const menu = (
+    which: 'file' | 'edit' | 'view' | 'account' | 'help',
+    label: string,
+    items: Item[],
+  ): React.ReactNode => (
     <div className="emb-root" key={which}>
       <button
         className={`emb-trigger${open === which ? ' emb-trigger-open' : ''}`}
@@ -350,32 +397,8 @@ export const EditorMenuBar: React.FC = () => {
                 style={{ display: 'contents' }}
                 onClick={() => setOpen(null)}
               />
-              <div className="emb-separator" />
-              {/* Language moved in here from its own top-level menu — the
-                  menubar was one trigger too wide once the AI chat docks. */}
-              <div className="emb-section-label">
-                {t('editor.menu.language', 'Language')}
-              </div>
-              {LOCALES.map((loc) => (
-                <button
-                  key={loc}
-                  role="menuitemradio"
-                  aria-checked={currentLocale === loc}
-                  className="emb-item"
-                  onClick={() => {
-                    setOpen(null);
-                    if (loc === currentLocale) return;
-                    navigate(
-                      switchLocale(location.pathname, loc as Locale) +
-                        location.search +
-                        location.hash,
-                    );
-                  }}
-                >
-                  <span>{LOCALE_META[loc].nativeName}</span>
-                  <span className="emb-shortcut">{currentLocale === loc ? '✓' : ''}</span>
-                </button>
-              ))}
+              {/* Upstream ended this menu with a locale picker. This fork is
+                  Russian-only, so a one-entry radio group would be noise. */}
             </>
           )}
           {which === 'edit' && (
@@ -408,14 +431,25 @@ export const EditorMenuBar: React.FC = () => {
           )}
           {items
             .filter(
-              (item) =>
-                item.kind !== 'command' || !item.optional || hasEditorCommand(item.id),
+              (item) => item.kind !== 'command' || !item.optional || hasEditorCommand(item.id),
             )
             .map((item, i) =>
               item.kind === 'separator' ? (
                 <div key={`sep-${i}`} className="emb-separator" />
               ) : item.kind === 'link' ? (
                 renderLink(item)
+              ) : item.kind === 'action' ? (
+                <button
+                  key={item.label}
+                  role="menuitem"
+                  className="emb-item"
+                  onClick={() => {
+                    setOpen(null);
+                    item.onClick();
+                  }}
+                >
+                  <span>{item.label}</span>
+                </button>
               ) : (
                 renderCommand(item)
               ),

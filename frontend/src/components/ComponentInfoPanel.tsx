@@ -27,6 +27,8 @@ import type { PropertyDescriptor } from '../types/component-metadata';
 import { loadDoc, productPageHref, type ComponentDoc } from './componentDocs';
 import { trackProductPageClick } from '../utils/analytics';
 import './ComponentInfoPanel.css';
+import { propertyLabelRu } from '../lib/componentPropertiesRu';
+import { categoryLabelRu, tagLabelRu } from '../lib/componentNamesRu';
 
 export interface PanelData {
   id: string; // component / board id — used to look up the Markdown doc
@@ -137,31 +139,35 @@ export const ComponentInfoBody: React.FC<{
         <p className="cip-desc">{data.description}</p>
       ) : (
         <p className="cip-desc cip-desc--empty">
-          No datasheet written for this part yet.
-          {data.pinCount > 0 && ' Its pins are listed on the left.'}
+          Описания для этой детали пока нет.
+          {data.pinCount > 0 && ' Её выводы перечислены слева.'}
         </p>
       )}
 
       {showProps && shownProps.length > 0 && (
         <div className="cip-props">
-          <div className="cip-section-title">Properties</div>
+          <div className="cip-section-title">Свойства</div>
           <div className="cip-prop-list">
             {shownProps.map((p) => (
               <div className="cip-prop-row" key={p.name}>
-                <span className="cip-prop-name">{p.name}</span>
+                {/* Показывалось служебное имя поля — `refreshMs`, `ledPower`.
+                    Русская подпись берётся из общей таблицы форка. */}
+                <span className="cip-prop-name">{propertyLabelRu(p)}</span>
                 <span className="cip-prop-val">{formatValue(p)}</span>
               </div>
             ))}
           </div>
-          {hiddenCount > 0 && <div className="cip-more">+{hiddenCount} more</div>}
+          {hiddenCount > 0 && <div className="cip-more">ещё {hiddenCount}</div>}
         </div>
       )}
 
       {data.tags && data.tags.length > 0 && (
         <div className="cip-tags">
+          {/* Переводится только подпись. Ключ и само значение тэга остаются
+              исходными: по ним ищет ComponentRegistry.searchComponents. */}
           {data.tags.slice(0, 6).map((t) => (
             <span className="cip-tag" key={t}>
-              {t}
+              {tagLabelRu(t)}
             </span>
           ))}
         </div>
@@ -296,17 +302,20 @@ export const ComponentInfoPanel: React.FC<ComponentInfoPanelProps> = ({
       }}
     >
       <div className="cip-header">
-        {svgThumb && (
-          <div className="cip-thumb" dangerouslySetInnerHTML={{ __html: svgThumb }} />
-        )}
+        {svgThumb && <div className="cip-thumb" dangerouslySetInnerHTML={{ __html: svgThumb }} />}
         <div className="cip-title">
           <span className="cip-name">{data.name}</span>
           <span className="cip-badges">
-            <span className="cip-cat">{data.category}</span>
+            <span className="cip-cat">{categoryLabelRu(data.category)}</span>
             {data.pro_only && <span className="cip-pro">PRO</span>}
-            {data.pinCount > 0 && <span className="cip-pins">{data.pinCount} pins</span>}
+            {data.pinCount > 0 && (
+              // «Выводов: 31», а не «31 выводов»: склонять «вывод / вывода /
+              // выводов» ради значка на два слова незачем, а двоеточие
+              // читается одинаково при любом числе.
+              <span className="cip-pins">Выводов: {data.pinCount}</span>
+            )}
           </span>
-          {brand && <span className="cip-brand">by {brand}</span>}
+          {brand && <span className="cip-brand">от {brand}</span>}
         </div>
       </div>
 

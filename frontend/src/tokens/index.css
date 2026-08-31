@@ -5,6 +5,9 @@
  */
 
 @import './colors.css';
+/* Fork: IT-Arduino brand palette. Must come after colors.css — it overrides
+ * a handful of that file's semantic tokens and nothing else. */
+@import './brand.css';
 @import './spacing.css';
 @import './typography.css';
 @import './radius.css';

@@ -89,9 +89,26 @@ const Attiny85InlinePreview: React.FC<{ w: number; h: number }> = ({ w, h }) => 
       </g>
     ))}
     {/* IC body */}
-    <rect x="30" y="10" width="100" height="80" rx="4" fill="#1a1a2e" stroke="#4a4a7a" strokeWidth="1.5" />
+    <rect
+      x="30"
+      y="10"
+      width="100"
+      height="80"
+      rx="4"
+      fill="#1a1a2e"
+      stroke="#4a4a7a"
+      strokeWidth="1.5"
+    />
     <path d="M73 10 A7 7 0 0 1 87 10" fill="none" stroke="#4a4a7a" strokeWidth="1.5" />
-    <text x="80" y="48" fontSize="10" fontWeight="bold" fontFamily="monospace" fill="#c8c8f0" textAnchor="middle">
+    <text
+      x="80"
+      y="48"
+      fontSize="10"
+      fontWeight="bold"
+      fontFamily="monospace"
+      fill="#c8c8f0"
+      textAnchor="middle"
+    >
       ATtiny85
     </text>
     <text x="80" y="62" fontSize="8" fontFamily="monospace" fill="#7a7aaa" textAnchor="middle">
@@ -289,9 +306,7 @@ export const CircuitPreview: React.FC<CircuitPreviewProps> = ({
       // Position it to the left of the other components
       const minCompX = components.length > 0 ? Math.min(...components.map((c) => c.x)) : 400;
       const avgCompY =
-        components.length > 0
-          ? components.reduce((s, c) => s + c.y, 0) / components.length
-          : 150;
+        components.length > 0 ? components.reduce((s, c) => s + c.y, 0) / components.length : 150;
       const boardX = Math.max(40, minCompX - boardDef.w - 60);
       const boardY = Math.max(40, avgCompY - boardDef.h / 2);
       items.push({ id: boardKind + '-board', x: boardX, y: boardY, def: boardDef, fixed: true });
@@ -329,7 +344,7 @@ export const CircuitPreview: React.FC<CircuitPreviewProps> = ({
         }}
         className={className}
       >
-        <span style={{ color: '#555', fontSize: 12 }}>No components</span>
+        <span style={{ color: '#555', fontSize: 12 }}>Деталей нет</span>
       </div>
     );
   }

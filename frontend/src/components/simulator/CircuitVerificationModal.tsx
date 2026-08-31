@@ -30,7 +30,7 @@ export const CircuitVerificationModal: React.FC<Props> = ({ result, onCancel, on
   return createPortal(
     <div style={styles.overlay} onClick={onCancel}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <h2 style={styles.title}>Circuit verification</h2>
+        <h2 style={styles.title}>Проверка схемы</h2>
         <p style={styles.subtitle}>
           {result.errors.length === 0
             ? `${result.warnings.length} warning${result.warnings.length === 1 ? '' : 's'} found.`
@@ -61,7 +61,7 @@ export const CircuitVerificationModal: React.FC<Props> = ({ result, onCancel, on
             Cancel
           </button>
           <button onClick={onRunAnyway} style={styles.secondaryBtn}>
-            Run anyway
+            Всё равно запустить
           </button>
         </div>
       </div>

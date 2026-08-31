@@ -9,7 +9,7 @@
  * without surfacing an error.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLocalizedHref } from '../../i18n/useLocalizedNavigate';
 
@@ -28,47 +28,34 @@ const BOARD_LABELS: Record<string, string> = {
   'arduino-uno': 'Arduino Uno',
   'arduino-nano': 'Arduino Nano',
   'arduino-mega': 'Arduino Mega',
-  'esp32': 'ESP32',
+  esp32: 'ESP32',
   'esp32-s3': 'ESP32-S3',
   'esp32-c3': 'ESP32-C3',
   'raspberry-pi-pico': 'Pico',
   'raspberry-pi-3': 'Pi 3',
-  'attiny85': 'ATtiny85',
+  attiny85: 'ATtiny85',
 };
 
 export const CommunityProjectsGrid = () => {
-  const [projects, setProjects] = useState<FeaturedProject[] | null>(null);
-  const [hidden, setHidden] = useState(false);
+  const [projects] = useState<FeaturedProject[] | null>(null);
+  // В форке витрина чужих проектов не работает и работать не может: эндпоинт
+  // /api/projects/featured есть только в закрытом оверлее апстрима. Запрос
+  // всегда отвечал 404, компонент всегда уходил в `return null`, и на каждое
+  // открытие страницы примеров в консоли появлялась ошибка — тот же случай,
+  // что и с /api/news/feed на втором этапе. Запрос убран, разметка ниже
+  // сохранена: вернуть витрину можно, восстановив загрузку.
+  const [hidden] = useState(true);
   const localize = useLocalizedHref();
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/projects/featured?limit=12', { credentials: 'include' })
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`status ${r.status}`);
-        return (await r.json()) as FeaturedProject[];
-      })
-      .then((rows) => {
-        if (cancelled) return;
-        if (!rows.length) {
-          setHidden(true);
-          return;
-        }
-        setProjects(rows);
-      })
-      .catch(() => { if (!cancelled) setHidden(true); });
-    return () => { cancelled = true; };
-  }, []);
 
   if (hidden || !projects) return null;
 
   return (
     <section style={styles.shell}>
       <div style={styles.header}>
-        <h2 style={styles.title}>Featured community projects</h2>
+        <h2 style={styles.title}>Работы других пользователей</h2>
         <p style={styles.sub}>
-          The most-run public circuits on Velxio. Open one to see how it's wired,
-          remix the code, and run it live.
+          Самые запускаемые общедоступные схемы. Откройте любую, чтобы посмотреть соединения,
+          изменить код и запустить у себя.
         </p>
       </div>
       <div style={styles.grid}>
@@ -79,16 +66,14 @@ export const CommunityProjectsGrid = () => {
             style={styles.card}
             className="velxio-community-card"
           >
-            <div style={styles.cardName}>{p.name || 'Untitled'}</div>
+            <div style={styles.cardName}>{p.name || 'Без названия'}</div>
             <div style={styles.cardMeta}>
               <span>{BOARD_LABELS[p.board_type] || p.board_type}</span>
               <span>·</span>
-              <span>{p.run_count.toLocaleString()} runs</span>
+              <span>запусков: {p.run_count.toLocaleString('ru-RU')}</span>
             </div>
-            <div style={styles.cardOwner}>by @{p.owner_username}</div>
-            {p.description && (
-              <div style={styles.cardDesc}>{p.description.slice(0, 140)}</div>
-            )}
+            <div style={styles.cardOwner}>автор: @{p.owner_username}</div>
+            {p.description && <div style={styles.cardDesc}>{p.description.slice(0, 140)}</div>}
           </Link>
         ))}
       </div>

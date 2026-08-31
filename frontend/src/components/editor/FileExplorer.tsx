@@ -27,7 +27,6 @@ const PRO_FALLBACK_ICON = (
   </svg>
 );
 
-
 // SVG icons — same style as EditorToolbar (stroke-based, 16x16)
 const IcoFile = () => (
   <svg
@@ -384,7 +383,11 @@ const SAVE_STATUS_CLASS: Record<AutoSaveState['status'], string> = {
   error: 'is-error',
 };
 
-export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewClick, autoSave }) => {
+export const FileExplorer: React.FC<FileExplorerProps> = ({
+  onSaveClick,
+  onNewClick,
+  autoSave,
+}) => {
   const { t } = useTranslation();
   // Hidden <input type="file"> we trigger via ref when the user clicks
   // the Open project button.  Accepts both .vlx (Velxio native) and .zip
@@ -395,85 +398,88 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
   const handleOpenProjectClick = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
-  const handleProjectFilePicked = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    // Reset so picking the SAME file again later still fires onchange.
-    e.target.value = '';
-    if (!file) return;
-    const friendlyName = file.name.toLowerCase().endsWith('.zip') ? 'Wokwi .zip' : '.vlx';
-    const confirmed = await showConfirmDialog(
-      t('editor.fileExplorer.confirmLoad.message', { type: friendlyName }),
-      {
-        kind: 'error',
-        title: t('editor.fileExplorer.confirmLoad.title'),
-        confirmLabel: t('editor.fileExplorer.confirmLoad.confirm'),
-        cancelLabel: t('editor.fileTabs.cancel'),
-        danger: true,
-      },
-    );
-    if (!confirmed) return;
-    try {
-      const result = await importProjectFile(file);
-      // .zip needs the caller to apply the payload to the stores (we keep
-      // that asymmetry so the toolbar's import flow can also pop the
-      // install-libraries modal afterwards). Here in the file explorer we
-      // don't have that modal, so we apply the payload silently and just
-      // warn in the console if the project references uninstalled libs.
-      if (result.kind === 'zip') {
-        const { loadFiles } = useEditorStore.getState();
-        const { setComponents, setWires, setBoardType, setBoardPosition, stopSimulation } =
-          useSimulatorStore.getState();
-        stopSimulation();
-        // Same rule as the toolbar's importer: an unknown board kind is left
-        // alone, not coerced into an Uno (#268).
-        // Same as the toolbar's importer: put the board on the canvas (an
-        // empty one had nothing for setBoardType to re-kind, so the project
-        // arrived without its chip — #268) and never coerce an unknown kind.
-        let boardId: string | null = null;
-        if (result.boardType && isKnownBoardKind(result.boardType)) {
-          const sim = useSimulatorStore.getState();
-          const current =
-            sim.boards.find((b) => b.id === sim.activeBoardId) ?? sim.boards[0] ?? null;
-          if (current) {
-            setBoardType(result.boardType);
-            boardId = current.id;
-          } else {
-            boardId = sim.addBoard(
-              result.boardType,
-              result.boardPosition.x,
-              result.boardPosition.y,
+  const handleProjectFilePicked = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      // Reset so picking the SAME file again later still fires onchange.
+      e.target.value = '';
+      if (!file) return;
+      const friendlyName = file.name.toLowerCase().endsWith('.zip') ? 'Wokwi .zip' : '.vlx';
+      const confirmed = await showConfirmDialog(
+        t('editor.fileExplorer.confirmLoad.message', { type: friendlyName }),
+        {
+          kind: 'error',
+          title: t('editor.fileExplorer.confirmLoad.title'),
+          confirmLabel: t('editor.fileExplorer.confirmLoad.confirm'),
+          cancelLabel: t('editor.fileTabs.cancel'),
+          danger: true,
+        },
+      );
+      if (!confirmed) return;
+      try {
+        const result = await importProjectFile(file);
+        // .zip needs the caller to apply the payload to the stores (we keep
+        // that asymmetry so the toolbar's import flow can also pop the
+        // install-libraries modal afterwards). Here in the file explorer we
+        // don't have that modal, so we apply the payload silently and just
+        // warn in the console if the project references uninstalled libs.
+        if (result.kind === 'zip') {
+          const { loadFiles } = useEditorStore.getState();
+          const { setComponents, setWires, setBoardType, setBoardPosition, stopSimulation } =
+            useSimulatorStore.getState();
+          stopSimulation();
+          // Same rule as the toolbar's importer: an unknown board kind is left
+          // alone, not coerced into an Uno (#268).
+          // Same as the toolbar's importer: put the board on the canvas (an
+          // empty one had nothing for setBoardType to re-kind, so the project
+          // arrived without its chip — #268) and never coerce an unknown kind.
+          let boardId: string | null = null;
+          if (result.boardType && isKnownBoardKind(result.boardType)) {
+            const sim = useSimulatorStore.getState();
+            const current =
+              sim.boards.find((b) => b.id === sim.activeBoardId) ?? sim.boards[0] ?? null;
+            if (current) {
+              setBoardType(result.boardType);
+              boardId = current.id;
+            } else {
+              boardId = sim.addBoard(
+                result.boardType,
+                result.boardPosition.x,
+                result.boardPosition.y,
+              );
+              // addBoard promotes the first board to active but does not sync the
+              // flat legacy fields; setActiveBoardId is where that happens, and
+              // whatever still reads `boardType` would otherwise see the board
+              // this import just replaced.
+              useSimulatorStore.getState().setActiveBoardId(boardId);
+            }
+          } else if (result.boardType) {
+            console.warn(
+              `[FileExplorer] Project is for a "${result.boardType}" board, which this build does not have — kept the current board.`,
             );
-            // addBoard promotes the first board to active but does not sync the
-            // flat legacy fields; setActiveBoardId is where that happens, and
-            // whatever still reads `boardType` would otherwise see the board
-            // this import just replaced.
-            useSimulatorStore.getState().setActiveBoardId(boardId);
           }
-        } else if (result.boardType) {
-          console.warn(
-            `[FileExplorer] Project is for a "${result.boardType}" board, which this build does not have — kept the current board.`,
+          for (const w of result.warnings) console.warn(`[FileExplorer] ${w}`);
+          setBoardPosition(result.boardPosition);
+          setComponents(result.components);
+          setWires(
+            boardId && result.boardType
+              ? retargetBoardWires(result.wires, result.boardType, boardId)
+              : result.wires,
           );
+          if (result.files.length > 0) loadFiles(result.files);
+          if (result.libraries.length > 0) {
+            console.warn(
+              '[FileExplorer] Imported Wokwi zip references libraries you may need to install:',
+              result.libraries,
+            );
+          }
         }
-        for (const w of result.warnings) console.warn(`[FileExplorer] ${w}`);
-        setBoardPosition(result.boardPosition);
-        setComponents(result.components);
-        setWires(
-          boardId && result.boardType
-            ? retargetBoardWires(result.wires, result.boardType, boardId)
-            : result.wires,
-        );
-        if (result.files.length > 0) loadFiles(result.files);
-        if (result.libraries.length > 0) {
-          console.warn(
-            '[FileExplorer] Imported Wokwi zip references libraries you may need to install:',
-            result.libraries,
-          );
-        }
+      } catch (err) {
+        showMessageDialog((err as Error).message, { kind: 'error' });
       }
-    } catch (err) {
-      showMessageDialog((err as Error).message, { kind: 'error' });
-    }
-  }, [t]);
+    },
+    [t],
+  );
 
   const {
     fileGroups,
@@ -503,7 +509,8 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
   // predefined chips declare no programTargets and don't appear here (they're
   // edited in the chip designer).
   const programmableChips = components.filter(
-    (c) => c.metadataId === 'custom-chip' && isProgrammableChip(c.properties as Record<string, unknown>),
+    (c) =>
+      c.metadataId === 'custom-chip' && isProgrammableChip(c.properties as Record<string, unknown>),
   );
 
   // Ensure each programmable chip has an editable program AND its editor group.
@@ -522,9 +529,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
       if (existing) {
         // Chip already names its program (e.g. an example) — seed from its
         // saved source if any, else empty (loadExample usually filled it).
-        ed.createFileGroup(gid, [
-          { name: existing, content: String(props.programSource ?? '') },
-        ]);
+        ed.createFileGroup(gid, [{ name: existing, content: String(props.programSource ?? '') }]);
       } else {
         // Fresh chip from the gallery — give it a starter program.c and
         // remember its target CPU for the ROM compiler.
@@ -592,11 +597,14 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
     }
   }, [renamingSection]);
 
-  const startBoardRename = useCallback((board: { id: string; name?: string; boardKind: BoardKind }) => {
-    sectionRenameCancelledRef.current = false;
-    setRenamingSection({ id: board.id, kind: 'board' });
-    setSectionRenameValue(boardDisplayName(board));
-  }, []);
+  const startBoardRename = useCallback(
+    (board: { id: string; name?: string; boardKind: BoardKind }) => {
+      sectionRenameCancelledRef.current = false;
+      setRenamingSection({ id: board.id, kind: 'board' });
+      setSectionRenameValue(boardDisplayName(board));
+    },
+    [],
+  );
 
   const startChipRename = useCallback((chipId: string, currentName: string) => {
     sectionRenameCancelledRef.current = false;
@@ -625,7 +633,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
         const comp = useSimulatorStore.getState().components.find((c) => c.id === target.id);
         if (comp) {
           updateComponent(target.id, {
-            properties: { ...comp.properties, chipName: value || 'Custom Chip' },
+            properties: { ...comp.properties, chipName: value || 'Своя микросхема' },
           });
         }
       }
@@ -777,7 +785,13 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
     // Never allow a folder delete to empty the group completely — the group
     // must keep at least one file (same invariant as single-file delete).
     if (inside.length >= (fileGroups[groupId] ?? []).length) {
-      showMessageDialog(t('editor.fileExplorer.folderHoldsEverything', 'The folder holds every file of this board — a board needs at least one file.'), { kind: 'info' });
+      showMessageDialog(
+        t(
+          'editor.fileExplorer.folderHoldsEverything',
+          'The folder holds every file of this board — a board needs at least one file.',
+        ),
+        { kind: 'info' },
+      );
       return;
     }
     if (inside.length === 0) {
@@ -825,7 +839,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
           </button>
           <button
             className="file-explorer-save-btn"
-            title="Open project (.vlx Velxio or .zip Wokwi)"
+            title={t('editor.fileExplorer.openProject')}
             onClick={handleOpenProjectClick}
           >
             <IcoOpen />
@@ -896,7 +910,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
                   <span className="fe-board-actions-spacer" />
                   <button
                     className="fe-board-new-btn"
-                    title="Rename board (or double-click the name)"
+                    title="Переименовать плату (или двойное нажатие по названию)"
                     onClick={(e) => {
                       e.stopPropagation();
                       startBoardRename(board);
@@ -933,7 +947,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
                       e.stopPropagation();
                       toggleCollapse(board.id);
                     }}
-                    title={isOpen ? t('editor.fileExplorer.collapse') : t('editor.fileExplorer.expand')}
+                    title={
+                      isOpen ? t('editor.fileExplorer.collapse') : t('editor.fileExplorer.expand')
+                    }
                   >
                     <IcoChevron open={isOpen} />
                   </button>
@@ -962,12 +978,11 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
                         e.stopPropagation();
                         startBoardRename(board);
                       }}
-                      title="Double-click to rename"
+                      title="Двойное нажатие — переименовать"
                     >
                       {boardDisplayName(board)}
                     </span>
                   )}
-
                 </div>
               </div>
 
@@ -1065,7 +1080,10 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
                         )}
 
                         {file.modified && (
-                          <span className="file-explorer-dot" title={t('editor.fileExplorer.unsavedChanges')} />
+                          <span
+                            className="file-explorer-dot"
+                            title={t('editor.fileExplorer.unsavedChanges')}
+                          />
                         )}
                       </div>
                     );
@@ -1077,7 +1095,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
                       className="file-explorer-item file-explorer-item-new fe-file-item"
                       style={
                         creatingParentPath
-                          ? ({ '--fe-depth': creatingParentPath.split('/').length } as React.CSSProperties)
+                          ? ({
+                              '--fe-depth': creatingParentPath.split('/').length,
+                            } as React.CSSProperties)
                           : undefined
                       }
                     >
@@ -1112,7 +1132,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
                       className="file-explorer-item file-explorer-item-new fe-file-item"
                       style={
                         creatingFolderParent
-                          ? ({ '--fe-depth': creatingFolderParent.split('/').length } as React.CSSProperties)
+                          ? ({
+                              '--fe-depth': creatingFolderParent.split('/').length,
+                            } as React.CSSProperties)
                           : undefined
                       }
                     >
@@ -1145,41 +1167,41 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
                       Manager on its list. QEMU-Linux boards run Python in a
                       guest OS — no arduino-cli manifest, so no row. */}
                   {!isPiBoardKind(board.boardKind) && (
-                  <div
-                    className={`file-explorer-item fe-file-item${
-                      manifestViewBoardId === board.id ? ' file-explorer-item-active' : ''
-                    }`}
-                    onClick={() => {
-                      switchToBoard(board.id, groupId);
-                      // Open the READ-ONLY libraries.json view (not the modal).
-                      // Library actions happen in the Library Manager modal.
-                      setManifestView(board.id);
-                    }}
-                    title={`libraries.json — ${boardDisplayName(board)}'s declared libraries (read-only; manage from the Library Manager)`}
-                  >
-                    <span className="file-explorer-icon" style={{ color: '#ffd60a' }}>
-                      <FileIcon name="libraries.json" />
-                    </span>
-                    <span className="file-explorer-name">libraries.json</span>
-                    <span
-                      style={{
-                        marginLeft: 'auto',
-                        fontSize: 9,
-                        lineHeight: '14px',
-                        color: '#9d9d9d',
-                        background: '#2d2d2d',
-                        borderRadius: 7,
-                        padding: '0 5px',
+                    <div
+                      className={`file-explorer-item fe-file-item${
+                        manifestViewBoardId === board.id ? ' file-explorer-item-active' : ''
+                      }`}
+                      onClick={() => {
+                        switchToBoard(board.id, groupId);
+                        // Open the READ-ONLY libraries.json view (not the modal).
+                        // Library actions happen in the Library Manager modal.
+                        setManifestView(board.id);
                       }}
-                      title={
-                        board.libraries && board.libraries.length
-                          ? `${board.libraries.length} declared: ${board.libraries.join(', ')}`
-                          : 'No libraries declared for this board'
-                      }
+                      title={`libraries.json — ${boardDisplayName(board)}'s declared libraries (read-only; manage from the Library Manager)`}
                     >
-                      {board.libraries?.length ?? 0}
-                    </span>
-                  </div>
+                      <span className="file-explorer-icon" style={{ color: '#ffd60a' }}>
+                        <FileIcon name="libraries.json" />
+                      </span>
+                      <span className="file-explorer-name">libraries.json</span>
+                      <span
+                        style={{
+                          marginLeft: 'auto',
+                          fontSize: 9,
+                          lineHeight: '14px',
+                          color: '#9d9d9d',
+                          background: '#2d2d2d',
+                          borderRadius: 7,
+                          padding: '0 5px',
+                        }}
+                        title={
+                          board.libraries && board.libraries.length
+                            ? `${board.libraries.length} declared: ${board.libraries.join(', ')}`
+                            : 'Для этой платы библиотеки не объявлены'
+                        }
+                      >
+                        {board.libraries?.length ?? 0}
+                      </span>
+                    </div>
                   )}
                 </div>
               )}
@@ -1198,7 +1220,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
           const isOpen = !collapsed[chip.id];
           const chipName =
             String((chip.properties as Record<string, unknown>)?.chipName ?? '').trim() ||
-            'Custom Chip';
+            'Своя микросхема';
 
           return (
             <div key={chip.id} className="fe-board-section">
@@ -1216,7 +1238,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
                   {!(renamingSection?.id === chip.id && renamingSection.kind === 'chip') && (
                     <button
                       className="fe-board-new-btn"
-                      title="Rename chip (or double-click the name)"
+                      title="Переименовать микросхему (или двойное нажатие по названию)"
                       onClick={(e) => {
                         e.stopPropagation();
                         startChipRename(chip.id, chipName);
@@ -1234,7 +1256,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
                       e.stopPropagation();
                       toggleCollapse(chip.id);
                     }}
-                    title={isOpen ? t('editor.fileExplorer.collapse') : t('editor.fileExplorer.expand')}
+                    title={
+                      isOpen ? t('editor.fileExplorer.collapse') : t('editor.fileExplorer.expand')
+                    }
                   >
                     <IcoChevron open={isOpen} />
                   </button>
@@ -1263,7 +1287,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
                         e.stopPropagation();
                         startChipRename(chip.id, chipName);
                       }}
-                      title="Double-click to rename"
+                      title="Двойное нажатие — переименовать"
                     >
                       {chipName}
                     </span>
@@ -1287,7 +1311,10 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onSaveClick, onNewCl
                         </span>
                         <span className="file-explorer-name">{file.name}</span>
                         {file.modified && (
-                          <span className="file-explorer-dot" title={t('editor.fileExplorer.unsavedChanges')} />
+                          <span
+                            className="file-explorer-dot"
+                            title={t('editor.fileExplorer.unsavedChanges')}
+                          />
                         )}
                       </div>
                     );

@@ -13,11 +13,7 @@
  * `buildProjectSdImage` on the next run.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  bytesToB64,
-  SD_UPLOAD_MAX_BYTES,
-  type UploadedSdFile,
-} from '../../utils/sdCardFiles';
+import { bytesToB64, SD_UPLOAD_MAX_BYTES, type UploadedSdFile } from '../../utils/sdCardFiles';
 import { readFat16Image, type FatDirFile } from '../../utils/fatImage';
 import { sdCardUploadAllowed, triggerSdCardUpgradePrompt } from '../../lib/proSdCardGate';
 import { getEsp32Bridge, useSimulatorStore } from '../../store/useSimulatorStore';
@@ -27,7 +23,7 @@ interface SdCardPanelProps {
   onChange: (next: UploadedSdFile[]) => void;
   /** Board whose bridge mounts the card (the board inspector passes its own
    *  id; the standalone card component leaves it unset and the active board
-   *  is used). Enables the live "Card contents" listing below the uploads. */
+   *  is used). Enables the live "Содержимое карты" listing below the uploads. */
   boardId?: string | null;
 }
 
@@ -114,13 +110,12 @@ export const SdCardPanel: React.FC<SdCardPanelProps> = ({ files, onChange, board
   return (
     <div className="sd-card-section">
       <div className="sd-card-label">
-        SD Card files <span className="sd-card-paid">Paid</span>
+        Файлы на карте SD <span className="sd-card-paid">Paid</span>
       </div>
       {files.length === 0 && (
         <div className="sd-card-hint">
-          Upload your own files (images, audio, data). The project's data files
-          are added automatically; source files (.ino, .h, .cpp, .py) stay off
-          the card.
+          Upload your own files (images, audio, data). The project's data files are added
+          automatically; source files (.ino, .h, .cpp, .py) stay off the card.
         </div>
       )}
       {files.map((f) => (
@@ -129,18 +124,14 @@ export const SdCardPanel: React.FC<SdCardPanelProps> = ({ files, onChange, board
             {f.name}
           </span>
           <span className="sd-card-file-size">{humanSize(fileBytes(f))}</span>
-          <button
-            className="sd-card-file-remove"
-            title="Remove"
-            onClick={() => remove(f.name)}
-          >
+          <button className="sd-card-file-remove" title="Remove" onClick={() => remove(f.name)}>
             x
           </button>
         </div>
       ))}
       <div className="sd-card-footer">
         <button className="sd-card-add" onClick={openPicker}>
-          + Add files
+          + Добавить файлы
         </button>
         <span className="sd-card-total">
           {humanSize(total)} / {humanSize(SD_UPLOAD_MAX_BYTES)}
@@ -157,18 +148,18 @@ export const SdCardPanel: React.FC<SdCardPanelProps> = ({ files, onChange, board
       {/* Live card contents: everything on the mounted card, sketch-written
           files included, each downloadable. */}
       <div className="sd-card-label sd-card-label--live">
-        Card contents
-        <button className="sd-card-refresh" onClick={refreshLive} title="Re-read the card">
-          Refresh
+        Содержимое карты
+        <button className="sd-card-refresh" onClick={refreshLive} title="Перечитать карту">
+          Обновить
         </button>
       </div>
       {live === null ? (
         <div className="sd-card-hint">
-          Run the simulation to mount the card. Files the sketch writes (photos,
-          logs) appear here and can be downloaded.
+          Запустите симуляцию, чтобы карта подключилась. Файлы, которые пишет скетч (снимки,
+          журналы), появятся здесь, и их можно будет скачать.
         </div>
       ) : live.length === 0 ? (
-        <div className="sd-card-hint">The card is empty.</div>
+        <div className="sd-card-hint">Карта пуста.</div>
       ) : (
         live.map((f) => (
           <div key={f.name} className="sd-card-file">
@@ -181,7 +172,7 @@ export const SdCardPanel: React.FC<SdCardPanelProps> = ({ files, onChange, board
               title={`Download ${f.name}`}
               onClick={() => download(f)}
             >
-              Download
+              Скачать
             </button>
           </div>
         ))

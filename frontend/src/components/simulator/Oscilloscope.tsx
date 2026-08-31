@@ -368,7 +368,7 @@ const ChannelPicker: React.FC<ChannelPickerProps> = ({
                   onClose();
                 }
               }}
-              title={added ? 'Already added' : `Monitor ${label}`}
+              title={added ? 'Уже добавлен' : `Monitor ${label}`}
             >
               {label}
             </button>
@@ -556,7 +556,9 @@ export const Oscilloscope: React.FC = () => {
         <button
           className={`osc-btn${capturing ? '' : ' osc-btn-active'}`}
           onClick={() => setCapturing(!capturing)}
-          title={capturing ? t('editor.oscilloscope.pauseTitle') : t('editor.oscilloscope.resumeTitle')}
+          title={
+            capturing ? t('editor.oscilloscope.pauseTitle') : t('editor.oscilloscope.resumeTitle')
+          }
         >
           {capturing ? `⏸ ${t('editor.oscilloscope.pause')}` : `▶ ${t('editor.oscilloscope.run')}`}
         </button>
@@ -566,16 +568,21 @@ export const Oscilloscope: React.FC = () => {
             Auto = free-running (current default).  Normal = window pins
             on every triggering edge.  Single = arm once, freeze on first
             edge — click again to re-arm. */}
-        <span className="osc-label" title="Trigger configuration">Trigger</span>
+        {/* Значения option (auto / normal / single, ниже rising / falling /
+            either) не переводятся: по ним работает логика. Переводятся только
+            подписи. */}
+        <span className="osc-label" title="Настройка синхронизации">
+          Синхронизация
+        </span>
         <select
           className="osc-select"
           value={triggerMode}
           onChange={(e) => setTriggerMode(e.target.value as TriggerMode)}
-          title="Trigger mode"
+          title="Режим синхронизации"
         >
-          <option value="auto">Auto</option>
-          <option value="normal">Normal</option>
-          <option value="single">Single</option>
+          <option value="auto">Авто</option>
+          <option value="normal">Ждущий</option>
+          <option value="single">Однократный</option>
         </select>
 
         {triggerMode !== 'auto' && (
@@ -584,7 +591,7 @@ export const Oscilloscope: React.FC = () => {
               className="osc-select"
               value={triggerChannelId ?? channels[0]?.id ?? ''}
               onChange={(e) => setTriggerChannel(e.target.value || null)}
-              title="Trigger source"
+              title="Источник синхронизации"
               disabled={channels.length <= 1}
             >
               {channels.map((c) => (
@@ -598,30 +605,32 @@ export const Oscilloscope: React.FC = () => {
               className="osc-select"
               value={triggerEdge}
               onChange={(e) => setTriggerEdge(e.target.value as TriggerEdge)}
-              title="Trigger edge"
+              title="Фронт синхронизации"
             >
-              <option value="rising">↑ Rising</option>
-              <option value="falling">↓ Falling</option>
-              <option value="either">⇅ Either</option>
+              <option value="rising">↑ Нарастающий</option>
+              <option value="falling">↓ Спадающий</option>
+              <option value="either">⇅ Любой</option>
             </select>
 
             <span
               className={`osc-trigger-status osc-trigger-status-${triggerStatus}`}
-              title={`Trigger status: ${triggerStatus}`}
+              title="Состояние синхронизации"
             >
-              {triggerStatus === 'armed' && 'Armed'}
-              {triggerStatus === 'triggered' && 'Triggered'}
-              {triggerStatus === 'captured' && 'Captured'}
-              {triggerStatus === 'idle' && 'Idle'}
+              {/* Сравнение идёт по значению triggerStatus, оно английское и
+                  остаётся; переводится только то, что видит ученик. */}
+              {triggerStatus === 'armed' && 'Взведена'}
+              {triggerStatus === 'triggered' && 'Сработала'}
+              {triggerStatus === 'captured' && 'Захвачено'}
+              {triggerStatus === 'idle' && 'Ожидание'}
             </span>
 
             {triggerMode === 'single' && triggerStatus === 'captured' && (
               <button
                 className="osc-btn osc-btn-active"
                 onClick={rearmTrigger}
-                title="Re-arm and capture the next triggering edge"
+                title="Взвести заново и поймать следующий фронт"
               >
-                Re-arm
+                Взвести
               </button>
             )}
           </>

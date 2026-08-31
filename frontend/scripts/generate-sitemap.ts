@@ -13,7 +13,7 @@ import { SEO_ROUTES } from '../src/seoRoutes';
 
 const __dirname_resolved = dirname(fileURLToPath(import.meta.url));
 
-const DOMAIN = 'https://velxio.dev';
+const DOMAIN = 'https://sim.it-arduino.ru';
 const TODAY = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
 // The OSS build serves only the editor surface; its sitemap must not list
@@ -36,7 +36,7 @@ ${indexableRoutes
     <lastmod>${TODAY}</lastmod>
     <changefreq>${r.changefreq ?? 'monthly'}</changefreq>
     <priority>${r.priority ?? 0.5}</priority>
-  </url>`
+  </url>`,
   )
   .join('')}
 
@@ -64,6 +64,6 @@ if (process.argv.includes('--ping')) {
       } catch (e: any) {
         console.log(`  FAIL ${url.split('?')[0]}: ${e.message}`);
       }
-    })
+    }),
   );
 }

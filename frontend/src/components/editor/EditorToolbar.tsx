@@ -10,7 +10,15 @@ import { type VerificationResult } from '../../simulation/verify/circuitVerifier
 import { verifyCircuitFromStore } from '../../simulation/verify/verifyFromStore';
 import { CircuitVerificationModal } from '../simulator/CircuitVerificationModal';
 import type { BoardKind, LanguageMode } from '../../types/board';
-import { BOARD_KIND_FQBN, BOARD_SUPPORTS_ESPIDF, BOARD_SUPPORTS_MICROPYTHON, fqbnForLanguage, isKnownBoardKind, isPiBoardKind, boardDisplayName } from '../../types/board';
+import {
+  BOARD_KIND_FQBN,
+  BOARD_SUPPORTS_ESPIDF,
+  BOARD_SUPPORTS_MICROPYTHON,
+  fqbnForLanguage,
+  isKnownBoardKind,
+  isPiBoardKind,
+  boardDisplayName,
+} from '../../types/board';
 import { compileCode } from '../../services/compilation';
 import { compileOptionsForBoard } from '../../utils/boardCompile';
 import {
@@ -51,7 +59,7 @@ import './EditorToolbar.css';
  */
 const CIRCUIT_CHECK_TARGET: CompileTarget = {
   id: 'circuit-check',
-  label: 'Circuit check',
+  label: 'Проверка схемы',
   kind: 'board',
 };
 
@@ -218,7 +226,10 @@ export const EditorToolbar = ({
     for (const c of s.components) {
       if (c.metadataId !== 'custom-chip') continue;
       const p = c.properties as Record<string, unknown>;
-      if (String(p?.programFile ?? '').trim() || String(p?.chipJson ?? '').includes('"programTargets"'))
+      if (
+        String(p?.programFile ?? '').trim() ||
+        String(p?.chipJson ?? '').includes('"programTargets"')
+      )
         chips++;
     }
     return s.boards.length + chips;
@@ -276,7 +287,7 @@ export const EditorToolbar = ({
 
   // Surface a runtime circuit fault (e.g. an LED that burnt out from
   // overcurrent during the live SPICE solve) in the output console, in red,
-  // under the "Circuit check" group — same place as the pre-flight findings.
+  // under the "Проверка схемы" group — same place as the pre-flight findings.
   // (Previously an inline toolbar toast that overlapped the Run/Stop buttons.)
   // We do NOT auto-open the console here: the continuous solver can fault on
   // load, and popping the console open then would be intrusive. The pre-flight
@@ -294,7 +305,6 @@ export const EditorToolbar = ({
     window.addEventListener('velxio-circuit-fault', onFault);
     return () => window.removeEventListener('velxio-circuit-fault', onFault);
   }, [setCompileLogs]);
-
 
   // Close the Run split-menu on outside click / Escape (mirrors the more-menu).
   useEffect(() => {
@@ -390,14 +400,15 @@ export const EditorToolbar = ({
           // section in the file explorer), separate from the board sketch.
           // Fall back to the board files for older projects that still carried
           // the program alongside sketch.ino in the board group.
-          const chipGroupFiles = useEditorStore
-            .getState()
-            .getGroupFiles(chipFileGroupId(chip.id));
+          const chipGroupFiles = useEditorStore.getState().getGroupFiles(chipFileGroupId(chip.id));
           const file =
             chipGroupFiles.find((f) => f.name === programFile) ??
             boardFiles.find((f) => f.name === programFile);
           if (!file) {
-            clog('error', `Chip "${chipLabel}": program file "${programFile}" not found in the chip's files.`);
+            clog(
+              'error',
+              `Chip "${chipLabel}": program file "${programFile}" not found in the chip's files.`,
+            );
             failed++;
           } else {
             const target = targetForChip(chipJson);
@@ -446,7 +457,7 @@ export const EditorToolbar = ({
     // Wipe the previous build's output before we append anything new.
     // Issue #209: lingering logs from prior compiles made it impossible
     // to tell the latest errors / warnings apart from stale ones.
-    // Keep the "Circuit check" findings, though: a Run auto-compiles right
+    // Keep the "Проверка схемы" findings, though: a Run auto-compiles right
     // after the pre-flight verification logs them, and clearing here would
     // wipe a circuit warning the user just triggered.
     setCompileLogs((prev) => prev.filter((l) => l.target?.id === CIRCUIT_CHECK_TARGET.id));
@@ -495,7 +506,7 @@ export const EditorToolbar = ({
     // QEMU-Linux boards don't need arduino-cli compilation
     if (isPiBoardKind(kind)) {
       blog('info', `${boardLabel}: no compilation needed — run Python scripts directly.`);
-      setMessage({ type: 'success', text: 'Ready (no compilation needed)' });
+      setMessage({ type: 'success', text: 'Готово, компиляция не нужна' });
       setCompiling(false);
       return;
     }
@@ -523,7 +534,7 @@ export const EditorToolbar = ({
 
     if (!fqbn) {
       blog('error', `No FQBN for board kind: ${kind}`);
-      setMessage({ type: 'error', text: 'Unknown board' });
+      setMessage({ type: 'error', text: 'Неизвестная плата' });
       setCompiling(false);
       return;
     }
@@ -577,9 +588,7 @@ export const EditorToolbar = ({
           if (stdout.length <= lastStreamedLen) return;
           const delta = stdout.slice(lastStreamedLen);
           lastStreamedLen = stdout.length;
-          const newLines = delta
-            .split('\n')
-            .filter((s) => s.trim() && !isNoiseBuildLine(s));
+          const newLines = delta.split('\n').filter((s) => s.trim() && !isNoiseBuildLine(s));
           if (!newLines.length) return;
           const now = new Date();
           setCompileLogs((prev: CompilationLog[]) => [
@@ -634,11 +643,11 @@ export const EditorToolbar = ({
             console.log('[manifest] auto-declared from build:', mergedLibs);
           }
         }
-        setMessage({ type: 'success', text: 'Compiled successfully' });
+        setMessage({ type: 'success', text: 'Компиляция прошла успешно' });
         markCompiled();
         setMissingLibHint(false);
       } else {
-        const errText = result.error || result.stderr || 'Compile failed';
+        const errText = result.error || result.stderr || 'Ошибка компиляции';
         setMessage({ type: 'error', text: errText });
         // Issue #208: drop the previous successful program from this
         // board so a subsequent Run cannot silently execute stale code
@@ -654,7 +663,7 @@ export const EditorToolbar = ({
         setMissingLibHint(looksLikeMissingLib);
       }
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Compile failed';
+      const errMsg = err instanceof Error ? err.message : 'Ошибка компиляции';
       blog('error', errMsg);
       setMessage({ type: 'error', text: errMsg });
     } finally {
@@ -679,7 +688,7 @@ export const EditorToolbar = ({
 
   /**
    * Returns true if the caller should proceed inline. All findings are written
-   * to the output console (red errors / orange warnings, "Circuit check"
+   * to the output console (red errors / orange warnings, "Проверка схемы"
    * group). If the verifier finds errors we also stash a resume callback in
    * `pendingRunRef` and pop the verification modal; the resume callback
    * re-enters `handleRun` with `skipVerify = true` so we don't loop.
@@ -691,7 +700,7 @@ export const EditorToolbar = ({
       if (!result) return true;
       if (result.errors.length === 0 && result.warnings.length === 0) return true;
 
-      // Write every finding to the output console under "Circuit check" — red
+      // Write every finding to the output console under "Проверка схемы" — red
       // for errors, orange for warnings — so there's one persistent, unified
       // diagnostics log next to the compiler output (Proteus-style). Replace
       // any prior circuit-check entries so repeated runs stay clean, and open
@@ -849,10 +858,7 @@ export const EditorToolbar = ({
         // generic stop-then-boot restart below.
         if (isPiBoardKind(board?.boardKind ?? '')) {
           trackRunSimulation(board?.boardKind);
-          reportRun(
-            board?.boardKind,
-            decideEngine(activeBoardId, board?.enginePinned).engine,
-          );
+          reportRun(board?.boardKind, decideEngine(activeBoardId, board?.enginePinned).engine);
           if (board?.running) {
             // Zombie/edge case (Run is normally disabled while running):
             // power-cycle for a clean boot.
@@ -1031,7 +1037,9 @@ export const EditorToolbar = ({
     setConsoleOpen(true);
     const targetSummary = [
       boardsList.length ? `${boardsList.length} board${boardsList.length === 1 ? '' : 's'}` : '',
-      allCustomChips.length ? `${allCustomChips.length} chip${allCustomChips.length === 1 ? '' : 's'}` : '',
+      allCustomChips.length
+        ? `${allCustomChips.length} chip${allCustomChips.length === 1 ? '' : 's'}`
+        : '',
     ]
       .filter(Boolean)
       .join(' + ');
@@ -1098,9 +1106,7 @@ export const EditorToolbar = ({
             if (stdout.length <= lastStreamedLen) return;
             const delta = stdout.slice(lastStreamedLen);
             lastStreamedLen = stdout.length;
-            const newLines = delta
-            .split('\n')
-            .filter((s) => s.trim() && !isNoiseBuildLine(s));
+            const newLines = delta.split('\n').filter((s) => s.trim() && !isNoiseBuildLine(s));
             if (!newLines.length) return;
             const now = new Date();
             setCompileLogs((prev: CompilationLog[]) => [
@@ -1114,7 +1120,14 @@ export const EditorToolbar = ({
               })),
             ]);
           },
-          { boardOptions: board.boardOptions, spiffsFiles: board.spiffsFiles, boardKind: board.boardKind, exampleId: useProjectStore.getState().currentExampleId, libraries: board.libraries?.length ? board.libraries : null, language: board.languageMode === 'espidf' ? 'espidf' : undefined },
+          {
+            boardOptions: board.boardOptions,
+            spiffsFiles: board.spiffsFiles,
+            boardKind: board.boardKind,
+            exampleId: useProjectStore.getState().currentExampleId,
+            libraries: board.libraries?.length ? board.libraries : null,
+            language: board.languageMode === 'espidf' ? 'espidf' : undefined,
+          },
         );
 
         const resultLogs = parseCompileResult(result, label, boardTarget, lastStreamedLen > 0);
@@ -1142,9 +1155,13 @@ export const EditorToolbar = ({
     const chipOk = allCustomChips.length - chipFailed;
     const doneParts = [];
     if (boardsList.length)
-      doneParts.push(`${ok} board${ok === 1 ? '' : 's'} ok${boardFailed > 0 ? `, ${boardFailed} failed` : ''}`);
+      doneParts.push(
+        `${ok} board${ok === 1 ? '' : 's'} ok${boardFailed > 0 ? `, ${boardFailed} failed` : ''}`,
+      );
     if (allCustomChips.length)
-      doneParts.push(`${chipOk} chip${chipOk === 1 ? '' : 's'} ok${chipFailed > 0 ? `, ${chipFailed} failed` : ''}`);
+      doneParts.push(
+        `${chipOk} chip${chipOk === 1 ? '' : 's'} ok${chipFailed > 0 ? `, ${chipFailed} failed` : ''}`,
+      );
     addLog({
       timestamp: new Date(),
       type: failed > 0 ? 'error' : 'success',
@@ -1191,9 +1208,7 @@ export const EditorToolbar = ({
       chipNeedsCompile ||
       boardsList.some(
         (b) =>
-          !isPiBoardKind(b.boardKind) &&
-          b.languageMode !== 'micropython' &&
-          !b.compiledProgram,
+          !isPiBoardKind(b.boardKind) && b.languageMode !== 'micropython' && !b.compiledProgram,
       );
 
     if (needsCompile) {
@@ -1205,7 +1220,11 @@ export const EditorToolbar = ({
     const refreshed = useSimulatorStore.getState().boards;
     for (const board of refreshed) {
       if (board.running) continue;
-      if (isQemuBoardKind(board.boardKind) || board.compiledProgram || board.languageMode === 'micropython') {
+      if (
+        isQemuBoardKind(board.boardKind) ||
+        board.compiledProgram ||
+        board.languageMode === 'micropython'
+      ) {
         trackRunSimulation(board.boardKind);
         reportRun(board.boardKind);
         startBoard(board.id);
@@ -1267,7 +1286,7 @@ export const EditorToolbar = ({
         });
       }
     } catch (err) {
-      setMessage({ type: 'error', text: 'Export failed.' });
+      setMessage({ type: 'error', text: 'Не удалось выполнить экспорт.' });
     }
   };
 
@@ -1278,10 +1297,10 @@ export const EditorToolbar = ({
   const handleExportScreenshot = async () => {
     const projectId = currentProject?.id;
     if (!projectId) {
-      setMessage({ type: 'error', text: 'Save the project before exporting an image.' });
+      setMessage({ type: 'error', text: 'Сохраните проект, прежде чем выгружать изображение.' });
       return;
     }
-    setMessage({ type: 'info', text: 'Rendering screenshot — may take 5-10 seconds…' });
+    setMessage({ type: 'info', text: 'Рисуем изображение — это займёт 5–10 секунд…' });
     try {
       const resp = await fetch(`/api/pro/projects/${projectId}/screenshot.png`, {
         credentials: 'include',
@@ -1290,9 +1309,11 @@ export const EditorToolbar = ({
         // Fire the in-place upgrade modal instead of bouncing to /pricing —
         // keeps the user in the editor with full context. The pro overlay's
         // UpgradeGate listens for this event and opens UpgradePromptModal.
-        window.dispatchEvent(new CustomEvent('velxio-pro-upgrade-prompt', {
-          detail: { componentName: 'Schematic screenshot export' },
-        }));
+        window.dispatchEvent(
+          new CustomEvent('velxio-pro-upgrade-prompt', {
+            detail: { componentName: 'Выгрузка изображения схемы' },
+          }),
+        );
         return;
       }
       if (resp.status === 401) {
@@ -1300,11 +1321,14 @@ export const EditorToolbar = ({
         return;
       }
       if (resp.status === 422) {
-        setMessage({ type: 'error', text: 'Add at least one component to export an image.' });
+        setMessage({
+          type: 'error',
+          text: 'Добавьте хотя бы одну деталь, чтобы выгрузить изображение.',
+        });
         return;
       }
       if (!resp.ok) {
-        setMessage({ type: 'error', text: 'Screenshot export failed.' });
+        setMessage({ type: 'error', text: 'Не удалось выгрузить изображение.' });
         return;
       }
       const blob = await resp.blob();
@@ -1318,9 +1342,9 @@ export const EditorToolbar = ({
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      setMessage({ type: 'success', text: 'Screenshot downloaded.' });
+      setMessage({ type: 'success', text: 'Изображение скачано.' });
     } catch {
-      setMessage({ type: 'error', text: 'Screenshot export failed.' });
+      setMessage({ type: 'error', text: 'Не удалось выгрузить изображение.' });
     }
   };
 
@@ -1331,7 +1355,7 @@ export const EditorToolbar = ({
   const handleExportBom = async () => {
     const projectId = currentProject?.id;
     if (!projectId) {
-      setMessage({ type: 'error', text: 'Save the project before exporting a BOM.' });
+      setMessage({ type: 'error', text: 'Сохраните проект, прежде чем выгружать спецификацию.' });
       return;
     }
     try {
@@ -1342,9 +1366,11 @@ export const EditorToolbar = ({
         // Fire the in-place upgrade modal instead of bouncing to /pricing —
         // keeps the user in the editor with full context. The pro overlay's
         // UpgradeGate listens for this event and opens UpgradePromptModal.
-        window.dispatchEvent(new CustomEvent('velxio-pro-upgrade-prompt', {
-          detail: { componentName: 'BOM export' },
-        }));
+        window.dispatchEvent(
+          new CustomEvent('velxio-pro-upgrade-prompt', {
+            detail: { componentName: 'Выгрузка спецификации' },
+          }),
+        );
         return;
       }
       if (resp.status === 401) {
@@ -1352,7 +1378,7 @@ export const EditorToolbar = ({
         return;
       }
       if (!resp.ok) {
-        setMessage({ type: 'error', text: 'BOM export failed.' });
+        setMessage({ type: 'error', text: 'Не удалось выгрузить спецификацию.' });
         return;
       }
       const blob = await resp.blob();
@@ -1368,7 +1394,7 @@ export const EditorToolbar = ({
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      setMessage({ type: 'error', text: 'BOM export failed.' });
+      setMessage({ type: 'error', text: 'Не удалось выгрузить спецификацию.' });
     }
   };
 
@@ -1383,7 +1409,7 @@ export const EditorToolbar = ({
     try {
       const boardKind = activeBoard?.boardKind;
       if (!boardKind) {
-        setMessage({ type: 'error', text: 'No board selected' });
+        setMessage({ type: 'error', text: 'Плата не выбрана' });
         return;
       }
 
@@ -1417,7 +1443,7 @@ export const EditorToolbar = ({
         setMessage({ type: 'success', text: `Firmware loaded: ${file.name}` });
       }
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Failed to load firmware';
+      const errMsg = err instanceof Error ? err.message : 'Не удалось загрузить прошивку';
       addLog({ timestamp: new Date(), type: 'error', message: errMsg });
       setMessage({ type: 'error', text: errMsg });
     }
@@ -1453,17 +1479,12 @@ export const EditorToolbar = ({
       let boardId: string | null = null;
       if (result.boardType && isKnownBoardKind(result.boardType)) {
         const sim = useSimulatorStore.getState();
-        const current =
-          sim.boards.find((b) => b.id === sim.activeBoardId) ?? sim.boards[0] ?? null;
+        const current = sim.boards.find((b) => b.id === sim.activeBoardId) ?? sim.boards[0] ?? null;
         if (current) {
           setBoardType(result.boardType);
           boardId = current.id;
         } else {
-          boardId = sim.addBoard(
-            result.boardType,
-            result.boardPosition.x,
-            result.boardPosition.y,
-          );
+          boardId = sim.addBoard(result.boardType, result.boardPosition.x, result.boardPosition.y);
           // addBoard promotes the first board to active but does not sync the
           // flat legacy fields; setActiveBoardId is where that happens, and
           // whatever still reads `boardType` would otherwise see the board
@@ -1502,11 +1523,11 @@ export const EditorToolbar = ({
         setInstallModalOpen(true);
       }
     } catch (err: any) {
-      setMessage({ type: 'error', text: err?.message || 'Import failed.' });
+      setMessage({ type: 'error', text: err?.message || 'Не удалось открыть файл.' });
     }
   };
 
-    // File-menu commands owned by this toolbar (the handlers close over its
+  // File-menu commands owned by this toolbar (the handlers close over its
   // state). Registered through a latest-ref so the one-time registration
   // always invokes the current render's closure, never a stale one.
   const makeMenuCommands = () => ({
@@ -1519,17 +1540,23 @@ export const EditorToolbar = ({
     // fired; without the overlay they are silent no-ops, which is fine —
     // OSS builds cannot have linked repos or shared projects anyway.
     share: () =>
-      window.dispatchEvent(new CustomEvent('velxio-pro-share-prompt', {
-        detail: { projectId: currentProject?.id ?? null },
-      })),
+      window.dispatchEvent(
+        new CustomEvent('velxio-pro-share-prompt', {
+          detail: { projectId: currentProject?.id ?? null },
+        }),
+      ),
     githubSync: () =>
-      window.dispatchEvent(new CustomEvent('velxio-pro-github-sync-prompt', {
-        detail: { projectId: currentProject?.id ?? null },
-      })),
+      window.dispatchEvent(
+        new CustomEvent('velxio-pro-github-sync-prompt', {
+          detail: { projectId: currentProject?.id ?? null },
+        }),
+      ),
     record: () =>
-      window.dispatchEvent(new CustomEvent('velxio-pro-replay-record-toggle', {
-        detail: { projectId: currentProject?.id ?? null },
-      })),
+      window.dispatchEvent(
+        new CustomEvent('velxio-pro-replay-record-toggle', {
+          detail: { projectId: currentProject?.id ?? null },
+        }),
+      ),
     compile: () => void handleCompile(),
     run: () => void handleRun(),
     stop: () => handleStop(),
@@ -1569,43 +1596,43 @@ export const EditorToolbar = ({
           {activeBoard &&
             (BOARD_SUPPORTS_MICROPYTHON.has(activeBoard.boardKind) ||
               BOARD_SUPPORTS_ESPIDF.has(activeBoard.boardKind)) && (
-            <select
-              className="tb-lang-select"
-              value={activeBoard.languageMode ?? 'arduino'}
-              onChange={(e) => {
-                if (activeBoardId)
-                  setBoardLanguageMode(activeBoardId, e.target.value as LanguageMode);
-              }}
-              title={t('editor.toolbar.languageMode')}
-              style={{
-                background: '#2d2d2d',
-                color: '#ccc',
-                border: '1px solid #444',
-                borderRadius: 4,
-                height: 28,
-                alignSelf: 'center',
-                padding: '0 6px',
-                fontSize: 12,
-                cursor: 'pointer',
-                outline: 'none',
-                marginRight: 4,
-              }}
-            >
-              {/* Arduino only when the kind actually HAS an FQBN: a board
+              <select
+                className="tb-lang-select"
+                value={activeBoard.languageMode ?? 'arduino'}
+                onChange={(e) => {
+                  if (activeBoardId)
+                    setBoardLanguageMode(activeBoardId, e.target.value as LanguageMode);
+                }}
+                title={t('editor.toolbar.languageMode')}
+                style={{
+                  background: '#2d2d2d',
+                  color: '#ccc',
+                  border: '1px solid #444',
+                  borderRadius: 4,
+                  height: 28,
+                  alignSelf: 'center',
+                  padding: '0 6px',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  outline: 'none',
+                  marginRight: 4,
+                }}
+              >
+                {/* Arduino only when the kind actually HAS an FQBN: a board
                   with none (the ESP32-C5 kits — no arduino-esp32 core exists)
                   cannot compile in this mode, and offering it just lands the
                   user on "No FQBN for board kind". */}
-              {!!BOARD_KIND_FQBN[activeBoard.boardKind] && (
-                <option value="arduino">Arduino C++</option>
-              )}
-              {BOARD_SUPPORTS_MICROPYTHON.has(activeBoard.boardKind) && (
-                <option value="micropython">MicroPython</option>
-              )}
-              {BOARD_SUPPORTS_ESPIDF.has(activeBoard.boardKind) && (
-                <option value="espidf">ESP-IDF</option>
-              )}
-            </select>
-          )}
+                {!!BOARD_KIND_FQBN[activeBoard.boardKind] && (
+                  <option value="arduino">Arduino C++</option>
+                )}
+                {BOARD_SUPPORTS_MICROPYTHON.has(activeBoard.boardKind) && (
+                  <option value="micropython">MicroPython</option>
+                )}
+                {BOARD_SUPPORTS_ESPIDF.has(activeBoard.boardKind) && (
+                  <option value="espidf">ESP-IDF</option>
+                )}
+              </select>
+            )}
 
           <div className="toolbar-group">
             {/* Compile */}
@@ -1675,8 +1702,8 @@ export const EditorToolbar = ({
                     ? t('editor.toolbar.run.verifying', 'Checking circuit...')
                     : isBoardless
                       ? digitalRunning
-                        ? 'Digital simulation running'
-                        : 'Resume digital simulation'
+                        ? t('editor.toolbar.digitalRunning')
+                        : t('editor.toolbar.digitalResume')
                       : isMultiBoard
                         ? t('editor.toolbar.runAll')
                         : !activeBoard
@@ -1764,7 +1791,7 @@ export const EditorToolbar = ({
               onClick={handleStop}
               disabled={isBoardless ? !digitalRunning : !anyBoardRunning}
               className="tb-btn tb-btn-stop"
-              title={isBoardless ? 'Freeze digital simulation' : t('editor.toolbar.stop')}
+              title={isBoardless ? t('editor.toolbar.digitalFreeze') : t('editor.toolbar.stop')}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none">
                 <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -1785,7 +1812,7 @@ export const EditorToolbar = ({
                 isPiBoardKind(activeBoard?.boardKind ?? '')
                   ? t(
                       'editor.toolbar.rerunScript',
-                      'Re-run script with your latest edits (no reboot)',
+                      'Перезапустить скетч с последними правками, без перезагрузки платы',
                     )
                   : t('editor.toolbar.reset')
               }
@@ -1841,7 +1868,13 @@ export const EditorToolbar = ({
                     className="tb-btn tb-btn-run-all"
                     title={t('editor.toolbar.runAll')}
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      stroke="none"
+                    >
                       <polygon points="3,3 11,12 3,21" />
                       <polygon points="13,3 21,12 13,21" />
                     </svg>

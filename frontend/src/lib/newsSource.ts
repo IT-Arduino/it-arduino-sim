@@ -19,8 +19,6 @@
  *   - a post is marked seen when SERVED, never repeated.
  */
 
-import { getApiBase } from './apiBase';
-
 export interface NewsPost {
   id: string;
   title: string;
@@ -58,52 +56,27 @@ export function registerNewsSource(source: NewsSource): void {
   _sourceRegistered?.();
 }
 
-const SEEN_KEY = 'velxio_news_seen';
-const LAST_SHOWN_KEY = 'velxio_news_last_shown';
-
-function localToday(): string {
-  const d = new Date();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${mm}-${dd}`;
-}
-
-function readSeen(): Set<string> {
-  try {
-    const raw = JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]');
-    return new Set(Array.isArray(raw) ? raw.filter((x) => typeof x === 'string') : []);
-  } catch {
-    return new Set();
-  }
-}
-
+/**
+ * This fork has no product-news feed, so the default source always answers
+ * "nothing to show".
+ *
+ * Upstream's version fetched `/api/news/feed` — a backend proxy of
+ * velxio.dev's product news — and kept a per-browser queue in localStorage
+ * (one post per day, never repeated). Both halves are gone: the backend
+ * router was removed (that feed is upstream's product news, and this
+ * simulator must not reach a third-party host at runtime), and with no feed
+ * there is no queue to keep. Leaving the fetch in place would 404 on every
+ * page load and litter the console for no benefit.
+ *
+ * NewsAnnouncer still mounts and still calls this — that matters, because
+ * lib/newsGate holds the "new project" dialog until the announcer reports a
+ * decision, and `null` is the decision "no announcement".
+ *
+ * A fork that wants its own announcements adds a backend route and replaces
+ * this body, or calls registerNewsSource() from its own module.
+ */
 async function ossFeedNext(): Promise<NewsPost | null> {
-  const today = localToday();
-  // Max one post per day — bail before even fetching.
-  if (localStorage.getItem(LAST_SHOWN_KEY) === today) return null;
-
-  const resp = await fetch(`${getApiBase()}/news/feed`);
-  if (!resp.ok) return null;
-  const posts: NewsPost[] = await resp.json();
-  if (!Array.isArray(posts)) return null;
-
-  const seen = readSeen();
-  const pending = posts
-    .filter(
-      (p) =>
-        p && typeof p.id === 'string' && !seen.has(p.id) &&
-        p.publish_date <= today &&
-        (!p.expires_date || p.expires_date >= today),
-    )
-    .sort((a, b) => a.publish_date.localeCompare(b.publish_date));
-  const post = pending[0];
-  if (!post) return null;
-
-  // Mark seen at delivery time so a refresh can't show it twice.
-  seen.add(post.id);
-  localStorage.setItem(SEEN_KEY, JSON.stringify([...seen]));
-  localStorage.setItem(LAST_SHOWN_KEY, today);
-  return post;
+  return null;
 }
 
 /**

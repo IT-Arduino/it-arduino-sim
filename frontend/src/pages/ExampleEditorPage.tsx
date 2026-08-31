@@ -23,17 +23,23 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useParams } from 'react-router-dom';
-import { exampleProjects, subscribeProExamples,
-  areProExamplesSettled, getProExamplesVersion } from '../data/examples';
+import { useTranslation } from 'react-i18next';
+import {
+  exampleProjects,
+  subscribeProExamples,
+  areProExamplesSettled,
+  getProExamplesVersion,
+} from '../data/examples';
 import { loadExample, type LibraryInstallProgress } from '../utils/loadExample';
 import { EditorPage } from './EditorPage';
 import { AppHeader } from '../components/layout/AppHeader';
 import { useSEO } from '../utils/useSEO';
 import { starterBoard, starterTitle, starterDescription } from '../data/starters';
 
-const DOMAIN = 'https://velxio.dev';
+const DOMAIN = 'https://sim.it-arduino.ru';
 
 export const ExampleEditorPage: React.FC = () => {
+  const { t } = useTranslation();
   // Re-render when the pro overlay registers late examples (dynamic import).
   useSyncExternalStore(subscribeProExamples, getProExamplesVersion, getProExamplesVersion);
 
@@ -46,9 +52,7 @@ export const ExampleEditorPage: React.FC = () => {
   // example reloading on every store-triggered re-render.
   const loadedIdRef = useRef<string | null>(null);
 
-  const example = exampleId
-    ? exampleProjects.find((e) => e.id === exampleId)
-    : null;
+  const example = exampleId ? exampleProjects.find((e) => e.id === exampleId) : null;
 
   // Starter examples are the "New <board> project" entry points: their
   // head says the action, not the sketch (the gallery keeps the sketch title).
@@ -57,14 +61,12 @@ export const ExampleEditorPage: React.FC = () => {
     title: board
       ? starterTitle(board)
       : example
-        ? `${example.title} — Velxio Arduino Simulator`
-        : 'Example — Velxio',
+        ? `${example.title} — IT-Arduino Симулятор`
+        : 'Пример — IT-Arduino Симулятор',
     description: board
       ? starterDescription(board)
-      : (example?.description ?? 'Arduino example running on Velxio.'),
-    url: example
-      ? `${DOMAIN}/example/${example.id}`
-      : `${DOMAIN}/examples`,
+      : (example?.description ?? 'Пример Arduino в IT-Arduino Симуляторе.'),
+    url: example ? `${DOMAIN}/example/${example.id}` : `${DOMAIN}/examples`,
   });
 
   const settled = useSyncExternalStore(
@@ -144,7 +146,7 @@ export const ExampleEditorPage: React.FC = () => {
         >
           <div style={{ fontSize: 48, color: '#555' }}>404</div>
           <div style={{ fontSize: 16, color: '#999' }}>
-            Example &quot;{exampleId}&quot; not found.
+            {t('examples.notFound', { id: exampleId })}
           </div>
           <a
             href="/examples"
@@ -157,7 +159,7 @@ export const ExampleEditorPage: React.FC = () => {
               fontSize: 14,
             }}
           >
-            Browse all examples
+            {t('examples.browseAll')}
           </a>
         </div>
       </div>
@@ -176,10 +178,14 @@ export const ExampleEditorPage: React.FC = () => {
         }}
       >
         <div style={{ textAlign: 'center', color: '#ccc' }}>
-          <div style={{ fontSize: 15 }}>Loading example…</div>
+          <div style={{ fontSize: 15 }}>{t('examples.loadingExample')}</div>
           {installing && (
             <div style={{ marginTop: 10, fontSize: 13, color: '#9d9d9d' }}>
-              Installing {installing.current} ({installing.done + 1}/{installing.total})
+              {t('examples.installingLibrary', {
+                name: installing.current,
+                done: installing.done + 1,
+                total: installing.total,
+              })}
             </div>
           )}
         </div>

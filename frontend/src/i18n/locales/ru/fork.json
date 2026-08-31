@@ -1,0 +1,155 @@
+{
+  "header": {
+    "nav": {
+      "sourceCode": "Исходный код"
+    },
+    "auth": {
+      "myProjects": "Мои схемы"
+    }
+  },
+  "circuits": {
+    "save": {
+      "title": "Сохранить в проект",
+      "nameLabel": "Название схемы",
+      "namePlaceholder": "Например: светофор на трёх светодиодах",
+      "submit": "Сохранить",
+      "submitUpdate": "Обновить",
+      "submitAsNew": "Сохранить как новую",
+      "saving": "Сохраняем…",
+      "downloadInstead": "Скачать файл .vlx",
+      "emptyName": "Введите название схемы",
+      "copyOf": "Копия: {{title}}",
+      "updatingHint": "Будет обновлена схема «{{title}}». Чтобы сохранить копию и оставить её нетронутой, нажмите «Сохранить как новую»."
+    },
+    "readOnly": {
+      "title": "Только просмотр",
+      "hint": "Чужая схема. Запускать, нажимать кнопки и править код можно, менять саму схему — нет.",
+      "blocked": "Эту схему изменить нельзя. Сохраните её как свою или скачайте файл.",
+      "saveAsMine": "Сохранить как свою",
+      "download": "Скачать .vlx",
+      "loading": "Загружаем схему…",
+      "badLink": "В ссылке нет номера схемы",
+      "notFoundTitle": "Схема недоступна",
+      "notFoundBody": "Её удалили, либо автор снял публикацию. Попросите у него ссылку заново.",
+      "toEditor": "Открыть пустой редактор"
+    },
+    "list": {
+      "title": "Мои схемы",
+      "loading": "Загружаем список…",
+      "empty": "Пока ни одной сохранённой схемы. Соберите схему и нажмите «Сохранить» в редакторе.",
+      "counter": "Занято {{used}} из {{limit}}",
+      "current": "открыта сейчас",
+      "published": "опубликована",
+      "updatedAt": "Изменена {{date}}",
+      "publish": "Опубликовать",
+      "unpublish": "Снять публикацию",
+      "publishConfirm": "Опубликовать схему «{{title}}»? Она станет доступна для просмотра всем, у кого есть ссылка, в том числе без входа на сайт. Менять её сможете только вы.",
+      "copyLink": "Копировать ссылку",
+      "linkCopied": "Ссылка скопирована",
+      "open": "Открыть",
+      "openConfirm": "Рабочая область будет заменена схемой «{{title}}». Несохранённые правки пропадут. Продолжить?",
+      "rename": "Переименовать",
+      "renameSave": "Сохранить",
+      "renameCancel": "Отмена",
+      "delete": "Удалить",
+      "confirmDelete": "Удалить схему «{{title}}»? Восстановить не получится.",
+      "close": "Закрыть"
+    }
+  },
+  "about": {
+    "title": "О программе",
+    "tagline": "Учебный симулятор Arduino для сайта it-arduino.ru. Работает целиком в браузере: эмуляция AVR через avr8js, аналоговая ко-симуляция на ngspice-WASM, компиляция скетчей через arduino-cli на нашем сервере.",
+    "licenseHeading": "Лицензия",
+    "licenseBody": "Программа распространяется по лицензии GNU Affero General Public License версии 3. Вы вправе изучать, изменять и распространять её на тех же условиях.",
+    "licenseLink": "Текст лицензии AGPLv3",
+    "sourceHeading": "Исходный код",
+    "sourceBody": "Полный исходный код версии, которую вы сейчас используете:",
+    "basedOnHeading": "На чём основано",
+    "basedOnBody": "Симулятор основан на проекте Velxio Давида Монтеро Креспо, распространяемом по AGPLv3. Спасибо за эту работу. «Velxio» — товарный знак автора и к нашей версии отношения не имеет; список наших изменений ведётся в файле FORK.md.",
+    "upstreamLink": "Проект Velxio на GitHub",
+    "close": "Закрыть"
+  },
+  "editor": {
+    "newProject": {
+      "title": "Новый проект",
+      "subtitle": "Выберите пустую рабочую область или плату с готовым примером «Мигающий светодиод». Всё, что сейчас в рабочей области, будет заменено.",
+      "blankTitle": "Пустой проект",
+      "blankDesc": "Пустая рабочая область — платы и детали добавите сами",
+      "cancel": "Отмена"
+    },
+    "componentPicker": {
+      "availableCount_one": "Доступна {{count}} деталь",
+      "availableCount_few": "Доступно {{count}} детали",
+      "availableCount_many": "Доступно {{count}} деталей"
+    },
+    "canvas": {
+      "componentCount_one": "{{count}} деталь на схеме",
+      "componentCount_few": "{{count}} детали на схеме",
+      "componentCount_many": "{{count}} деталей на схеме",
+      "removeConfirm": {
+        "bodyWithWires_one": "К этой детали подключён {{count}} провод. Он будет удалён вместе с ней.",
+        "bodyWithWires_few": "К этой детали подключено {{count}} провода. Они будут удалены вместе с ней.",
+        "bodyWithWires_many": "К этой детали подключено {{count}} проводов. Они будут удалены вместе с ней."
+      }
+    },
+    "console": {
+      "errorCount_one": "{{count}} ошибка",
+      "errorCount_few": "{{count}} ошибки",
+      "errorCount_many": "{{count}} ошибок",
+      "warningCount_one": "{{count}} предупреждение",
+      "warningCount_few": "{{count}} предупреждения",
+      "warningCount_many": "{{count}} предупреждений"
+    },
+    "fileExplorer": {
+      "deleteFolder": "Удалить папку",
+      "newFolderInBoard": "Новая папка",
+      "newSubfolder": "Вложенная папка",
+      "newFileInFolder": "Новый файл здесь",
+      "folderNamePlaceholder": "имя папки",
+      "folderHoldsEverything": "В этой папке лежат все файлы платы, а плате нужен хотя бы один файл.",
+      "confirmDeleteFolder": "Удалить папку «{{path}}» и {{count}} файлов внутри неё?",
+      "openProject": "Открыть проект (.vlx или .zip Wokwi)"
+    },
+    "installLibs": {
+      "required_one": "Нужна {{count}} библиотека",
+      "required_few": "Нужно {{count}} библиотеки",
+      "required_many": "Нужно {{count}} библиотек"
+    },
+    "menu": {
+      "account": "Аккаунт",
+      "mainSite": "Основной сайт it-arduino.ru",
+      "sourceCode": "Исходный код",
+      "about": "О программе"
+    },
+    "toolbar": {
+      "connectAgentLabel": "Подключить ИИ-агента (Claude/Codex)",
+      "rerunScript": "Перезапустить скетч с последними правками, без перезагрузки платы",
+      "digitalRunning": "Цифровая симуляция идёт",
+      "digitalResume": "Возобновить цифровую симуляцию",
+      "digitalFreeze": "Остановить цифровую симуляцию",
+      "run": {
+        "options": "Параметры запуска",
+        "runActiveOnly": "Запустить только «{{name}}»",
+        "verifying": "Проверка схемы…"
+      }
+    }
+  },
+  "examples": {
+    "filters": {
+      "allBoards": "Все платы",
+      "boardLabel": "Плата"
+    },
+    "installingLibrary": "Устанавливается {{name}} ({{done}} из {{total}})",
+    "searchPlaceholder": "Поиск примеров — попробуйте «светодиод», «кнопка», «дисплей»…",
+    "matchCount_one": "Найден {{count}} пример",
+    "matchCount_few": "Найдено {{count}} примера",
+    "matchCount_many": "Найдено {{count}} примеров",
+    "detail": {
+      "emulation": "Настоящая эмуляция {{board}} — по тактам, без единой железки",
+      "components_one": "{{count}} деталь на холсте, с которой можно работать",
+      "components_few": "{{count}} детали на холсте, с которыми можно работать",
+      "components_many": "{{count}} деталей на холсте, с которыми можно работать",
+      "libraries": "Библиотеки ставятся сами: {{list}}"
+    }
+  }
+}

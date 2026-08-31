@@ -74,28 +74,28 @@ export const InstallLibrariesModal: React.FC<InstallLibrariesModalProps> = ({
 
   // Sync items when the libraries prop changes (new import)
   React.useEffect(() => {
-    setItems(libraries.map((spec) => {
-      const { name, version } = parseLibSpec(spec);
-      return { spec, name, version, status: 'pending' as ItemStatus };
-    }));
+    setItems(
+      libraries.map((spec) => {
+        const { name, version } = parseLibSpec(spec);
+        return { spec, name, version, status: 'pending' as ItemStatus };
+      }),
+    );
     setDoneCount(0);
     setRunning(false);
   }, [libraries]);
 
-  const setItemStatus = useCallback(
-    (spec: string, status: ItemStatus, error?: string) => {
-      setItems((prev) =>
-        prev.map((it) => (it.spec === spec ? { ...it, status, error } : it)),
-      );
-    },
-    [],
-  );
+  const setItemStatus = useCallback((spec: string, status: ItemStatus, error?: string) => {
+    setItems((prev) => prev.map((it) => (it.spec === spec ? { ...it, status, error } : it)));
+  }, []);
 
   const handleInstallAll = useCallback(async () => {
     setRunning(true);
     let completed = 0;
     for (const item of items) {
-      if (item.status === 'done') { completed++; continue; }
+      if (item.status === 'done') {
+        completed++;
+        continue;
+      }
       setItemStatus(item.spec, 'installing');
       try {
         const result = await installLibrary(item.spec);
@@ -113,10 +113,10 @@ export const InstallLibrariesModal: React.FC<InstallLibrariesModalProps> = ({
             if (next) sim.updateBoard(boardId, { libraries: next });
           }
         } else {
-          setItemStatus(item.spec, 'error', result.error || 'Install failed');
+          setItemStatus(item.spec, 'error', result.error || 'Не удалось установить');
         }
       } catch (e) {
-        setItemStatus(item.spec, 'error', e instanceof Error ? e.message : 'Install failed');
+        setItemStatus(item.spec, 'error', e instanceof Error ? e.message : 'Не удалось установить');
       }
       completed++;
       setDoneCount(completed);
@@ -196,18 +196,21 @@ export const InstallLibrariesModal: React.FC<InstallLibrariesModalProps> = ({
               <div key={item.spec} className={`ilib-item ilib-item--${item.status}`}>
                 <span className="ilib-item-name">
                   {item.name}
-                  {item.version && (
-                    <span className="ilib-version">v{item.version}</span>
-                  )}
+                  {item.version && <span className="ilib-version">v{item.version}</span>}
                   {isWokwiLib && (
-                    <span className="ilib-badge ilib-badge--wokwi" title={t('editor.installLibs.wokwiHosted')}>
+                    <span
+                      className="ilib-badge ilib-badge--wokwi"
+                      title={t('editor.installLibs.wokwiHosted')}
+                    >
                       wokwi
                     </span>
                   )}
                 </span>
                 <span className="ilib-item-status">
                   {item.status === 'pending' && (
-                    <span className="ilib-badge ilib-badge--pending">{t('editor.installLibs.pending')}</span>
+                    <span className="ilib-badge ilib-badge--pending">
+                      {t('editor.installLibs.pending')}
+                    </span>
                   )}
                   {item.status === 'installing' && (
                     <span className="ilib-badge ilib-badge--installing">

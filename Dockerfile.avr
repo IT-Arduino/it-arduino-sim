@@ -1,0 +1,138 @@
+# IT-Arduino Simulator — AVR-only production image.
+#
+# Derived from Dockerfile.standalone. Upstream's image has four build stages;
+# this one has two, because the two that are gone are the expensive ones:
+#
+#   Stage 0   qemu-provider    Fetched libqemu-xtensa.so / libqemu-riscv32.so
+#                              for ESP32 emulation. It also made the upstream
+#                              image UNBUILDABLE without a velxio.dev licence
+#                              key — the stage exits 1 when neither prebuilt
+#                              binaries nor a key are supplied. Dropping it is
+#                              why this image builds from a clean checkout.
+#   Stage 0.5 espidf-builder   The ESP-IDF framework plus Xtensa and RISC-V
+#                              cross-compilers, copied into the final image as
+#                              /opt/esp-idf, /root/.espressif and
+#                              /opt/arduino-esp32. Multiple GB.
+#
+# The runtime image also drops qemu-system-arm and qemu-utils (~200 MB, for
+# Raspberry Pi emulation), the QEMU shared-library dependencies, and the
+# ESP-IDF ccache plumbing. What stays is what an AVR simulator needs:
+# arduino-cli, nginx, and the FastAPI backend.
+#
+# Build:  docker build -f Dockerfile.avr -t it-arduino-sim:avr .
+# Sizes:  see FORK.md.
+
+# ---- Stage 1: Build frontend ----
+FROM node:20 AS frontend-builder
+
+WORKDIR /app
+
+# avr8js and @wokwi/elements are pulled directly from the npm registry (see
+# frontend/package.json) — no upstream git clones needed. Board SVGs live in
+# frontend/public/boards/, component SVGs in frontend/public/component-svgs/,
+# and components-metadata.json is committed.
+COPY frontend/ frontend/
+COPY scripts/ scripts/
+WORKDIR /app/frontend
+# Lock files aren't committed in this repo (they're gitignored) — see the
+# note in .gitignore. The `rm -f` below is defense-in-depth in case
+# someone runs `docker build .` from a tree where a local lock exists.
+RUN rm -f package-lock.json \
+ && npm install --include=optional \
+ && npm run build:docker
+
+
+# ---- Stage 2: Final Production Image ----
+FROM python:3.12-slim
+
+# System dependencies.
+#
+# Compared with Dockerfile.standalone this drops qemu-system-arm, qemu-utils
+# and the five libraries that only existed as runtime dependencies of
+# libqemu-xtensa.so (libglib2.0-0, libgcrypt20, libslirp0, libpixman-1-0,
+# libfdt1), plus cmake, ninja-build and ccache, which only the ESP-IDF build
+# system used.
+#
+#   git          arduino-cli's Library Manager clones from git
+#   libusb-1.0-0 arduino-cli needs it to upload to a real USB-attached board
+#   sdcc         backend/app/services/c_compile.py assembles the retro
+#                Z80 / 8080 ROM examples with it
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    nginx \
+    git \
+    libusb-1.0-0 \
+    sdcc \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install arduino-cli into /usr/local/bin directly (avoids touching /bin).
+# Core installation (arduino:avr, ATTinyCore:avr) is done at first boot by
+# entrypoint.avr.sh and persisted in the mounted /root/.arduino15 volume.
+RUN curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh \
+    | BINDIR=/usr/local/bin sh
+
+# Vendored board-manager index seeds (upstream issue #254): the entrypoint
+# copies any of these missing from /root/.arduino15 at boot, so a flaky index
+# host (drazzy.com) or a stale pre-existing volume cannot brick compilation.
+# See backend/board-indexes/README.md.
+COPY backend/board-indexes/package_*.json /opt/arduino15-seed/
+
+WORKDIR /app
+
+# Data directory for persistent state (mounted as a volume at runtime)
+RUN mkdir -p /app/data
+
+# Install Python backend dependencies
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy backend application code
+COPY backend/app/ ./app/
+
+# Custom-chip SDK header. chip_compile.py compiles a user's chip.c against
+# it with clang from a WASI-SDK install. The SDK itself is NOT bundled (it is
+# ~250 MB and upstream's image did not carry it either) — point WASI_SDK at a
+# mounted install to enable the feature. Without it the endpoint reports the
+# toolchain as unavailable and nothing else is affected.
+COPY backend/sdk/ ./sdk/
+
+# One-off maintenance scripts. Pure stdlib —
+# run with: docker exec it-arduino-sim python /app/scripts/<script> --apply
+COPY backend/scripts/ ./scripts/
+
+# Setup Nginx configuration. Remove Debian's stock site so it doesn't shadow
+# ours as the default_server (upstream issue #108: users behind reverse
+# proxies got the "Welcome to nginx" page because the stock site claimed
+# default_server).
+RUN rm -f /etc/nginx/sites-enabled/default
+COPY docker/nginx.avr.conf /etc/nginx/conf.d/default.conf
+
+# Copy built frontend assets from builder stage
+COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
+
+# Copy and configure entrypoint script (fix Windows CRLF to LF)
+COPY docker/entrypoint.avr.sh /app/entrypoint.sh
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+
+RUN mkdir -p /root/Arduino
+
+# Persistent paths.
+# Declaring these as VOLUMEs means `docker run` (without explicit -v) creates
+# anonymous volumes for them. Users SHOULD pass named volumes instead (easier
+# to inspect and back up), which is what docker-compose.avr.yml does.
+#
+# Upstream also declared /var/cache/ccache and /var/lib/velxio-build; both
+# existed only for ESP-IDF builds and are gone with it.
+#
+# /app/data        — runtime state + auto-generated SECRET_KEY
+# /root/.arduino15 — arduino-cli config + installed cores. Without this
+#                    volume every container start re-downloads the AVR and
+#                    ATTinyCore cores and the first compile crawls.
+# /root/Arduino    — Library Manager-installed Arduino libraries
+VOLUME ["/app/data", "/root/.arduino15", "/root/Arduino"]
+
+EXPOSE 80
+
+CMD ["/app/entrypoint.sh"]

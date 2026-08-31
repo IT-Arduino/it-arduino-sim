@@ -1,0 +1,56 @@
+# IT-Arduino Simulator — AVR-only stack.
+#
+# Usage:  docker compose -f docker-compose.avr.yml up --build
+# Access: http://localhost:3080
+#
+# Upstream's docker-compose.yml builds Dockerfile.standalone and needs a
+# velxio.dev licence key to get past its QEMU stage. This file builds
+# Dockerfile.avr, which has no such stage and builds from a clean checkout.
+#
+# backend/.env is OPTIONAL. If missing, the entrypoint generates a random
+# SECRET_KEY and persists it in the data volume.
+services:
+  simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile.avr
+    # Name the image explicitly. Without this key compose invents its own tag
+    # (<project>-<service>, i.e. it-arduino-sim-simulator) and quietly ignores
+    # an image you built by hand as it-arduino-sim:avr — so `docker build`
+    # followed by `docker compose up -d` starts the OLD image and you debug a
+    # bug you already fixed. Naming it makes both paths refer to one image.
+    image: it-arduino-sim:avr
+    container_name: it-arduino-sim
+    restart: unless-stopped
+    ports:
+      - "3080:80"
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      - DATA_DIR=/app/data
+    volumes:
+      - ./data:/app/data
+      # Named volume for arduino-cli's config and installed cores. Upstream
+      # keeps this for a reason and so do we: without it every rebuild
+      # re-downloads arduino:avr and ATTinyCore:avr, and the first compile
+      # after each `up --build` takes minutes instead of seconds.
+      - arduino-libs:/root/.arduino15
+      # Library Manager-installed Arduino libraries.
+      - arduino-user-libs:/root/Arduino
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # First boot on an empty arduino-libs volume downloads and installs
+      # arduino:avr and ATTinyCore:avr — measured at just over two minutes on
+      # a home connection, and nginx does not start until that finishes.
+      # A 60s grace period marked a perfectly healthy container unhealthy;
+      # 300s covers a slow cold start. Later starts hit the volume and are
+      # ready in seconds, so the long grace costs nothing.
+      start_period: 300s
+
+volumes:
+  arduino-libs:
+  arduino-user-libs:

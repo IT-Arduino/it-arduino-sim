@@ -1,28 +1,23 @@
-# Velxio OSS backend — stateless: compile, libraries, simulation,
-# iot_gateway, MCP. No auth, no DB, no project persistence; those live in
-# the velxio-prod private overlay's pro/backend/requirements.txt and are
-# pip-installed on top of this list at Docker build time.
+# IT-Arduino Simulator backend — stateless: compile (arduino-cli), libraries,
+# custom-chip compilation. No auth, no DB, no project persistence.
+#
+# Trimmed from upstream Velxio: this fork removed the ESP-IDF compiler, the
+# QEMU bridge, the IoT gateway and the MCP servers, and with them every
+# dependency that only those served — mcp, wasmtime, zstandard, esptool and
+# the explicit websockets pin (uvicorn[standard] still carries a websockets
+# build for uvicorn's own use).
 fastapi==0.115.0
 uvicorn[standard]==0.32.0
-websockets>=12.0
 pydantic>=2.11.0
 pydantic-settings>=2.6.0
-# httpx — iot_gateway proxy + MCP
+# Required by app/api/routes/flash.py, which declares Form(...) and
+# UploadFile = File(...). FastAPI refuses to register such a route without it
+# and the whole app dies at import. Upstream never listed it: it arrived as a
+# transitive dependency of one of the packages removed above, so trimming that
+# list broke the boot until this line was added.
+python-multipart>=0.0.9
+# Not imported by the application — starlette.testclient needs it, so
+# `pytest` cannot even collect tests/test_symbol_extract.py without it. It
+# lives in this file rather than a separate dev list because both GitHub
+# workflows install their test environment straight from here.
 httpx>=0.27.1
-# Capped below 2.0: mcp 2.0.0 (2026-07-28) deleted mcp.server.fastmcp, which
-# app/mcp/server.py imports. The unbounded `>=1.0.0` meant CI resolved the new
-# major the next day and every Backend Unit Tests run since 2026-07-29 died at
-# COLLECTION — pytest exit 2, all 295 unit tests silently unrun. The deploy
-# venv only escaped because it was built before 2.0.0 shipped; its next
-# requirements-triggered rebuild would have hit the same wall.
-# Lifting the cap means porting to the 2.x server API (mcp.server.mcpserver).
-mcp>=1.0.0,<2
-esptool>=4.7.0
-# WASM runtime for Custom Chips on ESP32 (chip's WASM runs in the QEMU worker
-# subprocess so I2C events get a synchronous response — see
-# docs/wiki/custom-chips-esp32-backend-runtime.md).
-wasmtime>=20.0
-# zstd decompression for the boot_images provider — the Raspberry Pi 3
-# SD image ships as a .zst on the velxio.dev licence endpoint to save
-# ~75% of network transfer.
-zstandard>=0.22.0

@@ -1,15 +1,15 @@
 {
-  "name": "Velxio — Circuit & Arduino Simulator",
-  "short_name": "Velxio",
-  "description": "Online circuit and Arduino simulator. ESP32, RP2040, Pi Pico, ATtiny85, SPICE analog simulation, 100+ components. Free and open source.",
+  "name": "IT-Arduino Симулятор",
+  "short_name": "IT-Arduino",
+  "description": "Симулятор Arduino в браузере: Arduino Uno, Nano, Mega 2560 и ATtiny85, аналоговая симуляция на ngspice, учебный набор компонентов. Бесплатно и с открытым исходным кодом.",
   "start_url": "/editor",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0d0d0f",
-  "theme_color": "#007acc",
-  "categories": ["developer", "education", "productivity"],
-  "lang": "en",
+  "background_color": "#121212",
+  "theme_color": "#1a1a40",
+  "categories": ["education", "developer"],
+  "lang": "ru",
   "icons": [
     {
       "src": "/favicon-16x16.png",
@@ -45,7 +45,7 @@
       "src": "/og-image.svg",
       "sizes": "1200x630",
       "type": "image/svg+xml",
-      "label": "Velxio Arduino Emulator"
+      "label": "IT-Arduino Симулятор"
     }
   ]
 }

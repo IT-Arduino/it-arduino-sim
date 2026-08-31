@@ -13,7 +13,7 @@ if sys.platform == 'win32':
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import compile, compile_chip, compile_rom, flash, intellisense, libraries, micropython_libs
+from app.api.routes import compile, compile_chip, compile_rom, flash, intellisense, libraries
 from app.core.config import settings
 from app.core.hooks import run_lifespan_startup
 
@@ -94,11 +94,6 @@ app.include_router(compile.router, prefix="/api/compile", tags=["compilation"])
 app.include_router(compile_chip.router, prefix="/api/compile-chip", tags=["custom-chips"])
 app.include_router(compile_rom.router, prefix="/api/compile-rom", tags=["custom-chips"])
 app.include_router(libraries.router, prefix="/api/libraries", tags=["libraries"])
-# MicroPython libraries (issue #214): resolves the official micropython-lib
-# index into .py files the frontend writes into the board's workspace.
-app.include_router(
-    micropython_libs.router, prefix="/api/micropython-libs", tags=["micropython-libraries"]
-)
 app.include_router(intellisense.router, prefix="/api/intellisense", tags=["intellisense"])
 # Hardware flash: subprocesses arduino-cli upload to write a compiled
 # sketch to a real USB-attached board. Desktop-only in practice (the
@@ -113,21 +108,16 @@ app.include_router(flash.router, prefix="/api/flash", tags=["flash"])
 # pro/backend/app/api/routes/ and are registered by register_pro(app)
 # below. The OSS image carries none of them: anonymous, stateless.
 
-# WebSockets
-from app.api.routes import simulation
-app.include_router(simulation.router, prefix="/api/simulation", tags=["simulation"])
-
-# IoT Gateway — HTTP proxy for ESP32 web servers
-from app.api.routes import iot_gateway
-app.include_router(iot_gateway.router, prefix="/api/gateway", tags=["iot-gateway"])
-
-# Product news ("What's New" modal) — cached proxy of velxio.dev's public
-# feed so self-hosted users get product news without their browsers ever
-# leaving this server. Anonymous, no identifiers sent; opt out with
-# VELXIO_NEWS=off (an offline host just serves an empty feed).
-from app.api.routes import news
-app.include_router(news.router, prefix="/api/news", tags=["news"])
-
+# The IT-Arduino fork removes three routers that upstream registers here:
+#
+#   /api/simulation  — the QEMU WebSocket bridge. Only the ESP32 / STM32 /
+#                      Raspberry Pi boards used it; AVR runs entirely in the
+#                      browser through avr8js, so nothing is left to bridge.
+#   /api/gateway     — the IoT HTTP proxy into an emulated ESP32 web server.
+#   /api/news        — a proxy of velxio.dev's product-news feed. This fork
+#                      must never reach a third-party host at runtime, and
+#                      the feed is upstream's product news, not ours.
+#
 # Optional pro extension. The `app.pro` package only exists in private builds
 # (overlaid at Docker build time by an external repo) — its absence in the
 # open-source image is expected and silently ignored. Anyone with private

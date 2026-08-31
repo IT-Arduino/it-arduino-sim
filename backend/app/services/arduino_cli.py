@@ -138,10 +138,15 @@ def humanize_cli_error(raw: str | None, *, action: str = "run arduino-cli") -> s
 
 
 class ArduinoCLIService:
-    # Board manager URLs for cores that aren't built-in
+    # Board manager URLs for cores that aren't built-in.
+    #
+    # Every entry here is registered with `arduino-cli config add
+    # board_manager.additional_urls` at startup, and arduino-cli downloads that
+    # index on the next `core update-index`. Upstream also listed the RP2040
+    # and ESP32 indexes; this fork has neither board, so keeping them would
+    # mean two pointless downloads from github.com and espressif.github.io on
+    # every fresh deployment.
     CORE_URLS: dict[str, str] = {
-        "rp2040:rp2040": "https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json",
-        "esp32:esp32": "https://espressif.github.io/arduino-esp32/package_esp32_index.json",
         # Spence Konde's ATTinyCore — needed for ATtiny85 FQBNs like
         #   ATTinyCore:avr:attinyx5:chip=85,clock=internal16mhz
         # Without it arduino-cli reports
@@ -157,9 +162,6 @@ class ArduinoCLIService:
     # mis-route (e.g. an FQBN that mentions both vendors).
     ON_DEMAND_CORES: dict[str, str] = {
         "ATTinyCore:avr": "ATTinyCore:avr",
-        "rp2040": "rp2040:rp2040",
-        "mbed_rp2040": "arduino:mbed_rp2040",
-        "esp32": "esp32:esp32",
     }
 
     # Version pins for `arduino-cli core install`.  Keyed by core ID; if a core
