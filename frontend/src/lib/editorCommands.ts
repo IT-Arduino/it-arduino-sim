@@ -43,6 +43,11 @@ export type EditorCommandId =
   // itself here — same pattern as the account.* commands.
   | 'project.connectAgent'
   | 'firmware.upload'
+  // Opens the library manager. The toolbar already carries a button for it, but
+  // its "Библиотеки" label collapses to a bare icon in the compact tier — which
+  // is what the simulator embedded on the site runs in, so a menu entry is the
+  // only way to find the manager there.
+  | 'libraries.manage'
   | 'sim.record'
   | 'sim.compile'
   | 'sim.run'

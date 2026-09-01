@@ -193,6 +193,11 @@ export const EditorMenuBar: React.FC = () => {
     },
     {
       kind: 'command',
+      id: 'libraries.manage',
+      label: t('editor.menu.manageLibraries', 'Менеджер библиотек…'),
+    },
+    {
+      kind: 'command',
       id: 'sim.record',
       label: t('editor.toolbar.recordLabel', 'Record simulation'),
       pro: true,
@@ -473,7 +478,9 @@ export const EditorMenuBar: React.FC = () => {
       {menu('file', t('editor.menu.file', 'File'), fileItems)}
       {menu('edit', t('editor.menu.edit', 'Edit'), editItems)}
       {menu('view', t('editor.menu.view', 'View'), viewItems)}
-      {menu('account', t('editor.menu.account', 'Account'), [])}
+      {/* No Account menu: this fork has no accounts. Its only contents were the
+          pro overlay's sign-in / subscription rows and the user-menu slot, all
+          of which render nothing here — the trigger opened an empty dropdown. */}
       {menu('help', t('editor.menu.help', 'Help'), helpItems)}
     </div>
   );

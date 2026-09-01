@@ -4,6 +4,8 @@ import { registerEditorCommand } from '../../lib/editorCommands';
 import { publishCompileOutput } from '../../lib/intellisenseRegistry';
 import { useEditorStore, chipFileGroupId } from '../../store/useEditorStore';
 import { useSimulatorStore, piRerunScript } from '../../store/useSimulatorStore';
+import { buildBomRows, bomToCsv } from '../../lib/exportBom';
+import { exportSchematicPng, EmptySchematicError } from '../../lib/exportSchematicImage';
 import { decideEngine } from '../../lib/instantEngine';
 import { useElectricalStore } from '../../store/useElectricalStore';
 import { type VerificationResult } from '../../simulation/verify/circuitVerifier';
@@ -1294,106 +1296,64 @@ export const EditorToolbar = ({
   // Same UX pattern as BOM export: everyone can click; 402 redirects to
   // /pricing. The server-side headless chromium renders the canvas and
   // returns a PNG, which we trigger a download for.
+  // Rasterised in the browser. Upstream fetched a ready PNG from a paid
+  // /api/pro/projects/{id}/screenshot.png, which this fork has no route for —
+  // the request 404'd and the button only said "не удалось".
   const handleExportScreenshot = async () => {
-    const projectId = currentProject?.id;
-    if (!projectId) {
-      setMessage({ type: 'error', text: 'Сохраните проект, прежде чем выгружать изображение.' });
+    const world = document.querySelector<HTMLElement>('.canvas-world');
+    if (!world) {
+      setMessage({ type: 'error', text: 'Холст не найден.' });
       return;
     }
-    setMessage({ type: 'info', text: 'Рисуем изображение — это займёт 5–10 секунд…' });
+
+    setMessage({ type: 'success', text: 'Рисуем изображение…' });
     try {
-      const resp = await fetch(`/api/pro/projects/${projectId}/screenshot.png`, {
-        credentials: 'include',
-      });
-      if (resp.status === 402) {
-        // Fire the in-place upgrade modal instead of bouncing to /pricing —
-        // keeps the user in the editor with full context. The pro overlay's
-        // UpgradeGate listens for this event and opens UpgradePromptModal.
-        window.dispatchEvent(
-          new CustomEvent('velxio-pro-upgrade-prompt', {
-            detail: { componentName: 'Выгрузка изображения схемы' },
-          }),
-        );
-        return;
-      }
-      if (resp.status === 401) {
-        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
-        return;
-      }
-      if (resp.status === 422) {
-        setMessage({
-          type: 'error',
-          text: 'Добавьте хотя бы одну деталь, чтобы выгрузить изображение.',
-        });
-        return;
-      }
-      if (!resp.ok) {
-        setMessage({ type: 'error', text: 'Не удалось выгрузить изображение.' });
-        return;
-      }
-      const blob = await resp.blob();
+      const blob = await exportSchematicPng(world);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const cd = resp.headers.get('Content-Disposition') || '';
-      const m = /filename="?([^"]+)"?/.exec(cd);
-      a.download = m ? m[1] : `velxio-${projectId}.png`;
+      a.download = currentProject?.id ? `schematic-${currentProject.id}.png` : 'schematic.png';
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
       setMessage({ type: 'success', text: 'Изображение скачано.' });
-    } catch {
+    } catch (error) {
+      if (error instanceof EmptySchematicError) {
+        setMessage({ type: 'error', text: 'Добавьте хотя бы одну деталь.' });
+        return;
+      }
+      console.error('[schematic] export failed:', error);
       setMessage({ type: 'error', text: 'Не удалось выгрузить изображение.' });
     }
   };
 
   // Phase 3 D3.1 — BOM export. Pro-tier-gated by the backend (402 if not pro).
-  // We let everyone click; the 402 response feeds the upgrade prompt below
-  // so free/maker users hit the funnel naturally instead of an obviously-
-  // locked button (which they'd just dismiss).
-  const handleExportBom = async () => {
-    const projectId = currentProject?.id;
-    if (!projectId) {
-      setMessage({ type: 'error', text: 'Сохраните проект, прежде чем выгружать спецификацию.' });
+  // Built in the browser from the canvas. Upstream fetched this from a paid
+  // /api/pro/projects/{id}/bom.csv, for which this fork has no route — the
+  // request 404'd and the button only ever said "не удалось". Everything the
+  // list needs sits in the store, so an unsaved sketch exports fine too.
+  const handleExportBom = () => {
+    const components = useSimulatorStore.getState().components;
+    if (components.length === 0) {
+      setMessage({ type: 'error', text: 'Добавьте хотя бы одну деталь.' });
       return;
     }
+
     try {
-      const resp = await fetch(`/api/pro/projects/${projectId}/bom.csv`, {
-        credentials: 'include',
-      });
-      if (resp.status === 402) {
-        // Fire the in-place upgrade modal instead of bouncing to /pricing —
-        // keeps the user in the editor with full context. The pro overlay's
-        // UpgradeGate listens for this event and opens UpgradePromptModal.
-        window.dispatchEvent(
-          new CustomEvent('velxio-pro-upgrade-prompt', {
-            detail: { componentName: 'Выгрузка спецификации' },
-          }),
-        );
-        return;
-      }
-      if (resp.status === 401) {
-        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
-        return;
-      }
-      if (!resp.ok) {
-        setMessage({ type: 'error', text: 'Не удалось выгрузить спецификацию.' });
-        return;
-      }
-      const blob = await resp.blob();
+      const csv = bomToCsv(buildBomRows(components));
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      // Filename comes from Content-Disposition; pick a fallback.
-      const cd = resp.headers.get('Content-Disposition') || '';
-      const m = /filename="?([^"]+)"?/.exec(cd);
-      a.download = m ? m[1] : `bom-${projectId}.csv`;
+      a.download = currentProject?.id ? `bom-${currentProject.id}.csv` : 'bom.csv';
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    } catch {
+      setMessage({ type: 'success', text: 'Спецификация скачана.' });
+    } catch (error) {
+      console.error('[bom] export failed:', error);
       setMessage({ type: 'error', text: 'Не удалось выгрузить спецификацию.' });
     }
   };
@@ -1536,6 +1496,10 @@ export const EditorToolbar = ({
     bom: () => void handleExportBom(),
     screenshot: () => void handleExportScreenshot(),
     firmware: () => firmwareInputRef.current?.click(),
+    libraries: () => {
+      trackOpenLibraryManager();
+      setLibManagerOpen(true);
+    },
     // Share / Sync to GitHub / Record used to dispatch velxio-pro-* window
     // events for the pro overlay to catch. Nothing in this fork listens, so the
     // handlers are gone and those commands stay unregistered - EditorMenuBar
@@ -1556,6 +1520,7 @@ export const EditorToolbar = ({
       registerEditorCommand('project.exportBom', () => menuCommandsRef.current.bom()),
       registerEditorCommand('project.exportScreenshot', () => menuCommandsRef.current.screenshot()),
       registerEditorCommand('firmware.upload', () => menuCommandsRef.current.firmware()),
+      registerEditorCommand('libraries.manage', () => menuCommandsRef.current.libraries()),
       registerEditorCommand('sim.compile', () => menuCommandsRef.current.compile()),
       registerEditorCommand('sim.run', () => menuCommandsRef.current.run()),
       registerEditorCommand('sim.stop', () => menuCommandsRef.current.stop()),
