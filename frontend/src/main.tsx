@@ -37,9 +37,9 @@ import App from './App.tsx';
 const monacoVsPath = `${import.meta.env.BASE_URL}monaco/vs`;
 loader.config({ paths: { vs: monacoVsPath } });
 
-// Before the first render, deliberately. Auth start strips the one-time
-// `?ticket=` parameter from the address bar, and the sooner that happens the
-// smaller the window in which the ticket can leak through history or Referer.
+// Before the first render, deliberately: mounting registers the fork's routes
+// and starts the sign-in check, so the editor never paints a frame that claims
+// the user is a guest before the answer arrives.
 mountItArduino();
 
 createRoot(document.getElementById('root')!).render(<App />);
