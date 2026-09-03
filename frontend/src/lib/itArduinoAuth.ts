@@ -51,7 +51,32 @@ export interface AuthState {
 }
 
 let _token: string | null = null;
+/** Срок токена из его claim exp (мс), null — прочитать не удалось. */
+let _expiresAt: number | null = null;
 let _pending = false;
+
+/**
+ * Срок жизни из самого JWT. Обмен билета даёт только access-токен на полтора
+ * часа, без refresh; раньше он лежал в памяти без срока, и через полтора
+ * часа интерфейс оставался «вошедшим» с мёртвым токеном.
+ */
+function readExpiry(token: string): number | null {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    const exp = (JSON.parse(json) as { exp?: unknown }).exp;
+    return typeof exp === 'number' ? exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+function tokenAlive(): boolean {
+  if (_token === null) return false;
+  if (_expiresAt === null) return true;
+  return Date.now() < _expiresAt;
+}
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -75,7 +100,7 @@ export function subscribeAuth(cb: () => void): () => void {
 let _snapshot: AuthState = { authenticated: false, pending: false };
 
 function refreshSnapshot(): void {
-  const authenticated = _token !== null;
+  const authenticated = tokenAlive();
   if (authenticated !== _snapshot.authenticated || _pending !== _snapshot.pending) {
     _snapshot = { authenticated, pending: _pending };
   }
@@ -86,17 +111,30 @@ export function getAuthState(): AuthState {
 }
 
 export function getToken(): string | null {
-  return _token;
+  return tokenAlive() ? _token : null;
 }
 
 export function isAuthenticated(): boolean {
-  return _token !== null;
+  return tokenAlive();
 }
 
 function setToken(token: string | null): void {
   _token = token;
+  _expiresAt = token ? readExpiry(token) : null;
   refreshSnapshot();
   emit();
+}
+
+/**
+ * Сервер ответил 401 на запрос с нашим токеном: токен мёртв. Забываем его и,
+ * если мы в iframe, просим родителя прислать свежий — сайт обновляет свой
+ * токен по таймеру, но пересылает его только по нашему сигналу готовности.
+ */
+export function handleUnauthorized(): void {
+  setToken(null);
+  if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'it-arduino-ready' }, SITE_ORIGIN);
+  }
 }
 
 /** Выйти. Токен забывается; сохранение снова уходит в файл .vlx. */
@@ -176,6 +214,7 @@ async function redeemTicketFromUrl(): Promise<void> {
     const body = (await resp.json()) as { access_token?: unknown };
     if (typeof body.access_token === 'string' && body.access_token) {
       _token = body.access_token;
+      _expiresAt = readExpiry(body.access_token);
     }
   } catch (err) {
     console.warn('[it-arduino] не удалось обменять билет:', err);

@@ -38,6 +38,7 @@ import { useProjectStore } from '../../store/useProjectStore';
 import { useEditorStore } from '../../store/useEditorStore';
 import { getLocaleFromPath, localizedPath } from '../../i18n/path';
 import { loadExample } from '../../utils/loadExample';
+import { exitReadOnly } from '../../lib/itArduinoReadOnly';
 import type { ExampleProject } from '../../data/examples';
 import { ExampleThumbnail } from '../examples/ExampleThumbnail';
 import { trackSelectBoard } from '../../utils/analytics';
@@ -115,6 +116,11 @@ function thumbStubFor(kind: string, label: string): ExampleProject {
  * sketch — pointing the editor at a nonexistent group blanks it.
  */
 export function clearWorkspaceForStarter(): void {
+  // Новая рабочая область — это уход с чужой схемы. Режим просмотра снимаем
+  // первым: иначе его заглушки отклоняли очистку холста, а группы файлов
+  // (другой стор) удалялись — редактор оставался с пустым кодом, старой
+  // схемой и висящей полосой «только просмотр».
+  exitReadOnly();
   // currentProject FIRST — same auto-save hazard loadExample documents:
   // mutating the stores while a saved project is still "current" lets the
   // debounced PUT overwrite that project with the emptied content.

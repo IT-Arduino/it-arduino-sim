@@ -15,7 +15,7 @@
  * совместимость с файлами .vlx и с примерами апстрима.
  */
 
-import { getSiteApiBase, getToken } from './itArduinoAuth';
+import { getSiteApiBase, getToken, handleUnauthorized } from './itArduinoAuth';
 import type { VlxPayload } from '../utils/vlxFile';
 
 /** Строка списка «Мои схемы». Без содержимого — см. CircuitListItem на сервере. */
@@ -99,6 +99,9 @@ async function send<T>(path: string, init: RequestInit, token: string | null): P
       // Тело не JSON — остаётся код ответа, и это лучше, чем исключение
       // разбора поверх исходной ошибки.
     }
+    // Наш токен сервер больше не принимает — интерфейс не должен дальше
+    // считать пользователя вошедшим (см. handleUnauthorized).
+    if (resp.status === 401 && token) handleUnauthorized();
     throw new ItArduinoApiError(resp.status, detail);
   }
 
