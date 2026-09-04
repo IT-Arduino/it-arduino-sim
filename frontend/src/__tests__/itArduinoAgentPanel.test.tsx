@@ -11,7 +11,6 @@ import { fireEvent, render, screen } from '@testing-library/react';
 const runAgent = vi.fn();
 vi.mock('../lib/itArduinoAgent/agentLoop', () => ({
   runAgent: (...args: unknown[]) => runAgent(...args),
-  MAX_STEPS: 30,
 }));
 
 import { useSimulatorStore } from '../store/useSimulatorStore';

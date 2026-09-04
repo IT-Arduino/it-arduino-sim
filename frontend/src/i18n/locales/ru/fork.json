@@ -122,7 +122,7 @@
       "about": "О программе"
     },
     "toolbar": {
-      "connectAgentLabel": "Подключить ИИ-агента (Claude/Codex)",
+      "connectAgentLabel": "Открыть ИИ-агента IT-Arduino",
       "rerunScript": "Перезапустить скетч с последними правками, без перезагрузки платы",
       "digitalRunning": "Цифровая симуляция идёт",
       "digitalResume": "Возобновить цифровую симуляцию",
