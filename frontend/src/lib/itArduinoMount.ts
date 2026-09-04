@@ -16,6 +16,11 @@
  *     показывается вовсе. Регистрируем при входе, снимаем при выходе — меню
  *     перестраивается само, править EditorMenuBar не нужно.
  *
+ *   - registerEditorCommand('project.connectAgent') (editorCommands.ts) —
+ *     пункт «Подключить агента». Тот же optional-шов и тот же жизненный цикл,
+ *     что у «Мои схемы»: агент ходит на сервер сайта тем же клиентом, что и
+ *     остальной форк, и гостю там делать нечего.
+ *
  * Отсюда же стартует слежение за входом (itArduinoAuth): один запрос к сайту
  * при загрузке и повтор при возврате в вкладку.
  *
@@ -31,10 +36,13 @@ import { isAuthenticated, startItArduinoAuth, subscribeAuth } from './itArduinoA
 import { forgetOpenCircuit } from './itArduinoCircuits';
 import { openMyCircuitsDialog } from '../components/layout/MyCircuitsDialog';
 import { openSaveCircuitDialog } from '../components/layout/SaveCircuitDialog';
+import { openAgentPanel } from '../components/itArduinoAgent/AgentPanelHost';
 import { PublicCircuitPage } from '../pages/PublicCircuitPage';
 
 /** Функция снятия регистрации «Мои схемы», пока пункт зарегистрирован. */
 let unregisterMyCircuits: (() => void) | null = null;
+/** Функция снятия регистрации «Подключить агента», пока пункт зарегистрирован. */
+let unregisterAgent: (() => void) | null = null;
 
 /** Привести редактор в соответствие с текущим состоянием входа. */
 function syncAuth(): void {
@@ -43,15 +51,23 @@ function syncAuth(): void {
     if (!unregisterMyCircuits) {
       unregisterMyCircuits = registerEditorCommand('account.myProjects', openMyCircuitsDialog);
     }
+    // Пункт меню «подключить агента» апстрим объявил, но не зарегистрировал
+    // (project.connectAgent в editorCommands.ts помечен optional). Регистрируем
+    // свой обработчик — строка в меню появляется сама.
+    if (!unregisterAgent) {
+      unregisterAgent = registerEditorCommand('project.connectAgent', openAgentPanel);
+    }
     return;
   }
 
-  // Выход. Возвращаем апстримовское сохранение в файл, убираем пункт меню и
+  // Выход. Возвращаем апстримовское сохранение в файл, убираем пункты меню и
   // забываем открытую схему: держать идентификатор записи, к которой больше
   // нет доступа, значит получить 404 в ответ на следующее «Сохранить».
   installSaveActionImpl(null);
   unregisterMyCircuits?.();
   unregisterMyCircuits = null;
+  unregisterAgent?.();
+  unregisterAgent = null;
   forgetOpenCircuit();
 }
 

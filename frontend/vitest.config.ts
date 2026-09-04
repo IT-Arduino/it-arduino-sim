@@ -69,8 +69,12 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: [
-      'src/__tests__/**/*.test.ts',
-      'src/**/__tests__/**/*.test.ts',
+      // `.tsx` добавлен для панели агента (itArduinoAgentPanel.test.tsx) —
+      // первого теста форка, рендерящего React-компонент через
+      // @testing-library/react. До неё все тесты были чистым `.ts`, и без
+      // этой строки такой файл vitest вообще не находит (тихо, без ошибки).
+      'src/__tests__/**/*.test.{ts,tsx}',
+      'src/**/__tests__/**/*.test.{ts,tsx}',
       // velxio-prod pro overlay tests (when run from a velxio-prod
       // checkout — these are the source-of-truth pro tests, not the
       // stale copies at src/pro/). Harmless on pure-OSS clones
