@@ -135,14 +135,30 @@ export function buildVlxBlob(opts: { name?: string } = {}): Blob {
   return new Blob([json], { type: 'application/json' });
 }
 
+/**
+ * Правка форка: расширение файла и основа имени по умолчанию.
+ *
+ * Формат внутри файла НЕ менялся — поменялось только имя. Поэтому файл,
+ * переименованный вручную, открывается как прежде, а `.vlx` по-прежнему
+ * принимается при открытии (см. importProject.ts). Основа `shema` вместо
+ * `velxio-project`: имя чужого проекта с нашим расширением выглядело бы
+ * недоразумением.
+ *
+ * На обе строки есть тест (__tests__/itArduinoFileExtension.test.ts): при
+ * обновлении с апстрима они вернутся к прежним значениям молча, без единой
+ * ошибки сборки.
+ */
+const FORK_EXTENSION = 'itarduino';
+const FORK_DEFAULT_BASENAME = 'shema';
+
 /** Sanitise a filename: keep letters, digits, dashes, dots, underscores. */
 function safeFilename(name?: string): string {
-  const base = (name ?? 'velxio-project').trim() || 'velxio-project';
+  const base = (name ?? FORK_DEFAULT_BASENAME).trim() || FORK_DEFAULT_BASENAME;
   const cleaned = base
     .replace(/[^a-zA-Z0-9._-]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80);
-  return `${cleaned || 'velxio-project'}.vlx`;
+  return `${cleaned || FORK_DEFAULT_BASENAME}.${FORK_EXTENSION}`;
 }
 
 /**

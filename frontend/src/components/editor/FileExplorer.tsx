@@ -404,7 +404,15 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
       // Reset so picking the SAME file again later still fires onchange.
       e.target.value = '';
       if (!file) return;
-      const friendlyName = file.name.toLowerCase().endsWith('.zip') ? 'Wokwi .zip' : '.vlx';
+      // Правка форка: подпись берётся из фактического имени файла. Схемы
+      // сохраняются как .itarduino, но .vlx по-прежнему открывается, и
+      // называть «.vlx» любой не-zip было бы неправдой.
+      const lowerName = file.name.toLowerCase();
+      const friendlyName = lowerName.endsWith('.zip')
+        ? 'Wokwi .zip'
+        : lowerName.endsWith('.vlx')
+          ? '.vlx'
+          : '.itarduino';
       const confirmed = await showConfirmDialog(
         t('editor.fileExplorer.confirmLoad.message', { type: friendlyName }),
         {

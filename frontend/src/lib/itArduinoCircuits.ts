@@ -101,10 +101,14 @@ export async function saveCircuit(opts: {
  * importVlxFile принимает File — заворачиваем JSON обратно в файл вместо
  * того, чтобы дублировать разбор и загрузку в сторы. Один путь кода для
  * файла с диска, своей схемы из облака и чужой публичной: то, что работает
- * для .vlx, работает и здесь, и чинится в одном месте.
+ * для файла схемы, работает и здесь, и чинится в одном месте.
+ *
+ * Имя файла синтетическое, человеку оно не показывается, — но расширение
+ * держим то же, что у сохраняемых схем: иначе следующий читатель решит, что
+ * облачные схемы живут в каком-то другом формате.
  */
 async function loadIntoEditor(circuit: CircuitFull): Promise<void> {
-  const file = new File([JSON.stringify(circuit.data)], `${circuit.id}.vlx`, {
+  const file = new File([JSON.stringify(circuit.data)], `${circuit.id}.itarduino`, {
     type: 'application/json',
   });
   await importVlxFile(file);
