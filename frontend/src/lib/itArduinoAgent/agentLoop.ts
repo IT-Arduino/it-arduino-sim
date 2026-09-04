@@ -7,8 +7,18 @@
  *
  * Ключ провайдера в браузер не попадает: его держит сервер
  * (arduino_api/app/api/endpoints/agent.py).
+ *
+ * Сам HTTP-вызов не делаем: он живёт в itArduinoApi.ts (agentChat) — там же
+ * cookie сессии, разбор detail из ответа FastAPI и сброс входа на 401.
+ * Держать здесь свой fetch значило бы завести второй способ ходить на сайт
+ * рядом с уже существующим, а он в форке один.
  */
-import { getSiteApiBase } from '../itArduinoAuth';
+import {
+  agentChat,
+  ItArduinoApiError,
+  type AgentChatMessage,
+  type AgentChatReply,
+} from '../itArduinoApi';
 import { runTool } from './toolRegistry';
 
 /** Предел шагов. Тот же, что на сервере: зациклившийся агент иначе молчит. */
@@ -29,42 +39,30 @@ export type AgentEvent =
   | { kind: 'done' }
   | { kind: 'error'; message: string };
 
-interface ChatMessage {
-  role: 'user' | 'assistant' | 'tool';
-  content: string;
-  name?: string;
-  tool_call_id?: string;
-}
-
 export async function runAgent(
   userText: string,
   onEvent: (event: AgentEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const messages: ChatMessage[] = [{ role: 'user', content: userText }];
+  const messages: AgentChatMessage[] = [{ role: 'user', content: userText }];
   let added = 0;
 
   for (let step = 0; step < MAX_STEPS; step += 1) {
     if (signal?.aborted) return;
 
-    let reply: any;
+    let reply: AgentChatReply;
     try {
-      const response = await fetch(`${getSiteApiBase()}/agent/chat`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages }),
-      });
-      if (!response.ok) {
-        onEvent({ kind: 'error', message: `Сервер ответил ${response.status}` });
-        return;
-      }
-      reply = await response.json();
+      reply = await agentChat(messages);
     } catch (error) {
-      onEvent({
-        kind: 'error',
-        message: `Не удалось связаться с сайтом: ${(error as Error).message}`,
-      });
+      // agentChat() заворачивает и отказ сервера (с текстом из detail — лимит
+      // входа, частота запросов, рубильник), и сетевой сбой, и «не вошли» в
+      // один ItArduinoApiError. Голый код ответа человеку ничего не скажет —
+      // отдаём его собственный текст.
+      const message =
+        error instanceof ItArduinoApiError
+          ? error.message
+          : `Не удалось связаться с сайтом: ${(error as Error).message}`;
+      onEvent({ kind: 'error', message });
       return;
     }
 

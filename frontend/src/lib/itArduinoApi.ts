@@ -203,3 +203,47 @@ export function updateCircuit(
 export function deleteCircuit(id: number): Promise<void> {
   return request<void>(`/circuits/${id}`, { method: 'DELETE' });
 }
+
+/**
+ * Диалог с ИИ-агентом симулятора — прокси к модели.
+ *
+ * Сервер держит ключ провайдера, системный промпт и схему инструментов
+ * (arduino_api/app/api/endpoints/agent.py, arduino_api/app/services/agent/).
+ * Маршрут доступен только администраторам при включённом рубильнике; при
+ * выключенном или чужой роли отвечает 404 — неотличимо от несуществующего.
+ *
+ * Идёт через тот же request(), что и схемы, а не через отдельный fetch: та
+ * же cookie сессии, тот же разбор detail из ответа FastAPI (лимит на размер
+ * входа, ограничение частоты — у всех есть текст, который иначе терялся бы),
+ * тот же сброс входа на 401, если сессия сайта истекла.
+ */
+
+/** Одно сообщение диалога. Совпадает с AgentMessage на сервере. */
+export interface AgentChatMessage {
+  role: 'user' | 'assistant' | 'tool';
+  content: string;
+  name?: string;
+  tool_call_id?: string;
+}
+
+/** Просьба модели выполнить инструмент. */
+export interface AgentToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+/** Ответ модели, приведённый сервером к общему виду (AgentReply). */
+export interface AgentChatReply {
+  text: string;
+  tool_calls: AgentToolCall[];
+  done: boolean;
+  usage: Record<string, unknown>;
+}
+
+export function agentChat(messages: AgentChatMessage[]): Promise<AgentChatReply> {
+  return request<AgentChatReply>('/agent/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages }),
+  });
+}
