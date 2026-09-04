@@ -43,10 +43,22 @@ vi.mock('../lib/itArduinoApi', () => ({
 
 import { runAgent, MAX_COMPONENTS, MAX_STEPS } from '../lib/itArduinoAgent/agentLoop';
 
+/**
+ * Снимки истории, ушедшей на сервер, — по одному на запрос.
+ *
+ * Смотреть в `agentChat.mock.calls[n][0]` нельзя: цикл всё время дописывает
+ * ОДИН И ТОТ ЖЕ массив, и vi.fn() запоминает его по ссылке. К концу прогона
+ * все записи вызовов показывают одно и то же — конечное состояние истории, а
+ * не то, что было отправлено на шаге n. Тест на «в запросе номер два уже есть
+ * ход помощника» на такой ссылке проходил бы, даже если ход дописан позже.
+ */
+const sent: Array<Array<Record<string, unknown>>> = [];
+
 /** Ответы сервера по очереди; последний повторяется. */
 function stubAgentChat(replies: unknown[]) {
   let step = 0;
-  agentChat.mockImplementation(async () => {
+  agentChat.mockImplementation(async (messages: Array<Record<string, unknown>>) => {
+    sent.push(JSON.parse(JSON.stringify(messages)));
     const body = replies[Math.min(step, replies.length - 1)];
     step += 1;
     return body;
@@ -54,6 +66,7 @@ function stubAgentChat(replies: unknown[]) {
 }
 
 beforeEach(() => {
+  sent.length = 0;
   runTool.mockReset();
   runTool.mockResolvedValue({ ok: true, data: {} });
   agentChat.mockReset();
@@ -82,8 +95,38 @@ describe('цикл', () => {
     expect(events).toContain('done');
 
     // Во втором запросе к серверу должен уйти результат инструмента.
-    const secondCallMessages = agentChat.mock.calls[1][0] as Array<{ role: string }>;
-    expect(secondCallMessages.some((m) => m.role === 'tool')).toBe(true);
+    expect(sent[1].some((m) => m.role === 'tool')).toBe(true);
+  });
+
+  it('ход модели с вызовом инструмента уходит в историю целиком', async () => {
+    // Модель, ответившая одними вызовами без текста, — обычное дело. Если
+    // такой ход не положить в историю, следующий запрос выглядит как
+    // «пользователь → результат инструмента»: связать результат с запросом
+    // модели нечем, и она видит ответ на вопрос, которого не задавала.
+    stubAgentChat([
+      {
+        text: '',
+        tool_calls: [{ id: 'call-1', name: 'read_canvas', arguments: {} }],
+        done: false,
+        usage: {},
+      },
+      { text: 'готово', tool_calls: [], done: true, usage: {} },
+    ]);
+
+    await runAgent('посмотри холст', () => {});
+
+    const secondCallMessages = sent[1] as Array<{
+      role: string;
+      tool_calls?: Array<{ id: string; name: string }>;
+    }>;
+    const assistant = secondCallMessages.find((m) => m.role === 'assistant');
+    expect(assistant).toBeDefined();
+    expect(assistant?.tool_calls?.[0]).toMatchObject({ id: 'call-1', name: 'read_canvas' });
+    // Результат инструмента ссылается на id вызова — тот самый, что ушёл в
+    // ходе помощника выше. Пара «вызов ↔ результат» и есть смысл правки.
+    expect(secondCallMessages.find((m) => m.role === 'tool')).toMatchObject({
+      tool_call_id: 'call-1',
+    });
   });
 
   it('останавливается на пределе шагов', async () => {

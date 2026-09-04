@@ -66,12 +66,24 @@ export async function runAgent(
       return;
     }
 
-    if (reply.text) {
-      onEvent({ kind: 'text', text: reply.text });
-      messages.push({ role: 'assistant', content: reply.text });
-    }
+    if (reply.text) onEvent({ kind: 'text', text: reply.text });
 
     const calls = Array.isArray(reply.tool_calls) ? reply.tool_calls : [];
+
+    // Ход модели кладётся в историю ВСЕГДА и целиком — вместе с вызовами
+    // инструментов. Ответ одними вызовами, без текста, — обычное дело: раньше
+    // такой ход не попадал в историю вовсе, и следующий запрос выглядел как
+    // «пользователь → результат инструмента → результат инструмента».
+    // Связать результат с запросом было нечем: `tool_call_id` у результата
+    // ссылается на вызов, которого в переписке нет, а модель видит ответы на
+    // вопросы, которых не задавала, — и переспрашивает то же самое.
+    messages.push({
+      role: 'assistant',
+      content: reply.text ?? '',
+      // Поле уходит только когда есть что положить: пустой список ничего не
+      // сообщает, а история и так растёт с каждым шагом.
+      ...(calls.length ? { tool_calls: calls } : {}),
+    });
     if (!calls.length) {
       onEvent({ kind: 'done' });
       return;

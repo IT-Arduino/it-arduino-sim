@@ -224,6 +224,15 @@ export interface AgentChatMessage {
   content: string;
   name?: string;
   tool_call_id?: string;
+  /**
+   * Вызовы инструментов в ходе модели (`role: 'assistant'`).
+   *
+   * Имя поля и форма — как у серверного `AgentToolCall`
+   * (arduino_api/app/services/agent/types.py): id, name, arguments. Без него
+   * ход модели, состоящий из одних вызовов, уходил бы обратно пустым, и
+   * результат инструмента ссылался бы на вызов, которого в переписке нет.
+   */
+  tool_calls?: AgentToolCall[];
 }
 
 /** Просьба модели выполнить инструмент. */
