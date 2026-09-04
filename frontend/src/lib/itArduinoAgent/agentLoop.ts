@@ -20,6 +20,7 @@ import {
   type AgentChatReply,
 } from '../itArduinoApi';
 import { runTool } from './toolRegistry';
+import { CANVAS_MUTATING_TOOLS } from './toolTypes';
 
 /** Предел шагов. Тот же, что на сервере: зациклившийся агент иначе молчит. */
 export const MAX_STEPS = 30;
@@ -32,6 +33,20 @@ export const MAX_STEPS = 30;
  * человеку.
  */
 export const MAX_COMPONENTS = 40;
+
+/**
+ * Сколько ИЗМЕНЯЮЩИХ ХОЛСТ действий агент вправе совершить за прогон —
+ * деталей, проводов и правок свойств вместе взятых.
+ *
+ * Число выбрано под историю отмены. Она — кольцевой буфер на HISTORY_MAX = 50
+ * записей (`useSimulatorStore.ts`; константа не экспортируется, а файл
+ * апстримовский, поэтому число сверено глазами и продублировано здесь). Что не
+ * поместилось, вытесняется с начала — и «Откатить прогон» вернул бы только
+ * хвост, а остальное осталось бы на холсте навсегда. Предела деталей для этого
+ * мало: сорок деталей — это ещё и провода к ним, и правки свойств, то есть
+ * далеко за полсотни записей.
+ */
+export const MAX_CANVAS_ACTIONS = 45;
 
 export type AgentEvent =
   | { kind: 'text'; text: string }
@@ -46,6 +61,7 @@ export async function runAgent(
 ): Promise<void> {
   const messages: AgentChatMessage[] = [{ role: 'user', content: userText }];
   let added = 0;
+  let canvasChanges = 0;
 
   for (let step = 0; step < MAX_STEPS; step += 1) {
     if (signal?.aborted) return;
@@ -98,6 +114,24 @@ export async function runAgent(
           onEvent({
             kind: 'error',
             message: `Агент попытался поставить больше ${MAX_COMPONENTS} деталей и остановлен.`,
+          });
+          return;
+        }
+      }
+
+      // Предел деталей проверяется первым: когда сыплются именно детали,
+      // причина остановки должна называться деталями. Здесь — общий счёт
+      // правок холста, и говорить надо про историю отмены, потому что предел
+      // существует ради неё.
+      if (CANVAS_MUTATING_TOOLS.has(call.name)) {
+        canvasChanges += 1;
+        if (canvasChanges > MAX_CANVAS_ACTIONS) {
+          onEvent({
+            kind: 'error',
+            message:
+              `Агент попытался сделать больше ${MAX_CANVAS_ACTIONS} изменений холста ` +
+              'за один прогон и остановлен: столько правок уже не помещается в историю ' +
+              'отмены, и «Откатить прогон» вернул бы не всё.',
           });
           return;
         }

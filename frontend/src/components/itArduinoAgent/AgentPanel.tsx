@@ -28,23 +28,11 @@
 import { useRef, useState } from 'react';
 
 import { runAgent, type AgentEvent } from '../../lib/itArduinoAgent/agentLoop';
+// Список инструментов, пишущих в историю отмены, — общий с циклом агента
+// (см. комментарий у CANVAS_MUTATING_TOOLS): цикл считает по нему предел
+// изменений за прогон, панель — сколько отменять при откате.
+import { CANVAS_MUTATING_TOOLS } from '../../lib/itArduinoAgent/toolTypes';
 import { useSimulatorStore, type CanvasCommand } from '../../store/useSimulatorStore';
-
-/**
- * Инструменты, которые пишут в историю отмены холста (toolRegistry.ts —
- * add_component, move_component, set_component_property, remove_component,
- * add_wire, remove_wire, все через record*-обёртки стора). Чтение холста и
- * каталога, скетч, сборка, запуск и остановка историю не трогают и в счётчик
- * отката не идут.
- */
-const CANVAS_MUTATING_TOOLS = new Set([
-  'add_component',
-  'move_component',
-  'set_component_property',
-  'remove_component',
-  'add_wire',
-  'remove_wire',
-]);
 
 export function AgentPanel() {
   const [text, setText] = useState('');

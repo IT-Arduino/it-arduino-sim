@@ -41,7 +41,12 @@ vi.mock('../lib/itArduinoApi', () => ({
   ItArduinoApiError,
 }));
 
-import { runAgent, MAX_COMPONENTS, MAX_STEPS } from '../lib/itArduinoAgent/agentLoop';
+import {
+  runAgent,
+  MAX_CANVAS_ACTIONS,
+  MAX_COMPONENTS,
+  MAX_STEPS,
+} from '../lib/itArduinoAgent/agentLoop';
 
 /**
  * Снимки истории, ушедшей на сервер, — по одному на запрос.
@@ -191,6 +196,38 @@ describe('цикл', () => {
     // Текст должен называть причину — деталей, а не шагов, иначе это тот же
     // самый предел шагов, который тест уже проверяет отдельно.
     expect(lastEvent.message).toContain('деталей');
+  });
+
+  it('останавливается на общем пределе изменений холста', async () => {
+    // Предел деталей не спасает: кроме деталей агент ставит провода и меняет
+    // свойства, и записей в истории отмены выходит заметно больше, чем
+    // деталей. Здесь модель просит одни провода — деталей ноль, а предел
+    // должен сработать.
+    const tooManyWires = Array.from({ length: MAX_CANVAS_ACTIONS + 5 }, (_, i) => ({
+      id: String(i),
+      name: 'add_wire',
+      arguments: {},
+    }));
+    stubAgentChat([{ text: '', tool_calls: tooManyWires, done: false, usage: {} }]);
+    const events: any[] = [];
+
+    await runAgent('насыпь проводов', (event) => events.push(event));
+
+    expect(runTool).toHaveBeenCalledTimes(MAX_CANVAS_ACTIONS);
+    const lastEvent = events.at(-1);
+    expect(lastEvent.kind).toBe('error');
+    // Причина должна быть названа настоящая — изменения холста, а не шаги и
+    // не детали: деталей в этом прогоне не было вовсе.
+    expect(lastEvent.message).toContain('изменени');
+  });
+
+  it('общий предел изменений заведомо помещается в историю отмены', () => {
+    // История отмены — кольцевой буфер на HISTORY_MAX = 50 записей
+    // (useSimulatorStore.ts, файл апстрима: константа не экспортируется,
+    // поэтому число сверено глазами и продублировано здесь). Предел больше
+    // буфера означал бы, что часть правок агента вытеснена и «Откатить
+    // прогон» вернёт только хвост.
+    expect(MAX_CANVAS_ACTIONS).toBeLessThan(50);
   });
 
   it('ошибка сервера завершает прогон понятным событием', async () => {
