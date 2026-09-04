@@ -13,8 +13,8 @@
  * инструменты агента повторяют этот порядок, а не свой.
  *
  * Второе: выводы детали читаются из смонтированного DOM-элемента, поэтому
- * add_component ждёт кадр отрисовки. Без ожидания провод к только что
- * добавленной детали не находит её выводов.
+ * add_component ждёт готовности детали опросом. Без ожидания провод к только
+ * что добавленной детали не находит её выводов.
  */
 import { ComponentRegistry } from '../../services/ComponentRegistry';
 import { useSimulatorStore } from '../../store/useSimulatorStore';
@@ -40,6 +40,39 @@ function nextFrame(): Promise<void> {
       setTimeout(resolve, 0);
     }
   });
+}
+
+/**
+ * Сколько ждать выводов новой детали и как часто спрашивать.
+ *
+ * Числа не выдуманы: ровно так ждёт готовности детали сам апстрим
+ * (`components/DynamicComponent.tsx` — опрос каждые 100 мс, потолок 10 с) и
+ * там же объясняет, почему одного кадра отрисовки мало: деталь оживает не при
+ * монтировании, а когда подгрузится определяющий её кусок кода, и на медленной
+ * сети это занимает секунды. Мы читаем выводы тем же способом (pinInfo из DOM
+ * через getAllPinPositions), значит и ждать обязаны столько же.
+ */
+const PIN_WAIT_MS = 10_000;
+const PIN_POLL_MS = 100;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Выводы детали, когда они появятся. Пустой перечень по истечении срока —
+ * не исключение: агент получит его в ответе и увидит, что цеплять нечего,
+ * вместо того чтобы застрять на ожидании.
+ */
+async function waitForPins(componentId: string): Promise<string[]> {
+  await nextFrame();
+  let pins = pinsOf(componentId);
+  const deadline = Date.now() + PIN_WAIT_MS;
+  while (!pins.length && Date.now() < deadline) {
+    await delay(PIN_POLL_MS);
+    pins = pinsOf(componentId);
+  }
+  return pins;
 }
 
 function findComponent(id: string) {
@@ -84,8 +117,7 @@ export async function addComponent(args: {
     properties: { ...meta.defaultValues, ...(args.properties ?? {}) },
   });
 
-  await nextFrame();
-  return ok({ id, pins: pinsOf(id) });
+  return ok({ id, pins: await waitForPins(id) });
 }
 
 export function moveComponent(args: { id: string; x: number; y: number }): ToolResult {

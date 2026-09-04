@@ -15,12 +15,24 @@ import {
   setComponentProperty,
 } from '../lib/itArduinoAgent/canvasTools';
 
-vi.mock('../utils/pinPositionCalculator', () => ({
-  calculatePinPosition: () => null,
-  getAllPinPositions: (componentId: string, x: number, y: number) => [
+/**
+ * Выводы детали читаются из DOM, а в node-окружении vitest его нет. Мок
+ * держится в объекте с подменяемой реализацией: тест про ожидание готовности
+ * подменяет её на такую, которая сначала отдаёт пусто — как настоящий элемент,
+ * чей кусок кода ещё не подгрузился.
+ */
+const pinStub = vi.hoisted(() => {
+  const ready = (componentId: string, x: number, y: number) => [
     { name: 'A', x, y, signals: [] },
     { name: 'C', x: x + 4, y, signals: [] },
-  ],
+  ];
+  return { ready, impl: ready };
+});
+
+vi.mock('../utils/pinPositionCalculator', () => ({
+  calculatePinPosition: () => null,
+  getAllPinPositions: (componentId: string, x: number, y: number) =>
+    pinStub.impl(componentId, x, y),
 }));
 
 // ComponentRegistry грузит каталог через fetch('/components-metadata.json')
@@ -33,7 +45,9 @@ vi.mock('../services/ComponentRegistry', () => ({
   ComponentRegistry: {
     getInstance: () => ({
       getById: (id: string) =>
-        id === 'led' ? { id: 'led', name: 'LED', category: 'output', defaultValues: {} } : undefined,
+        id === 'led'
+          ? { id: 'led', name: 'LED', category: 'output', defaultValues: {} }
+          : undefined,
       search: () => [],
     }),
   },
@@ -43,6 +57,7 @@ beforeEach(() => {
   const s = useSimulatorStore.getState();
   s.setComponents([]);
   s.setWires([]);
+  pinStub.impl = pinStub.ready;
 });
 
 describe('add_component', () => {
@@ -63,6 +78,24 @@ describe('add_component', () => {
     useSimulatorStore.getState().undo();
 
     expect(useSimulatorStore.getState().components).toHaveLength(0);
+  });
+
+  it('дожидается выводов, которые появляются не сразу', async () => {
+    // Апстрим для той же цели опрашивает готовность детали до десяти секунд и
+    // прямо объясняет почему (DynamicComponent.tsx): элемент оживает, когда
+    // подгрузится его кусок кода, и одного кадра отрисовки не хватает. Пустой
+    // перечень выводов ломает следующее действие агента — провод к этой
+    // детали не находит, к чему цепляться.
+    let attempts = 0;
+    pinStub.impl = (componentId, x, y) => {
+      attempts += 1;
+      return attempts <= 2 ? [] : pinStub.ready(componentId, x, y);
+    };
+
+    const result = await addComponent({ type: 'led', x: 10, y: 20 });
+
+    expect(result.ok).toBe(true);
+    expect((result as { ok: true; data: any }).data.pins).toEqual(['A', 'C']);
   });
 
   it('неизвестный тип — ошибка с подсказкой, а не исключение', async () => {
