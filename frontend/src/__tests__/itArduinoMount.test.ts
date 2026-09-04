@@ -40,10 +40,16 @@ vi.mock('../components/layout/MyCircuitsDialog', () => myCircuits);
 vi.mock('../components/layout/SaveCircuitDialog', () => saveDialog);
 vi.mock('../pages/PublicCircuitPage', () => publicPage);
 
-/** Ответ сайта на GET /users/me: 200 — вошли, 401 — гость. */
-function stubSiteAuth(status: number): void {
+/**
+ * Ответ сайта на GET /users/me: 200 — вошли, 401 — гость.
+ *
+ * Тело важно: по нему же определяется роль (lib/itArduinoRole), а от роли
+ * зависит пункт меню агента. Без `role` в ответе пользователь считается
+ * обычным — как и на настоящем сайте.
+ */
+function stubSiteAuth(status: number, body: Record<string, unknown> = { detail: 'x' }): void {
   globalThis.fetch = vi.fn(
-    async () => new Response(JSON.stringify({ detail: 'x' }), { status }),
+    async () => new Response(JSON.stringify(body), { status }),
   ) as unknown as typeof fetch;
 }
 
@@ -56,10 +62,11 @@ async function freshMount() {
 
   const commands = await import('../lib/editorCommands');
   const auth = await import('../lib/itArduinoAuth');
+  const role = await import('../lib/itArduinoRole');
   const mount = await import('../lib/itArduinoMount');
   mount.mountItArduino();
   await auth.refreshAuth();
-  return { commands, mount, auth };
+  return { commands, mount, auth, role };
 }
 
 /**
@@ -72,6 +79,22 @@ async function setSignedIn(
 ): Promise<void> {
   stubSiteAuth(signedIn ? 200 : 401);
   await auth.refreshAuth();
+}
+
+/**
+ * Вход с известной ролью. Роль приходит вторым запросом (GET /users/me через
+ * lib/itArduinoRole), поэтому его тоже надо дождаться: подписка внутри
+ * itArduinoRole запускает запрос сама, а `refreshRole` возвращает тот же
+ * промис, а не заводит второй.
+ */
+async function setSignedInAs(
+  auth: { refreshAuth: () => Promise<void> },
+  role: { refreshRole: () => Promise<void> },
+  siteRole: 'admin' | 'user',
+): Promise<void> {
+  stubSiteAuth(200, { id: 1, username: 'кто-то', role: siteRole });
+  await auth.refreshAuth();
+  await role.refreshRole();
 }
 
 beforeEach(() => {
@@ -167,6 +190,51 @@ describe('повторный вход после выхода', () => {
       saveDialog.openSaveCircuitDialog,
     );
     expect(commands.hasEditorCommand('account.myProjects')).toBe(true);
+  });
+});
+
+describe('пункт «Подключить агента»', () => {
+  it('обычному вошедшему пользователю не регистрируется', async () => {
+    // Агент — пилот для администраторов: сервер сайта отвечает обычному
+    // пользователю 403 (arduino_api, test_ordinary_user_is_rejected_when_enabled).
+    // Пункт меню, который гарантированно упрётся в отказ, показывать нельзя.
+    const { commands, auth, role } = await freshMount();
+
+    await setSignedInAs(auth, role, 'user');
+
+    expect(commands.hasEditorCommand('project.connectAgent')).toBe(false);
+    // «Мои схемы» при этом на месте: там роль ни при чём.
+    expect(commands.hasEditorCommand('account.myProjects')).toBe(true);
+  });
+
+  it('администратору регистрируется', async () => {
+    const { commands, auth, role } = await freshMount();
+
+    await setSignedInAs(auth, role, 'admin');
+
+    expect(commands.hasEditorCommand('project.connectAgent')).toBe(true);
+  });
+
+  it('снимается, когда роль перестала быть административной', async () => {
+    // Права сняли на сайте, вкладка вернула фокус и перепроверила роль.
+    // Оставить пункт значило бы оставить кнопку, ведущую в 403.
+    const { commands, auth, role } = await freshMount();
+    await setSignedInAs(auth, role, 'admin');
+    expect(commands.hasEditorCommand('project.connectAgent')).toBe(true);
+
+    stubSiteAuth(200, { id: 1, username: 'кто-то', role: 'user' });
+    await role.refreshRole();
+
+    expect(commands.hasEditorCommand('project.connectAgent')).toBe(false);
+  });
+
+  it('снимается при выходе', async () => {
+    const { commands, auth, role } = await freshMount();
+    await setSignedInAs(auth, role, 'admin');
+
+    await setSignedIn(auth, false);
+
+    expect(commands.hasEditorCommand('project.connectAgent')).toBe(false);
   });
 });
 
