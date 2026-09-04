@@ -22,7 +22,10 @@ import {
  * чей кусок кода ещё не подгрузился.
  */
 const pinStub = vi.hoisted(() => {
-  const ready = (componentId: string, x: number, y: number) => [
+  // Идентификатор мок не смотрит: DOM в node-окружении нет, а выводы у всех
+  // деталей теста одинаковые. Подчёркивание — чтобы tsc не считал параметр
+  // забытым (noUnusedParameters).
+  const ready = (_componentId: string, x: number, y: number) => [
     { name: 'A', x, y, signals: [] },
     { name: 'C', x: x + 4, y, signals: [] },
   ];

@@ -30,5 +30,7 @@ export function AgentPanelHost() {
   }, []);
 
   if (!visible || !slot) return null;
-  return createPortal(<AgentPanel />, slot);
+  // Закрытие живёт здесь, а не в самой панели: видимостью портала управляет
+  // хозяин, и панель не должна знать, откуда её достали.
+  return createPortal(<AgentPanel onClose={() => setVisibleState(false)} />, slot);
 }

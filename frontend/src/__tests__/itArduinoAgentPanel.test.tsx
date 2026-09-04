@@ -52,7 +52,7 @@ describe('панель', () => {
       onEvent({ kind: 'tool', name: 'add_component', ok: true });
     });
 
-    render(<AgentPanel />);
+    render(<AgentPanel onClose={() => {}} />);
     fireEvent.change(screen.getByPlaceholderText(/что собрать/i), {
       target: { value: 'собери светодиод' },
     });
@@ -85,7 +85,7 @@ describe('панель', () => {
       onEvent({ kind: 'tool', name: 'add_component', ok: true });
     });
 
-    render(<AgentPanel />);
+    render(<AgentPanel onClose={() => {}} />);
     fireEvent.change(screen.getByPlaceholderText(/что собрать/i), {
       target: { value: 'собери светодиод' },
     });
@@ -113,7 +113,7 @@ describe('панель', () => {
       onEvent({ kind: 'tool', name: 'add_component', ok: true });
     });
 
-    render(<AgentPanel />);
+    render(<AgentPanel onClose={() => {}} />);
     fireEvent.change(screen.getByPlaceholderText(/что собрать/i), {
       target: { value: 'собери светодиод' },
     });
@@ -130,8 +130,18 @@ describe('панель', () => {
     ]);
   });
 
+  it('панель закрывается своей кнопкой', () => {
+    // Открывается панель командой меню, а закрыть её было нечем.
+    const onClose = vi.fn();
+    render(<AgentPanel onClose={onClose} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /закрыть/i }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('пустой запрос не запускает прогон', () => {
-    render(<AgentPanel />);
+    render(<AgentPanel onClose={() => {}} />);
 
     fireEvent.click(screen.getByRole('button', { name: /отправить/i }));
 
@@ -139,7 +149,7 @@ describe('панель', () => {
   });
 
   it('до первого прогона кнопка отката недоступна', () => {
-    render(<AgentPanel />);
+    render(<AgentPanel onClose={() => {}} />);
 
     expect(rollbackButton().disabled).toBe(true);
   });
@@ -157,7 +167,7 @@ describe('панель', () => {
       onEvent({ kind: 'tool', name: 'add_component', ok: true });
     });
 
-    render(<AgentPanel />);
+    render(<AgentPanel onClose={() => {}} />);
     fireEvent.change(screen.getByPlaceholderText(/что собрать/i), {
       target: { value: 'собери светодиод' },
     });
@@ -191,7 +201,7 @@ describe('панель', () => {
       onEvent({ kind: 'tool', name: 'add_component', ok: false });
     });
 
-    render(<AgentPanel />);
+    render(<AgentPanel onClose={() => {}} />);
     fireEvent.change(screen.getByPlaceholderText(/что собрать/i), {
       target: { value: 'собери светодиод' },
     });

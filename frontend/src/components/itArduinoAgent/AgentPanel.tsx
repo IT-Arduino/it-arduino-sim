@@ -33,8 +33,14 @@ import { runAgent, type AgentEvent } from '../../lib/itArduinoAgent/agentLoop';
 // изменений за прогон, панель — сколько отменять при откате.
 import { CANVAS_MUTATING_TOOLS } from '../../lib/itArduinoAgent/toolTypes';
 import { useSimulatorStore, type CanvasCommand } from '../../store/useSimulatorStore';
+import './AgentPanel.css';
 
-export function AgentPanel() {
+export interface AgentPanelProps {
+  /** Закрыть панель. Хозяин панели — AgentPanelHost, он же прячет портал. */
+  onClose: () => void;
+}
+
+export function AgentPanel({ onClose }: AgentPanelProps) {
   const [text, setText] = useState('');
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [running, setRunning] = useState(false);
@@ -104,13 +110,26 @@ export function AgentPanel() {
 
   return (
     <div className="it-agent-panel">
+      <div className="it-agent-panel__head">
+        <span className="it-agent-panel__title">ИИ-агент</span>
+        <button
+          type="button"
+          className="it-agent-panel__close"
+          onClick={onClose}
+          aria-label="Закрыть панель агента"
+          title="Закрыть"
+        >
+          ×
+        </button>
+      </div>
       <textarea
+        className="it-agent-panel__input"
         value={text}
         onChange={(event) => setText(event.target.value)}
         placeholder="Что собрать? Например: мигающий светодиод на пине 9"
       />
-      <div className="it-agent-actions">
-        <button type="button" onClick={send} disabled={running}>
+      <div className="it-agent-panel__actions">
+        <button type="button" className="it-agent-panel__send" onClick={send} disabled={running}>
           Отправить
         </button>
         <button type="button" onClick={() => abortRef.current?.abort()} disabled={!running}>
@@ -120,9 +139,27 @@ export function AgentPanel() {
           Откатить прогон
         </button>
       </div>
-      <ul className="it-agent-log">
+      {/* Честная оговорка рядом с кнопкой: запись скетча идёт мимо истории
+          отмены холста (codeTools.ts пишет прямо в useEditorStore), поэтому
+          откат возвращает схему, а переписанный код остаётся переписанным.
+          Отмена для скетча — отдельная работа; молчать об этом нельзя:
+          человек нажимает «откатить» и уверен, что вернул всё. */}
+      <p className="it-agent-panel__note">
+        Откат возвращает только холст. Скетч, переписанный агентом, остаётся как есть — при
+        необходимости верните его сами.
+      </p>
+      <ul className="it-agent-panel__log">
         {events.map((event, index) => (
-          <li key={index}>
+          <li
+            key={index}
+            className={
+              event.kind === 'text'
+                ? 'it-agent-panel__log-text'
+                : event.kind === 'error'
+                  ? 'it-agent-panel__log-error'
+                  : undefined
+            }
+          >
             {event.kind === 'text' && event.text}
             {event.kind === 'tool' && `${event.name}: ${event.ok ? 'готово' : 'не вышло'}`}
             {event.kind === 'done' && 'Агент закончил'}
