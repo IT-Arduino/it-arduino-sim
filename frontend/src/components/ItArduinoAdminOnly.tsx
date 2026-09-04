@@ -36,7 +36,7 @@ export function useRole(): { isAdmin: boolean; pending: boolean } {
 
   return {
     isAdmin: role.role === 'admin',
-    // Пока идёт обмен билета или запрос роли, ответа ещё нет. Отрисовать в
+    // Пока идёт проверка входа или запрос роли, ответа ещё нет. Отрисовать в
     // этот момент «не админ» значит мигнуть отказом человеку, у которого
     // доступ есть.
     pending: auth.pending || role.pending || (auth.authenticated && role.role === 'guest'),

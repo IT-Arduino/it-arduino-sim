@@ -47,10 +47,24 @@ export type ProjectImportResult =
  * payload that the caller must apply (we keep that asymmetry so the
  * toolbar can still trigger the libraries modal at the end).
  */
+/**
+ * Правка форка: имена файлов схем.
+ *
+ * Схемы сохраняются как `.itarduino`, но `.vlx` продолжает открываться:
+ * файлы, сохранённые до переименования, и примеры апстрима никуда не делись,
+ * а формат внутри не менялся — поменялось только имя. Поэтому здесь список,
+ * а не одно расширение. Тест: __tests__/itArduinoFileExtension.test.ts.
+ */
+const SCHEMATIC_EXTENSIONS = ['.itarduino', '.vlx'];
+
+function isSchematicName(lowerName: string): boolean {
+  return SCHEMATIC_EXTENSIONS.some((extension) => lowerName.endsWith(extension));
+}
+
 export async function importProjectFile(file: File): Promise<ProjectImportResult> {
   const lower = file.name.toLowerCase();
 
-  if (lower.endsWith('.vlx') || (file.type === 'application/json' && !lower.endsWith('.zip'))) {
+  if (isSchematicName(lower) || (file.type === 'application/json' && !lower.endsWith('.zip'))) {
     try {
       await importVlxFile(file);
       return { kind: 'vlx' };
@@ -69,9 +83,16 @@ export async function importProjectFile(file: File): Promise<ProjectImportResult
 
   throw new Error(
     `Unsupported project file: ${file.name}.\n` +
-      `Velxio accepts .vlx (Velxio projects) and .zip (Wokwi bundles).`,
+      `Принимаются .itarduino и .vlx (схемы) и .zip (архив Wokwi).`,
   );
 }
 
-/** File-input `accept` attribute that pairs with importProjectFile. */
-export const PROJECT_FILE_ACCEPT = '.vlx,.zip,application/json,application/zip';
+/**
+ * File-input `accept` attribute that pairs with importProjectFile.
+ *
+ * Новое расширение первым: окно выбора файла показывает список в этом
+ * порядке, и человек должен видеть сначала то, во что схемы сохраняются
+ * сейчас. Прежнее остаётся — старые файлы открываются как открывались.
+ */
+export const PROJECT_FILE_ACCEPT =
+  '.itarduino,.vlx,.zip,application/json,application/zip';

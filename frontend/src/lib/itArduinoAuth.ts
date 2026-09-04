@@ -1,33 +1,24 @@
 /**
  * Авторизация симулятора против основного сайта it-arduino.ru.
  *
- * Задача. Сайт живёт на it-arduino.ru и держит свой токен в localStorage под
- * ключом `auth_data`. Симулятор живёт на sim.it-arduino.ru — это другой
- * origin, и прочитать чужой localStorage браузер ему не даст. Нужен явный
- * механизм передачи, и здесь их два, потому что симулятор открывают двумя
- * способами.
+ * Симулятор живёт на sim.it-arduino.ru, сайт — на it-arduino.ru, API — на
+ * api.it-arduino.ru. Всё это поддомены одного домена, и вход держится на
+ * cookie сессии, выданной сайтом на `.it-arduino.ru`: браузер сам приложит её
+ * к запросу к API, если запрос сделан с `credentials: 'include'`.
  *
- *   1. В iframe на странице сайта. Родительская страница шлёт токен через
- *      postMessage при загрузке и при каждом обновлении токена.
- *   2. Прямым заходом на sim.it-arduino.ru. Сайт по кнопке «Открыть
- *      симулятор» получает у API одноразовый билет и передаёт его в адресе;
- *      симулятор меняет билет на рабочий токен и вычищает параметр из
- *      адресной строки.
+ * Поэтому передавать сюда нечего и хранить здесь тоже нечего. Вопрос «вошёл
+ * ли пользователь» решается одним запросом `GET /users/me`: ответ 200 —
+ * вошёл, 401 — гость. Токена в памяти вкладки нет вовсе.
  *
- * Токен живёт ТОЛЬКО в памяти вкладки. В localStorage он не пишется
- * намеренно: симулятор — сторонний origin для сайта, и оставлять там чужой
- * ключ доступа, переживающий закрытие вкладки, незачем. Цена — при
- * перезагрузке прямого захода вход теряется; в iframe родитель пришлёт
- * токен заново сам.
+ * Раньше здесь было два механизма передачи чужого токена — postMessage от
+ * родительской страницы и обмен одноразового билета из адресной строки, — и
+ * оба существовали ровно потому, что токен лежал в localStorage сайта, а
+ * прочитать чужой localStorage браузер не даёт. С cookie на общем домене
+ * задача исчезла целиком, вместе с билетами, проверкой origin у сообщений и
+ * разбором срока из JWT.
  *
- * Проверка origin строгая с обеих сторон и без исключений. `*` здесь означал
- * бы, что токен готова прислать любая страница, встроившая симулятор, и что
- * любая такая страница может подсунуть свой.
+ * Гость никуда не упирается: редактор работает, схемы сохраняются в файл .vlx.
  */
-
-/** Origin основного сайта. Только от него принимаются сообщения. */
-const SITE_ORIGIN: string =
-  (import.meta.env.VITE_SITE_ORIGIN as string | undefined) || 'https://it-arduino.ru';
 
 /** База API основного сайта. Симулятор ходит на неё, а не на свой бэкенд. */
 export function getSiteApiBase(): string {
@@ -44,14 +35,15 @@ export function getSiteApiBase(): string {
 }
 
 export interface AuthState {
-  /** Токен есть и им можно пользоваться. */
+  /** Сессия сайта есть — облачное сохранение доступно. */
   authenticated: boolean;
-  /** Идёт обмен билета — интерфейсу стоит подождать, а не рисовать «гость». */
+  /** Идёт проверка — интерфейсу стоит подождать, а не рисовать «гость». */
   pending: boolean;
 }
 
-let _token: string | null = null;
+let _authenticated = false;
 let _pending = false;
+
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -75,9 +67,9 @@ export function subscribeAuth(cb: () => void): () => void {
 let _snapshot: AuthState = { authenticated: false, pending: false };
 
 function refreshSnapshot(): void {
-  const authenticated = _token !== null;
-  if (authenticated !== _snapshot.authenticated || _pending !== _snapshot.pending) {
-    _snapshot = { authenticated, pending: _pending };
+  if (_authenticated !== _snapshot.authenticated || _pending !== _snapshot.pending) {
+    _snapshot = { authenticated: _authenticated, pending: _pending };
+    emit();
   }
 }
 
@@ -85,113 +77,86 @@ export function getAuthState(): AuthState {
   return _snapshot;
 }
 
-export function getToken(): string | null {
-  return _token;
-}
-
 export function isAuthenticated(): boolean {
-  return _token !== null;
-}
-
-function setToken(token: string | null): void {
-  _token = token;
-  refreshSnapshot();
-  emit();
-}
-
-/** Выйти. Токен забывается; сохранение снова уходит в файл .vlx. */
-export function clearToken(): void {
-  setToken(null);
+  return _authenticated;
 }
 
 /**
- * Приём токена от родительской страницы (сценарий с iframe).
+ * Спросить у сайта, есть ли сессия.
  *
- * Ожидаемое сообщение: { type: 'it-arduino-auth', token: '<jwt>' }.
- * token === null трактуется как выход из аккаунта на сайте.
- */
-function startParentListener(): void {
-  if (typeof window === 'undefined') return;
-
-  window.addEventListener('message', (event: MessageEvent) => {
-    // Первая и главная проверка. Без неё токен принимался бы от любой
-    // страницы, встроившей симулятор.
-    if (event.origin !== SITE_ORIGIN) return;
-
-    const data = event.data as { type?: string; token?: unknown } | null;
-    if (!data || data.type !== 'it-arduino-auth') return;
-
-    if (data.token === null) {
-      setToken(null);
-      return;
-    }
-    if (typeof data.token === 'string' && data.token) {
-      setToken(data.token);
-    }
-  });
-
-  // Сообщить родителю, что мы готовы принимать токен. Нужно на случай, если
-  // родитель отправил его до того, как наш обработчик встал: сообщение,
-  // отправленное до подписки, теряется безвозвратно, и без этого сигнала
-  // пользователь в iframe выглядел бы гостем до следующего обновления токена.
-  if (window.parent && window.parent !== window) {
-    window.parent.postMessage({ type: 'it-arduino-ready' }, SITE_ORIGIN);
-  }
-}
-
-/**
- * Обмен билета из адресной строки на рабочий токен (прямой заход).
+ * Одновременные вызовы делят один запрос: врезка в редактор и возврат фокуса
+ * во вкладку могут случиться в один момент, и два одинаковых запроса здесь
+ * бессмысленны.
  *
- * Билет вычищается из адреса СРАЗУ, до сетевого запроса. Иначе он остаётся в
- * истории браузера и уедет в заголовке Referer при первом же переходе по
- * внешней ссылке — а обмен занимает сотни миллисекунд, которых для этого
- * вполне достаточно.
+ * Сетевой сбой трактуем как «гость». Другого разумного варианта нет: считать
+ * вошедшим того, о ком ничего не известно, значит показать облачное
+ * сохранение, которое ответит 401 и будет выглядеть поломкой.
  */
-async function redeemTicketFromUrl(): Promise<void> {
-  if (typeof window === 'undefined') return;
+let _inFlight: Promise<void> | null = null;
 
-  const url = new URL(window.location.href);
-  const ticket = url.searchParams.get('ticket');
-  if (!ticket) return;
-
-  url.searchParams.delete('ticket');
-  window.history.replaceState({}, '', url.toString());
+export function refreshAuth(): Promise<void> {
+  if (_inFlight) return _inFlight;
 
   _pending = true;
   refreshSnapshot();
-  emit();
 
-  try {
-    const resp = await fetch(`${getSiteApiBase()}/sim/session/exchange`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticket }),
-    });
-    if (!resp.ok) {
-      // Просроченный или уже использованный билет — не ошибка приложения.
-      // Пользователь просто остаётся гостем и сохраняет в файл.
-      console.info('[it-arduino] билет не принят, работаем как гость');
-      return;
+  _inFlight = (async () => {
+    try {
+      const resp = await fetch(`${getSiteApiBase()}/users/me`, {
+        // Главная строка файла: без неё браузер не приложит cookie сессии к
+        // запросу на соседний поддомен, и вошедший пользователь выглядел бы
+        // гостем.
+        credentials: 'include',
+      });
+      _authenticated = resp.ok;
+    } catch {
+      // Сайт недоступен — работаем как гость. Сообщение в консоль не пишем:
+      // это штатный сценарий, симулятор открывают и без сети.
+      _authenticated = false;
+    } finally {
+      _pending = false;
+      _inFlight = null;
+      refreshSnapshot();
     }
-    const body = (await resp.json()) as { access_token?: unknown };
-    if (typeof body.access_token === 'string' && body.access_token) {
-      _token = body.access_token;
-    }
-  } catch (err) {
-    console.warn('[it-arduino] не удалось обменять билет:', err);
-  } finally {
-    _pending = false;
-    refreshSnapshot();
-    emit();
-  }
+  })();
+
+  return _inFlight;
+}
+
+/**
+ * Сервер ответил 401 на запрос от имени пользователя: сессии больше нет
+ * (вышли на сайте, сменили пароль, истёк срок). Интерфейс не должен дальше
+ * считать пользователя вошедшим.
+ */
+export function handleUnauthorized(): void {
+  _authenticated = false;
+  refreshSnapshot();
+}
+
+/** Забыть вход. То же действие, что при 401, — отдельное имя ради читаемости. */
+export function markSignedOut(): void {
+  handleUnauthorized();
 }
 
 let _started = false;
 
-/** Запустить приём авторизации. Идемпотентно. */
+/**
+ * Запустить слежение за входом. Идемпотентно.
+ *
+ * Кроме первой проверки — повтор при возврате в вкладку. Вход и выход
+ * происходят на сайте, в другой вкладке, и никакого сигнала оттуда сюда не
+ * приходит; возвращение фокуса — самый дешёвый момент, чтобы заметить
+ * изменение, не опрашивая сервер по таймеру.
+ */
 export function startItArduinoAuth(): void {
   if (_started) return;
   _started = true;
-  startParentListener();
-  void redeemTicketFromUrl();
+
+  void refreshAuth();
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('focus', () => {
+      void refreshAuth();
+    });
+  }
 }

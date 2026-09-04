@@ -24,8 +24,6 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-const JSDOM_ORIGIN = 'http://localhost:3000';
-
 const saveSeam = vi.hoisted(() => ({ installSaveActionImpl: vi.fn() }));
 const circuits = vi.hoisted(() => ({ forgetOpenCircuit: vi.fn() }));
 const myCircuits = vi.hoisted(() => ({ openMyCircuitsDialog: vi.fn() }));
@@ -42,26 +40,61 @@ vi.mock('../components/layout/MyCircuitsDialog', () => myCircuits);
 vi.mock('../components/layout/SaveCircuitDialog', () => saveDialog);
 vi.mock('../pages/PublicCircuitPage', () => publicPage);
 
+/**
+ * Ответ сайта на GET /users/me: 200 — вошли, 401 — гость.
+ *
+ * Тело важно: по нему же определяется роль (lib/itArduinoRole), а от роли
+ * зависит пункт меню агента. Без `role` в ответе пользователь считается
+ * обычным — как и на настоящем сайте.
+ */
+function stubSiteAuth(status: number, body: Record<string, unknown> = { detail: 'x' }): void {
+  globalThis.fetch = vi.fn(
+    async () => new Response(JSON.stringify(body), { status }),
+  ) as unknown as typeof fetch;
+}
+
 /** Свежая копия модулей: у врезки есть флаг «уже смонтирована». */
 async function freshMount() {
   vi.resetModules();
-  vi.stubEnv('VITE_SITE_ORIGIN', JSDOM_ORIGIN);
   vi.stubEnv('VITE_SITE_API_BASE', 'https://api.example.test/api');
+  // Монтирование сразу спрашивает сайт о входе — по умолчанию отвечаем «гость».
+  stubSiteAuth(401);
 
   const commands = await import('../lib/editorCommands');
+  const auth = await import('../lib/itArduinoAuth');
+  const role = await import('../lib/itArduinoRole');
   const mount = await import('../lib/itArduinoMount');
   mount.mountItArduino();
-  return { commands, mount };
+  await auth.refreshAuth();
+  return { commands, mount, auth, role };
 }
 
-/** Изобразить вход или выход на основном сайте. */
-function sendAuth(token: string | null): void {
-  window.dispatchEvent(
-    new MessageEvent('message', {
-      data: { type: 'it-arduino-auth', token },
-      origin: JSDOM_ORIGIN,
-    }),
-  );
+/**
+ * Изобразить вход или выход на основном сайте: меняется ответ /users/me, а
+ * дальше всё идёт тем же путём, что в бою.
+ */
+async function setSignedIn(
+  auth: { refreshAuth: () => Promise<void> },
+  signedIn: boolean,
+): Promise<void> {
+  stubSiteAuth(signedIn ? 200 : 401);
+  await auth.refreshAuth();
+}
+
+/**
+ * Вход с известной ролью. Роль приходит вторым запросом (GET /users/me через
+ * lib/itArduinoRole), поэтому его тоже надо дождаться: подписка внутри
+ * itArduinoRole запускает запрос сама, а `refreshRole` возвращает тот же
+ * промис, а не заводит второй.
+ */
+async function setSignedInAs(
+  auth: { refreshAuth: () => Promise<void> },
+  role: { refreshRole: () => Promise<void> },
+  siteRole: 'admin' | 'user',
+): Promise<void> {
+  stubSiteAuth(200, { id: 1, username: 'кто-то', role: siteRole });
+  await auth.refreshAuth();
+  await role.refreshRole();
 }
 
 beforeEach(() => {
@@ -94,9 +127,9 @@ describe('гость', () => {
 
 describe('вход', () => {
   it('включает облачное сохранение', async () => {
-    await freshMount();
+    const { auth } = await freshMount();
 
-    sendAuth('тестовый-токен');
+    await setSignedIn(auth, true);
 
     expect(saveSeam.installSaveActionImpl).toHaveBeenLastCalledWith(
       saveDialog.openSaveCircuitDialog,
@@ -104,18 +137,18 @@ describe('вход', () => {
   });
 
   it('добавляет пункт «Мои схемы» без правки меню', async () => {
-    const { commands } = await freshMount();
+    const { commands, auth } = await freshMount();
 
-    sendAuth('тестовый-токен');
+    await setSignedIn(auth, true);
 
     expect(commands.hasEditorCommand('account.myProjects')).toBe(true);
   });
 
-  it('повторный приход токена не перерегистрирует пункт заново', async () => {
-    const { commands } = await freshMount();
+  it('повторная проверка входа не перерегистрирует пункт заново', async () => {
+    const { commands, auth } = await freshMount();
 
-    sendAuth('первый-токен');
-    sendAuth('второй-токен');
+    await setSignedIn(auth, true);
+    await setSignedIn(auth, true);
 
     expect(commands.hasEditorCommand('account.myProjects')).toBe(true);
   });
@@ -123,22 +156,22 @@ describe('вход', () => {
 
 describe('выход', () => {
   it('возвращает скачивание .vlx и убирает пункт меню', async () => {
-    const { commands } = await freshMount();
-    sendAuth('тестовый-токен');
+    const { commands, auth } = await freshMount();
+    await setSignedIn(auth, true);
     expect(commands.hasEditorCommand('account.myProjects')).toBe(true);
 
-    sendAuth(null);
+    await setSignedIn(auth, false);
 
     expect(saveSeam.installSaveActionImpl).toHaveBeenLastCalledWith(null);
     expect(commands.hasEditorCommand('account.myProjects')).toBe(false);
   });
 
   it('забывает открытую схему', async () => {
-    await freshMount();
-    sendAuth('тестовый-токен');
+    const { auth } = await freshMount();
+    await setSignedIn(auth, true);
     circuits.forgetOpenCircuit.mockClear();
 
-    sendAuth(null);
+    await setSignedIn(auth, false);
 
     // Иначе следующее «Сохранить» ушло бы в запись, к которой доступа уже нет.
     expect(circuits.forgetOpenCircuit).toHaveBeenCalled();
@@ -147,16 +180,61 @@ describe('выход', () => {
 
 describe('повторный вход после выхода', () => {
   it('снова включает и сохранение, и пункт меню', async () => {
-    const { commands } = await freshMount();
+    const { commands, auth } = await freshMount();
 
-    sendAuth('тестовый-токен');
-    sendAuth(null);
-    sendAuth('новый-токен');
+    await setSignedIn(auth, true);
+    await setSignedIn(auth, false);
+    await setSignedIn(auth, true);
 
     expect(saveSeam.installSaveActionImpl).toHaveBeenLastCalledWith(
       saveDialog.openSaveCircuitDialog,
     );
     expect(commands.hasEditorCommand('account.myProjects')).toBe(true);
+  });
+});
+
+describe('пункт «Подключить агента»', () => {
+  it('обычному вошедшему пользователю не регистрируется', async () => {
+    // Агент — пилот для администраторов: сервер сайта отвечает обычному
+    // пользователю 403 (arduino_api, test_ordinary_user_is_rejected_when_enabled).
+    // Пункт меню, который гарантированно упрётся в отказ, показывать нельзя.
+    const { commands, auth, role } = await freshMount();
+
+    await setSignedInAs(auth, role, 'user');
+
+    expect(commands.hasEditorCommand('project.connectAgent')).toBe(false);
+    // «Мои схемы» при этом на месте: там роль ни при чём.
+    expect(commands.hasEditorCommand('account.myProjects')).toBe(true);
+  });
+
+  it('администратору регистрируется', async () => {
+    const { commands, auth, role } = await freshMount();
+
+    await setSignedInAs(auth, role, 'admin');
+
+    expect(commands.hasEditorCommand('project.connectAgent')).toBe(true);
+  });
+
+  it('снимается, когда роль перестала быть административной', async () => {
+    // Права сняли на сайте, вкладка вернула фокус и перепроверила роль.
+    // Оставить пункт значило бы оставить кнопку, ведущую в 403.
+    const { commands, auth, role } = await freshMount();
+    await setSignedInAs(auth, role, 'admin');
+    expect(commands.hasEditorCommand('project.connectAgent')).toBe(true);
+
+    stubSiteAuth(200, { id: 1, username: 'кто-то', role: 'user' });
+    await role.refreshRole();
+
+    expect(commands.hasEditorCommand('project.connectAgent')).toBe(false);
+  });
+
+  it('снимается при выходе', async () => {
+    const { commands, auth, role } = await freshMount();
+    await setSignedInAs(auth, role, 'admin');
+
+    await setSignedIn(auth, false);
+
+    expect(commands.hasEditorCommand('project.connectAgent')).toBe(false);
   });
 });
 
@@ -190,16 +268,17 @@ describe('идемпотентность', () => {
   });
 });
 
-describe('чужой источник сообщения', () => {
+describe('недоступный сайт', () => {
   it('не включает облачное сохранение', async () => {
-    const { commands } = await freshMount();
+    // Единственный источник входа — ответ сайта. Нет ответа — нет и облачного
+    // сохранения: показать его значило бы предложить действие, которое
+    // немедленно упадёт.
+    const { commands, auth } = await freshMount();
 
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        data: { type: 'it-arduino-auth', token: 'подсунутый-токен' },
-        origin: 'https://evil.example',
-      }),
-    );
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error('Failed to fetch');
+    }) as unknown as typeof fetch;
+    await auth.refreshAuth();
 
     expect(commands.hasEditorCommand('account.myProjects')).toBe(false);
     expect(saveSeam.installSaveActionImpl).not.toHaveBeenCalledWith(

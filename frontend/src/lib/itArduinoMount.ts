@@ -16,8 +16,15 @@
  *     показывается вовсе. Регистрируем при входе, снимаем при выходе — меню
  *     перестраивается само, править EditorMenuBar не нужно.
  *
- * Отсюда же стартует приём токена (itArduinoAuth): и через postMessage от
- * родительской страницы, и через одноразовый билет в адресе.
+ *   - registerEditorCommand('project.connectAgent') (editorCommands.ts) —
+ *     пункт «Подключить агента». Тот же optional-шов, что у «Мои схемы», но
+ *     жизненный цикл строже: агент — пилот для администраторов, и обычному
+ *     пользователю сервер сайта отвечает отказом. Пункт ставится только при
+ *     роли `admin` и снимается, как только роль перестала быть таковой.
+ *
+ * Отсюда же стартует слежение за входом (itArduinoAuth): один запрос к сайту
+ * при загрузке и повтор при возврате в вкладку. Роль приходит вторым запросом
+ * и позже входа (itArduinoRole), поэтому на неё подписка отдельная.
  *
  * Сам файл ничего не рендерит. Окна монтирует ItArduinoDialogs в EditorPage.
  */
@@ -28,13 +35,17 @@ import { installSaveActionImpl } from './proSaveAction';
 import { registerEditorCommand } from './editorCommands';
 import { registerProRoutes } from './proRoutes';
 import { isAuthenticated, startItArduinoAuth, subscribeAuth } from './itArduinoAuth';
+import { isAdmin, subscribeRole } from './itArduinoRole';
 import { forgetOpenCircuit } from './itArduinoCircuits';
 import { openMyCircuitsDialog } from '../components/layout/MyCircuitsDialog';
 import { openSaveCircuitDialog } from '../components/layout/SaveCircuitDialog';
+import { openAgentPanel } from '../components/itArduinoAgent/AgentPanelHost';
 import { PublicCircuitPage } from '../pages/PublicCircuitPage';
 
 /** Функция снятия регистрации «Мои схемы», пока пункт зарегистрирован. */
 let unregisterMyCircuits: (() => void) | null = null;
+/** Функция снятия регистрации «Подключить агента», пока пункт зарегистрирован. */
+let unregisterAgent: (() => void) | null = null;
 
 /** Привести редактор в соответствие с текущим состоянием входа. */
 function syncAuth(): void {
@@ -43,15 +54,35 @@ function syncAuth(): void {
     if (!unregisterMyCircuits) {
       unregisterMyCircuits = registerEditorCommand('account.myProjects', openMyCircuitsDialog);
     }
+    // Пункт меню «подключить агента» апстрим объявил, но не зарегистрировал
+    // (project.connectAgent в editorCommands.ts помечен optional). Регистрируем
+    // свой обработчик — строка в меню появляется сама.
+    //
+    // Но только администратору, и той же готовой проверкой роли, какой
+    // закрыта галерея примеров (lib/itArduinoRole). Роль приходит позже
+    // входа, поэтому syncAuth зовётся ещё и на её изменение: пока ответ в
+    // пути, isAdmin() ложно, и пункт появляется, когда роль подтвердится.
+    // Обратный ход тоже нужен — права могли снять, а вкладка перепроверяет
+    // роль при возврате фокуса.
+    if (isAdmin()) {
+      if (!unregisterAgent) {
+        unregisterAgent = registerEditorCommand('project.connectAgent', openAgentPanel);
+      }
+    } else {
+      unregisterAgent?.();
+      unregisterAgent = null;
+    }
     return;
   }
 
-  // Выход. Возвращаем апстримовское сохранение в файл, убираем пункт меню и
+  // Выход. Возвращаем апстримовское сохранение в файл, убираем пункты меню и
   // забываем открытую схему: держать идентификатор записи, к которой больше
   // нет доступа, значит получить 404 в ответ на следующее «Сохранить».
   installSaveActionImpl(null);
   unregisterMyCircuits?.();
   unregisterMyCircuits = null;
+  unregisterAgent?.();
+  unregisterAgent = null;
   forgetOpenCircuit();
 }
 
@@ -75,10 +106,13 @@ export function mountItArduino(): void {
   // поменяло бы путь импорта в main.tsx и в тестах.
   registerProRoutes([{ path: 'circuit/:circuitId', element: createElement(PublicCircuitPage) }]);
 
-  // Подписка ДО старта: обмен билета может завершиться раньше, чем мы успели
-  // бы подписаться после, и вход остался бы незамеченным до следующего
-  // изменения токена.
+  // Подписка ДО старта: проверка входа уходит в сеть сразу, и подписаться
+  // после неё значило бы прозевать ответ, а вместе с ним и вход.
   subscribeAuth(syncAuth);
+  // Роль — отдельный запрос и отдельный ответ, приходящий уже после входа.
+  // Без этой подписки пункт агента не появился бы вовсе: в момент входа роль
+  // ещё неизвестна, а второго повода перечитать состояние нет.
+  subscribeRole(syncAuth);
   startItArduinoAuth();
   syncAuth();
 }

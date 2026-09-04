@@ -11,6 +11,7 @@
  */
 import React from 'react';
 
+import { AgentPanelHost } from '../itArduinoAgent/AgentPanelHost';
 import { MyCircuitsDialog } from './MyCircuitsDialog';
 import { ReadOnlyBanner } from './ReadOnlyBanner';
 import { SaveCircuitDialog } from './SaveCircuitDialog';
@@ -22,5 +23,7 @@ export const ItArduinoDialogs: React.FC = () => (
     {/* Не окно, но живёт по тем же правилам: портал, пусто вне своего режима,
         монтируется здесь же — чтобы EditorPage не правился второй раз. */}
     <ReadOnlyBanner />
+    {/* Тоже портал в свой слот (agent-chat), тоже пусто, пока не открыта. */}
+    <AgentPanelHost />
   </>
 );

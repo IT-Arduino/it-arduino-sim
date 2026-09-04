@@ -9,13 +9,17 @@
  * штатный lib/apiBase.ts сюда не годится — он резолвит бэкенд самого
  * симулятора, который компилирует скетчи.
  *
+ * Авторизация — cookie сессии сайта, выданная на домен .it-arduino.ru.
+ * Заголовков с токеном здесь нет: запрос от имени пользователя отличается от
+ * запроса гостя одним полем `credentials`.
+ *
  * Формат схемы не трогаем. В поле `data` уходит ровно то, что вернул
  * buildVlxPayload(), и оттуда же приходит обратно: сервер хранит его как
  * непрозрачный JSON. Любая попытка «улучшить» формат по дороге сломала бы
  * совместимость с файлами .vlx и с примерами апстрима.
  */
 
-import { getSiteApiBase, getToken } from './itArduinoAuth';
+import { getSiteApiBase, handleUnauthorized, isAuthenticated } from './itArduinoAuth';
 import type { VlxPayload } from '../utils/vlxFile';
 
 /** Строка списка «Мои схемы». Без содержимого — см. CircuitListItem на сервере. */
@@ -51,18 +55,22 @@ export class ItArduinoApiError extends Error {
 }
 
 /**
- * Отправка запроса и разбор ответа — общая часть для запросов с токеном и
- * без него. Различаются они ровно одним заголовком, и держать две копии
- * разбора ошибок значило бы однажды починить её только в одной.
+ * Отправка запроса и разбор ответа — общая часть для запросов от имени
+ * пользователя и запросов гостя. Различаются они ровно одним полем, и держать
+ * две копии разбора ошибок значило бы однажды починить её только в одной.
+ *
+ * `withSession` — прикладывать ли cookie сессии. Для публичной схемы она не
+ * нужна: ответ от неё не меняется, а посланная без надобности cookie — лишний
+ * повод её засветить.
  */
-async function send<T>(path: string, init: RequestInit, token: string | null): Promise<T> {
+async function send<T>(path: string, init: RequestInit, withSession: boolean): Promise<T> {
   let resp: Response;
   try {
     resp = await fetch(`${getSiteApiBase()}${path}`, {
       ...init,
+      credentials: withSession ? 'include' : 'omit',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(init.headers ?? {}),
       },
     });
@@ -99,21 +107,23 @@ async function send<T>(path: string, init: RequestInit, token: string | null): P
       // Тело не JSON — остаётся код ответа, и это лучше, чем исключение
       // разбора поверх исходной ошибки.
     }
+    // Сессию сервер больше не признаёт — интерфейс не должен дальше считать
+    // пользователя вошедшим (см. handleUnauthorized).
+    if (resp.status === 401 && withSession) handleUnauthorized();
     throw new ItArduinoApiError(resp.status, detail);
   }
 
   return (await resp.json()) as T;
 }
 
-/** Запрос от имени пользователя. Без токена до сети не доходит. */
+/** Запрос от имени пользователя. Гость до сети не доходит. */
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = getToken();
-  if (!token) {
+  if (!isAuthenticated()) {
     // Не сетевой сбой, а состояние: гость сюда просто не должен попадать.
     // Интерфейс обязан прятать облачное сохранение, пока входа нет.
     throw new ItArduinoApiError(401, 'Вы не вошли в аккаунт it-arduino.ru');
   }
-  return send<T>(path, init, token);
+  return send<T>(path, init, true);
 }
 
 /**
@@ -123,11 +133,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
  * (`/public/circuits/{id}`), а не `/circuits/{id}` без заголовка: там
  * авторизация обязательна, и «без авторизации» видно прямо в адресе.
  *
- * Токен не прикладывается даже когда он есть. Ответ от этого не меняется, а
- * приложенный без нужды токен — лишний повод его засветить.
+ * Cookie не прикладывается даже когда сессия есть. Ответ от этого не
+ * меняется, а посланная без нужды cookie — лишний повод её засветить.
  */
 export function getPublicCircuit(id: number): Promise<CircuitFull> {
-  return send<CircuitFull>(`/public/circuits/${id}`, {}, null);
+  return send<CircuitFull>(`/public/circuits/${id}`, {}, false);
 }
 
 /**
@@ -192,4 +202,62 @@ export function updateCircuit(
 
 export function deleteCircuit(id: number): Promise<void> {
   return request<void>(`/circuits/${id}`, { method: 'DELETE' });
+}
+
+/**
+ * Диалог с ИИ-агентом симулятора — прокси к модели.
+ *
+ * Сервер держит ключ провайдера, системный промпт и схему инструментов
+ * (arduino_api/app/api/endpoints/agent.py, arduino_api/app/services/agent/).
+ * Маршрут доступен только администраторам при включённом рубильнике. При
+ * ВЫКЛЮЧЕННОМ рубильнике маршрута нет вовсе: сервер не подключает его роутер,
+ * и любой запрос — любым методом, с любым телом — получает тот же 404, что и
+ * несуществующий путь. При включённом рубильнике обычный пользователь получает
+ * 403: маршрут есть, прав нет. Оба кода закреплены серверными тестами
+ * (test_agent.py: test_disabled_switch_hides_the_route,
+ * test_ordinary_user_is_rejected_when_enabled).
+ *
+ * Идёт через тот же request(), что и схемы, а не через отдельный fetch: та
+ * же cookie сессии, тот же разбор detail из ответа FastAPI (лимит на размер
+ * входа, ограничение частоты — у всех есть текст, который иначе терялся бы),
+ * тот же сброс входа на 401, если сессия сайта истекла.
+ */
+
+/** Одно сообщение диалога. Совпадает с AgentMessage на сервере. */
+export interface AgentChatMessage {
+  role: 'user' | 'assistant' | 'tool';
+  content: string;
+  name?: string;
+  tool_call_id?: string;
+  /**
+   * Вызовы инструментов в ходе модели (`role: 'assistant'`).
+   *
+   * Имя поля и форма — как у серверного `AgentToolCall`
+   * (arduino_api/app/services/agent/types.py): id, name, arguments. Без него
+   * ход модели, состоящий из одних вызовов, уходил бы обратно пустым, и
+   * результат инструмента ссылался бы на вызов, которого в переписке нет.
+   */
+  tool_calls?: AgentToolCall[];
+}
+
+/** Просьба модели выполнить инструмент. */
+export interface AgentToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+/** Ответ модели, приведённый сервером к общему виду (AgentReply). */
+export interface AgentChatReply {
+  text: string;
+  tool_calls: AgentToolCall[];
+  done: boolean;
+  usage: Record<string, unknown>;
+}
+
+export function agentChat(messages: AgentChatMessage[]): Promise<AgentChatReply> {
+  return request<AgentChatReply>('/agent/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages }),
+  });
 }

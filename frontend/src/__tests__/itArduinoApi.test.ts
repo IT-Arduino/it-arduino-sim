@@ -1,10 +1,13 @@
 /**
  * Тесты клиента к API сайта (src/lib/itArduinoApi).
  *
- * Проверяется не «ходит ли запрос» — это очевидно, — а четыре вещи, каждая из
- * которых однажды ломалась в подобном коде и ломалась молча:
+ * Проверяется не «ходит ли запрос» — это очевидно, — а то, что однажды
+ * ломалось в подобном коде и ломалось молча:
  *
- *   - гость не должен доходить до сети вообще: запрос без токена вернул бы
+ *   - запрос от имени пользователя обязан уходить с `credentials: 'include'`,
+ *     а публичный — без: первое решает, дойдёт ли cookie сессии до соседнего
+ *     поддомена, второе не светит её там, где она не нужна;
+ *   - гость не должен доходить до сети вообще: запрос без сессии вернул бы
  *     401 с сервера, но сначала засветил бы адрес и потратил время;
  *   - причина отказа должна доходить до пользователя дословно. FastAPI кладёт
  *     её в `detail`, и это поле бывает и строкой, и массивом ошибок Pydantic.
@@ -16,16 +19,26 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// Токен и адрес берутся из модуля авторизации — подменяем его целиком:
-// настоящий работает через postMessage и window, которых в node-окружении нет.
-const mockAuth = vi.hoisted(() => ({ token: null as string | null }));
+// Признак входа и адрес берутся из модуля авторизации — подменяем его
+// целиком: настоящий ходит в сеть за /users/me, а здесь проверяется клиент.
+const mockAuth = vi.hoisted(() => ({
+  authenticated: false,
+  handleUnauthorized: vi.fn(),
+}));
 
 vi.mock('../lib/itArduinoAuth', () => ({
-  getToken: () => mockAuth.token,
+  isAuthenticated: () => mockAuth.authenticated,
+  handleUnauthorized: () => mockAuth.handleUnauthorized(),
   getSiteApiBase: () => 'https://api.example.test/api',
 }));
 
-import { ItArduinoApiError, createCircuit, deleteCircuit, listCircuits } from '../lib/itArduinoApi';
+import {
+  ItArduinoApiError,
+  createCircuit,
+  deleteCircuit,
+  getPublicCircuit,
+  listCircuits,
+} from '../lib/itArduinoApi';
 import type { VlxPayload } from '../utils/vlxFile';
 
 const LIST_BODY = {
@@ -57,7 +70,8 @@ const EMPTY_PAYLOAD = {
 let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
-  mockAuth.token = 'test-token';
+  mockAuth.authenticated = true;
+  mockAuth.handleUnauthorized.mockClear();
   fetchMock = vi.fn();
   globalThis.fetch = fetchMock as unknown as typeof fetch;
 });
@@ -68,13 +82,13 @@ afterEach(() => {
 
 describe('itArduinoApi', () => {
   it('гостя не пускает в сеть', async () => {
-    mockAuth.token = null;
+    mockAuth.authenticated = false;
 
     await expect(listCircuits()).rejects.toBeInstanceOf(ItArduinoApiError);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('шлёт токен и собирает адрес от базы API сайта', async () => {
+  it('прикладывает cookie сессии и собирает адрес от базы API сайта', async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify(LIST_BODY), { status: 200 }));
 
     const resp = await listCircuits();
@@ -84,7 +98,32 @@ describe('itArduinoApi', () => {
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('https://api.example.test/api/circuits');
-    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer test-token');
+    // Без этого браузер не пошлёт cookie на соседний поддомен, и запрос
+    // вошедшего пользователя вернул бы 401.
+    expect(init.credentials).toBe('include');
+  });
+
+  it('публичную схему запрашивает без cookie', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ ...LIST_BODY.items[0], data: EMPTY_PAYLOAD }), { status: 200 }),
+    );
+
+    await getPublicCircuit(7);
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://api.example.test/api/public/circuits/7');
+    // Ответ от cookie не меняется, а посланная без нужды — лишний повод её
+    // засветить.
+    expect(init.credentials).toBe('omit');
+  });
+
+  it('401 на рабочем запросе закрывает вход в интерфейсе', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ detail: 'Could not validate credentials' }), { status: 401 }),
+    );
+
+    await expect(listCircuits()).rejects.toMatchObject({ status: 401 });
+    expect(mockAuth.handleUnauthorized).toHaveBeenCalled();
   });
 
   it('показывает причину отказа, когда сервер прислал её строкой', async () => {

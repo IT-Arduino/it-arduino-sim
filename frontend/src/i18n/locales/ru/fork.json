@@ -16,7 +16,7 @@
       "submitUpdate": "Обновить",
       "submitAsNew": "Сохранить как новую",
       "saving": "Сохраняем…",
-      "downloadInstead": "Скачать файл .vlx",
+      "downloadInstead": "Скачать файл .itarduino",
       "emptyName": "Введите название схемы",
       "copyOf": "Копия: {{title}}",
       "updatingHint": "Будет обновлена схема «{{title}}». Чтобы сохранить копию и оставить её нетронутой, нажмите «Сохранить как новую»."
@@ -26,7 +26,7 @@
       "hint": "Чужая схема. Запускать, нажимать кнопки и править код можно, менять саму схему — нет.",
       "blocked": "Эту схему изменить нельзя. Сохраните её как свою или скачайте файл.",
       "saveAsMine": "Сохранить как свою",
-      "download": "Скачать .vlx",
+      "download": "Скачать .itarduino",
       "loading": "Загружаем схему…",
       "badLink": "В ссылке нет номера схемы",
       "notFoundTitle": "Схема недоступна",
@@ -108,7 +108,7 @@
       "folderNamePlaceholder": "имя папки",
       "folderHoldsEverything": "В этой папке лежат все файлы платы, а плате нужен хотя бы один файл.",
       "confirmDeleteFolder": "Удалить папку «{{path}}» и {{count}} файлов внутри неё?",
-      "openProject": "Открыть проект (.vlx или .zip Wokwi)"
+      "openProject": "Открыть проект (.itarduino, .vlx или .zip Wokwi)"
     },
     "installLibs": {
       "required_one": "Нужна {{count}} библиотека",
@@ -122,7 +122,8 @@
       "about": "О программе"
     },
     "toolbar": {
-      "connectAgentLabel": "Подключить ИИ-агента (Claude/Codex)",
+      "import": "Импорт проекта (.itarduino, .vlx или .zip Wokwi)",
+      "connectAgentLabel": "Открыть ИИ-агента IT-Arduino",
       "rerunScript": "Перезапустить скетч с последними правками, без перезагрузки платы",
       "digitalRunning": "Цифровая симуляция идёт",
       "digitalResume": "Возобновить цифровую симуляцию",

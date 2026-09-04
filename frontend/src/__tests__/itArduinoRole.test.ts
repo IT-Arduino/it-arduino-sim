@@ -20,13 +20,18 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-const JSDOM_ORIGIN = 'http://localhost:3000';
-
 const getMe = vi.fn();
 
 vi.mock('../lib/itArduinoApi', () => ({
   getMe: (...args: unknown[]) => getMe(...args),
 }));
+
+/** Ответ сайта на GET /users/me — им же изображается вход и выход. */
+function stubSiteAuth(status: number): void {
+  globalThis.fetch = vi.fn(
+    async () => new Response(JSON.stringify({ detail: 'x' }), { status }),
+  ) as unknown as typeof fetch;
+}
 
 /**
  * Свежие копии обоих модулей. `itArduinoRole` подписывается на авторизацию
@@ -34,29 +39,21 @@ vi.mock('../lib/itArduinoApi', () => ({
  */
 async function load() {
   vi.resetModules();
-  vi.stubEnv('VITE_SITE_ORIGIN', JSDOM_ORIGIN);
   vi.stubEnv('VITE_SITE_API_BASE', 'https://api.example.test/api');
+  // По умолчанию гость: тест, которому нужен вход, вызовет signIn().
+  stubSiteAuth(401);
   const auth = await import('../lib/itArduinoAuth');
   const role = await import('../lib/itArduinoRole');
-  // Слушатель сообщений ставится не при импорте, а здесь — без вызова
-  // токен бы не принялся и все тесты «прошли» бы на состоянии гостя.
-  auth.startItArduinoAuth();
   return { auth, role };
 }
 
 /**
- * Токен кладётся тем же путём, что в бою, — сообщением от родителя.
- * Событие создаётся вручную, а не через postMessage: в jsdom оно
- * доставляется асинхронно и с пустым origin, и проверка адреса отсекала бы
- * его (тот же приём, что в itArduinoAuth.test.ts).
+ * Вход изображается так же, как в бою: сайт отвечает 200 на /users/me.
+ * Модуль роли подписан на авторизацию и спросит роль сам.
  */
-function signIn(token = 'jwt-test'): void {
-  window.dispatchEvent(
-    new MessageEvent('message', {
-      data: { type: 'it-arduino-auth', token },
-      origin: JSDOM_ORIGIN,
-    }),
-  );
+async function signIn(auth: { refreshAuth: () => Promise<void> }): Promise<void> {
+  stubSiteAuth(200);
+  await auth.refreshAuth();
 }
 
 beforeEach(() => {
@@ -85,7 +82,7 @@ describe('роль после входа', () => {
   it('admin с сайта делает администратором', async () => {
     const { auth, role } = await load();
     getMe.mockResolvedValue({ id: 1, username: 'tester', role: 'admin' });
-    signIn();
+    await signIn(auth);
     expect(auth.isAuthenticated()).toBe(true);
     await role.refreshRole();
     expect(role.isAdmin()).toBe(true);
@@ -93,28 +90,28 @@ describe('роль после входа', () => {
   });
 
   it('user с сайта администратором не делает', async () => {
-    const { role } = await load();
+    const { auth, role } = await load();
     getMe.mockResolvedValue({ id: 2, username: 'student', role: 'user' });
-    signIn();
+    await signIn(auth);
     await role.refreshRole();
     expect(role.getRoleState().role).toBe('user');
     expect(role.isAdmin()).toBe(false);
   });
 
   it('незнакомое значение роли администратором не делает', async () => {
-    const { role } = await load();
+    const { auth, role } = await load();
     // Если на сайте однажды появится третья роль, симулятор должен
     // промолчать, а не пустить её в закрытую часть.
     getMe.mockResolvedValue({ id: 3, username: 'teacher', role: 'moderator' });
-    signIn();
+    await signIn(auth);
     await role.refreshRole();
     expect(role.isAdmin()).toBe(false);
   });
 
   it('сбой сети не делает администратором', async () => {
-    const { role } = await load();
+    const { auth, role } = await load();
     getMe.mockRejectedValue(new Error('network'));
-    signIn();
+    await signIn(auth);
     await role.refreshRole();
     expect(role.isAdmin()).toBe(false);
     expect(role.getRoleState()).toEqual({ role: 'user', pending: false });
@@ -125,11 +122,11 @@ describe('выход', () => {
   it('роль забывается', async () => {
     const { auth, role } = await load();
     getMe.mockResolvedValue({ id: 1, username: 'tester', role: 'admin' });
-    signIn();
+    await signIn(auth);
     await role.refreshRole();
     expect(role.isAdmin()).toBe(true);
 
-    auth.clearToken();
+    auth.markSignedOut();
     expect(role.isAdmin()).toBe(false);
     expect(role.getRoleState().role).toBe('guest');
   });
@@ -137,9 +134,9 @@ describe('выход', () => {
 
 describe('одновременные вызовы', () => {
   it('делят один запрос', async () => {
-    const { role } = await load();
+    const { auth, role } = await load();
     getMe.mockResolvedValue({ id: 1, username: 'tester', role: 'admin' });
-    signIn();
+    await signIn(auth);
     // Вход сам запускает запрос роли (подписка внутри itArduinoRole).
     // Дожидаемся его, иначе следующие вызовы просто разделят этот же
     // незавершённый промис и счётчик покажет ноль.
@@ -151,9 +148,9 @@ describe('одновременные вызовы', () => {
   });
 
   it('следующий вызов после завершения идёт в сеть снова', async () => {
-    const { role } = await load();
+    const { auth, role } = await load();
     getMe.mockResolvedValue({ id: 1, username: 'tester', role: 'admin' });
-    signIn();
+    await signIn(auth);
     // Вход сам запускает запрос роли (подписка внутри itArduinoRole).
     // Дожидаемся его, иначе следующие вызовы просто разделят этот же
     // незавершённый промис и счётчик покажет ноль.
