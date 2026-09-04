@@ -24,7 +24,18 @@ describe('панель', () => {
   // второй тест видел бы вызов, оставшийся от первого, и всегда падал.
   beforeEach(() => {
     runAgent.mockClear();
+    // История холста — модульный стор, между it() она не сбрасывается сама.
+    // Тесты про рубеж истории считают позицию указателя, поэтому начинают с
+    // пустой истории, а не с хвоста предыдущего теста.
+    const store = useSimulatorStore.getState();
+    store.setComponents([]);
+    store.setWires([]);
+    store.clearHistory();
   });
+
+  /** Запустить прогон и дождаться, пока кнопка отката станет доступной. */
+  const rollbackButton = () =>
+    screen.getByRole('button', { name: /откатить/i }) as HTMLButtonElement;
 
   it('откат возвращает холст к состоянию до прогона', async () => {
     const store = useSimulatorStore.getState();
@@ -49,8 +60,6 @@ describe('панель', () => {
     // Мок runAgent пишет в стор синхронно, поэтому холст обновляется раньше,
     // чем React успевает снять running и разблокировать «Откатить прогон» —
     // ждём оба условия, иначе клик по ещё disabled-кнопке ничего не делает.
-    const rollbackButton = () =>
-      screen.getByRole('button', { name: /откатить/i }) as HTMLButtonElement;
     await vi.waitFor(() => {
       expect(useSimulatorStore.getState().components).toHaveLength(3);
       expect(rollbackButton().disabled).toBe(false);
@@ -60,6 +69,65 @@ describe('панель', () => {
 
     const ids = useSimulatorStore.getState().components.map((c) => c.id);
     expect(ids).toEqual(['было']);
+  });
+
+  it('штатная отмена между прогоном и откатом не съедает правку человека', async () => {
+    // Самый дорогой случай: откат по счётчику «сколько сделал агент» снимает
+    // ПОСЛЕДНЮЮ запись общей истории, чья бы она ни была. Человек нажал
+    // штатную отмену — счётчик агента от этого не уменьшился, а указатель
+    // истории уехал назад, и следующий «Откатить прогон» дотягивался до
+    // детали человека.
+    const store = useSimulatorStore.getState();
+    store.recordAddComponent(led('человек'));
+
+    runAgent.mockImplementation(async (_userText: string, onEvent: (e: unknown) => void) => {
+      useSimulatorStore.getState().recordAddComponent(led('от-агента'));
+      onEvent({ kind: 'tool', name: 'add_component', ok: true });
+    });
+
+    render(<AgentPanel />);
+    fireEvent.change(screen.getByPlaceholderText(/что собрать/i), {
+      target: { value: 'собери светодиод' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /отправить/i }));
+    await vi.waitFor(() => {
+      expect(useSimulatorStore.getState().components).toHaveLength(2);
+      expect(rollbackButton().disabled).toBe(false);
+    });
+
+    // Человек сам отменил работу агента штатной кнопкой отмены.
+    useSimulatorStore.getState().undo();
+    expect(useSimulatorStore.getState().components.map((c) => c.id)).toEqual(['человек']);
+
+    fireEvent.click(rollbackButton());
+
+    expect(useSimulatorStore.getState().components.map((c) => c.id)).toEqual(['человек']);
+  });
+
+  it('правка человека во время прогона откатом не снимается', async () => {
+    // Пока агент ходил к модели, человек поставил свою деталь. Она попала в
+    // ту же историю, но в счёт агента не идёт — и откат до неё не доходит.
+    runAgent.mockImplementation(async (_userText: string, onEvent: (e: unknown) => void) => {
+      useSimulatorStore.getState().recordAddComponent(led('человек-во-время-прогона'));
+      useSimulatorStore.getState().recordAddComponent(led('от-агента'));
+      onEvent({ kind: 'tool', name: 'add_component', ok: true });
+    });
+
+    render(<AgentPanel />);
+    fireEvent.change(screen.getByPlaceholderText(/что собрать/i), {
+      target: { value: 'собери светодиод' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /отправить/i }));
+    await vi.waitFor(() => {
+      expect(useSimulatorStore.getState().components).toHaveLength(2);
+      expect(rollbackButton().disabled).toBe(false);
+    });
+
+    fireEvent.click(rollbackButton());
+
+    expect(useSimulatorStore.getState().components.map((c) => c.id)).toEqual([
+      'человек-во-время-прогона',
+    ]);
   });
 
   it('пустой запрос не запускает прогон', () => {
@@ -73,8 +141,7 @@ describe('панель', () => {
   it('до первого прогона кнопка отката недоступна', () => {
     render(<AgentPanel />);
 
-    const rollbackButton = screen.getByRole('button', { name: /откатить/i }) as HTMLButtonElement;
-    expect(rollbackButton.disabled).toBe(true);
+    expect(rollbackButton().disabled).toBe(true);
   });
 
   it('после отката повторный клик ничего больше не отменяет', async () => {
@@ -96,8 +163,6 @@ describe('панель', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /отправить/i }));
 
-    const rollbackButton = () =>
-      screen.getByRole('button', { name: /откатить/i }) as HTMLButtonElement;
     await vi.waitFor(() => {
       expect(useSimulatorStore.getState().components).toHaveLength(3);
       expect(rollbackButton().disabled).toBe(false);
@@ -134,8 +199,6 @@ describe('панель', () => {
 
     const sendButton = () =>
       screen.getByRole('button', { name: /отправить/i }) as HTMLButtonElement;
-    const rollbackButton = () =>
-      screen.getByRole('button', { name: /откатить/i }) as HTMLButtonElement;
     // Ждём конца прогона (кнопка «Отправить» снова доступна), а не длину
     // истории — стор в этом сценарии вообще не меняется.
     await vi.waitFor(() => {

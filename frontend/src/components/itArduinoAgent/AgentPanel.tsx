@@ -1,20 +1,34 @@
 /**
  * Панель агента: запрос, ход работы, остановка и откат.
  *
- * Откат считает не длину истории редактора, а число реально совершённых
- * агентом отменяемых действий за прогон. Длина для этого не годится по двум
- * причинам: (1) до первого прогона и сразу после отката она никак не связана
- * с тем, что сделал агент — «текущая длина минус запомненная» дала бы
- * случайное число вместо нуля, и кнопка отката была бы то доступна не к
- * месту, то съедала бы лишнее; (2) история — кольцевой буфер на HISTORY_MAX
- * записей (useSimulatorStore.ts): при переполнении старые записи
- * вытесняются, длина перестаёт расти, и разница «после минус до» молча
- * уходит в ноль даже когда агент реально что-то поставил на холст.
+ * Откат держится на двух ограничениях сразу, и каждое закрывает свой случай.
+ *
+ * СКОЛЬКО отменять — счётчик успешных изменяющих действий агента. Длина
+ * истории для этого не годится: (1) до первого прогона и сразу после отката
+ * она никак не связана с тем, что сделал агент; (2) история — кольцевой
+ * буфер на HISTORY_MAX записей (useSimulatorStore.ts), при переполнении
+ * старые записи вытесняются, и разница «после минус до» молча уходит в ноль.
+ * Правка, сделанная человеком, пока агент работал, в счёт не идёт — и откат
+ * до неё не доходит.
+ *
+ * КУДА отменять — рубеж истории, запомненный на старте прогона. Отмена
+ * снимает ПОСЛЕДНЮЮ запись общей истории, чья бы она ни была, поэтому одного
+ * счётчика мало: человек мог сам нажать штатную отмену между прогоном и
+ * откатом. Счётчик агента при этом не уменьшается, а указатель истории
+ * (`historyIndex`) уезжает назад — и откат по счётчику дотягивается до
+ * правок человека. Сторожем должен быть именно указатель: при отмене длина
+ * истории не меняется вовсе, меняется только положение в ней.
+ *
+ * Рубеж запоминается не числом, а самой командой, на которой стоял указатель
+ * (`history[historyIndex]`). Числу верить нельзя: при переполнении буфера
+ * записи вытесняются с начала, и все индексы съезжают вниз. Команду же
+ * достаточно найти в истории — а если её саму уже вытеснило, то всё, что в
+ * буфере осталось, новее рубежа, и глубже него откат физически не уйдёт.
  */
 import { useRef, useState } from 'react';
 
 import { runAgent, type AgentEvent } from '../../lib/itArduinoAgent/agentLoop';
-import { useSimulatorStore } from '../../store/useSimulatorStore';
+import { useSimulatorStore, type CanvasCommand } from '../../store/useSimulatorStore';
 
 /**
  * Инструменты, которые пишут в историю отмены холста (toolRegistry.ts —
@@ -41,6 +55,9 @@ export function AgentPanel() {
   // ref сама по себе перерисовку не вызывает.
   const [agentSteps, setAgentSteps] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+  // Команда, на которой стоял указатель истории в начале прогона. null —
+  // история была пуста или полностью отменена, ниже опускаться просто некуда.
+  const baselineRef = useRef<CanvasCommand | null>(null);
 
   const handleEvent = (event: AgentEvent) => {
     setEvents((prev) => [...prev, event]);
@@ -58,6 +75,8 @@ export function AgentPanel() {
     // Каждый новый прогон считает заново: то, что не откатили после
     // прошлого раза, уже осталось на холсте безвозвратно.
     setAgentSteps(0);
+    const { history, historyIndex } = useSimulatorStore.getState();
+    baselineRef.current = historyIndex >= 0 ? (history[historyIndex] ?? null) : null;
     const controller = new AbortController();
     abortRef.current = controller;
     setRunning(true);
@@ -68,13 +87,29 @@ export function AgentPanel() {
     setRunning(false);
   };
 
+  /**
+   * Положение рубежа в истории ПРЯМО СЕЙЧАС.
+   *
+   * −1 значит «дна нет»: либо прогон начался с пустой историей, либо запись
+   * рубежа уже вытеснена кольцевым буфером — а вытесняются они с начала,
+   * значит всё оставшееся новее рубежа.
+   */
+  const baselineIndex = (): number => {
+    const marker = baselineRef.current;
+    if (!marker) return -1;
+    return useSimulatorStore.getState().history.indexOf(marker);
+  };
+
   const rollback = () => {
-    // Не больше, чем реально лежит в истории: кольцевой буфер мог вытеснить
-    // часть (или все) записи агента, и откат не должен дотягиваться до
-    // правок, сделанных человеком раньше.
-    const steps = Math.min(agentSteps, useSimulatorStore.getState().history.length);
-    for (let i = 0; i < steps; i += 1) {
+    const bottom = baselineIndex();
+    let left = agentSteps;
+    while (left > 0 && useSimulatorStore.getState().historyIndex > bottom) {
+      const before = useSimulatorStore.getState().historyIndex;
       useSimulatorStore.getState().undo();
+      // Отмена умеет отказать (undo команды бросил — стор ловит и оставляет
+      // указатель на месте). Без этой проверки цикл крутился бы вечно.
+      if (useSimulatorStore.getState().historyIndex === before) break;
+      left -= 1;
     }
     setAgentSteps(0);
   };
