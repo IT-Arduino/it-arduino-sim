@@ -124,21 +124,30 @@ describe('цикл', () => {
   });
 
   it('останавливается, когда агент просит больше сорока деталей', async () => {
-    stubAgentChat([
-      {
-        text: '',
-        tool_calls: [{ id: '1', name: 'add_component', arguments: { type: 'led', x: 0, y: 0 } }],
-        done: false,
-        usage: {},
-      },
-    ]);
+    // По одной детали за шаг предел шагов (30) сработал бы раньше предела
+    // деталей (40) — тест не отличал бы «предел есть» от «предела нет».
+    // Здесь модель запрашивает разом больше сорока деталей одним ответом,
+    // чтобы предел деталей гарантированно сработал внутри первого же шага.
+    const tooManyComponents = Array.from({ length: MAX_COMPONENTS + 5 }, (_, i) => ({
+      id: String(i),
+      name: 'add_component',
+      arguments: { type: 'led', x: i, y: 0 },
+    }));
+    stubAgentChat([{ text: '', tool_calls: tooManyComponents, done: false, usage: {} }]);
     const events: any[] = [];
 
     await runAgent('насыпь деталей', (event) => events.push(event));
 
-    // Предел шагов тут не спасает: за тридцать шагов холст уже завален.
-    expect(runTool.mock.calls.length).toBeLessThanOrEqual(MAX_COMPONENTS);
-    expect(events.at(-1).kind).toBe('error');
+    // Один запрос к серверу, а не тридцать: до предела шагов дело не дошло.
+    expect(agentChat).toHaveBeenCalledTimes(1);
+    // Сорок первая деталь инструмент не вызывает — цикл останавливается
+    // раньше. Останови проверку предела деталей в коде — это число вырастет.
+    expect(runTool).toHaveBeenCalledTimes(MAX_COMPONENTS);
+    const lastEvent = events.at(-1);
+    expect(lastEvent.kind).toBe('error');
+    // Текст должен называть причину — деталей, а не шагов, иначе это тот же
+    // самый предел шагов, который тест уже проверяет отдельно.
+    expect(lastEvent.message).toContain('деталей');
   });
 
   it('ошибка сервера завершает прогон понятным событием', async () => {
